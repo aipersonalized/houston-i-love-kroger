@@ -1,4 +1,5 @@
 import { AppError } from './errors.js';
+import { normalizeStore } from './catalog.js';
 
 const ORIGINS = Object.freeze({
   production: 'https://api.kroger.com',
@@ -196,18 +197,7 @@ export class KrogerClient {
       'filter.limit': '10', 'filter.chain': 'Kroger',
     }, signal);
     if (!Array.isArray(payload?.data) || payload.data.length > 10) throw formatError();
-    return payload.data.map(store => {
-      if (typeof store?.locationId !== 'string' || !/^[a-zA-Z0-9]{8}$/.test(store.locationId) ||
-          typeof store.name !== 'string' || !store.name || store.name.length > 200 ||
-          !store.address || typeof store.address !== 'object' || Array.isArray(store.address)) throw formatError();
-      const address = {};
-      for (const key of ['addressLine1', 'addressLine2', 'city', 'state', 'zipCode']) {
-        if (store.address[key] == null) continue;
-        if (typeof store.address[key] !== 'string' || store.address[key].length > 200) throw formatError();
-        address[key] = store.address[key];
-      }
-      return { locationId: store.locationId, name: store.name, address };
-    });
+    return payload.data.map(normalizeStore);
   }
 
   async searchProducts(locationId, term, { signal, limit = 50 } = {}) {

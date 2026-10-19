@@ -1,4 +1,4 @@
-// The public API has no qualified historical promotion operation. This module
+// Kroger's public API has no historical promotion operation. This module
 // does not collect snapshots, read operator datasets or manufacture a baseline.
 export function historyAvailability() {
   return {

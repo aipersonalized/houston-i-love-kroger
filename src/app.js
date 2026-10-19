@@ -1,14 +1,19 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { AppError, publicError } from './errors.js';
-import { validateStoreSearch, validateDealSearch, compareOffers, SAMPLE_TOPICS, SAMPLE_QUERY_LIMIT, SEARCH_QUERY_LIMIT } from './deals.js';
+import { validateStoreSearch, validateDealSearch, validateProductSearch, compareOffers, SAMPLE_TOPICS, SAMPLE_QUERY_LIMIT, SEARCH_QUERY_LIMIT } from './deals.js';
 import { historyAvailability } from './history.js';
-import { orderOffers } from '../public/ordering.js';
+import { orderOffers, orderProducts } from '../public/ordering.js';
+import { IMAGE_HOSTS } from './catalog.js';
+import { CartSessions } from './cart.js';
+import { validPriceSearchRequest, validEstimateRequest } from './stored-pricing.js';
 
 const PUBLIC_FILES = new Map([
   ['', ['index.html', 'text/html; charset=utf-8']],
   ['app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['ordering.js', ['ordering.js', 'text/javascript; charset=utf-8']],
+  ['catalog.js', ['catalog.js', 'text/javascript; charset=utf-8']],
+  ['basket.js', ['basket.js', 'text/javascript; charset=utf-8']],
   ['styles.css', ['styles.css', 'text/css; charset=utf-8']],
 ]);
 
@@ -47,7 +52,7 @@ function securityHeaders(response) {
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
   response.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
-  response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'");
+  response.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self'; style-src 'self'; img-src ${IMAGE_HOSTS.map(host => `https://${host}`).join(' ')}; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'`);
 }
 
 function json(response, status, body) {
@@ -83,7 +88,7 @@ async function readHistory(provider, args, environment) {
 }
 
 export async function createApp({ config, client, dataSource = 'kroger-api', now = Date.now,
-  historyProvider }) {
+  historyProvider, promotionProvider, cartSessions }) {
   const assets = new Map();
   for (const [route, [file, mime]] of PUBLIC_FILES) {
     assets.set(route, { bytes: await readFile(new URL(`../public/${file}`, import.meta.url)), mime });
@@ -91,6 +96,19 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
   let active = 0;
   let windowStarted = null;
   let searches = 0;
+  const cart = cartSessions ?? new CartSessions({ config, now });
+  const promotionsUnavailable = () => ({ status: 'unavailable', reason: 'promotion_service_not_configured',
+    message: 'The operator has not connected a promotions service.' });
+  const promotionStatus = async () => {
+    if (client.environment !== 'production') return { status: 'unavailable', reason: 'history_environment_mismatch' };
+    if (!promotionProvider) return promotionsUnavailable();
+    try {
+      const value = await promotionProvider.getStatus();
+      const result = { status: typeof value?.status === 'string' ? value.status : 'unavailable' };
+      for (const name of ['reason', 'message']) if (typeof value?.[name] === 'string') result[name] = value[name];
+      return result;
+    } catch { return { status: 'unavailable', reason: 'promotion_service_unavailable', message: 'The promotions service could not be reached.' }; }
+  };
 
   const server = createServer(async (request, response) => {
     securityHeaders(response);
@@ -116,13 +134,37 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
         response.writeHead(200, { 'Content-Type': asset.mime }); response.end(asset.bytes); return;
       }
       if (path === 'api/v1/status' && request.method === 'GET' && !url.search) {
-        const { histories, ...history } = await readHistory(historyProvider, {
-          locationId: null, offers: [], asOf: new Date(now()).toISOString(),
-        }, client.environment);
+        const promotionService = await promotionStatus();
+        // Service capability status is a status operation, never a comparison
+        // with a null or wildcard store. Reuse its one bounded status request.
+        const { histories, ...history } = promotionProvider ? { ...promotionService, histories: [] }
+          : await readHistory(historyProvider, {
+            locationId: null, offers: [], asOf: new Date(now()).toISOString(),
+          }, client.environment);
         json(response, 200, { ok: true, apiVersion: 1, configured: client.configured,
-          environment: client.environment, dataSource, history }); return;
+          environment: client.environment, dataSource, history,
+          capabilities: { products: true, basket: true, cart: cart.readiness().configured,
+            promotionService: Boolean(promotionProvider) },
+          cart: cart.readiness(), promotionService }); return;
       }
-      if (!['api/v1/stores/search', 'api/v1/deals/search'].includes(path)) throw new AppError('not_found', 'This operation does not exist.', 404);
+      if (path === 'api/v1/cart/status' && request.method === 'GET' && !url.search) {
+        json(response, 200, { ok: true, cart: cart.status(request, response) }); return;
+      }
+      if (path === 'api/v1/promotions/status' && request.method === 'GET' && !url.search) {
+        json(response, 200, { ok: true, apiVersion: 1, ...(await promotionStatus()) }); return;
+      }
+      if (path === 'api/v1/cart/callback' && request.method === 'GET') {
+        // Callback codes/state are only consumed here and never reflected into
+        // HTML, JSON, logs or a redirect target. A fixed redirect clears them.
+        if (request.url.length > 8192) throw new AppError('invalid_request', 'The callback request is too large.');
+        try { await cart.callback(request, response, url.searchParams, { signal: abort.signal }); }
+        catch (error) { if (error.code === 'cart_setup_required') throw error; }
+        response.writeHead(303, { Location: config.basePath }); response.end(); return;
+      }
+      if (!['api/v1/stores/search', 'api/v1/deals/search', 'api/v1/products/search',
+        'api/v1/promotions/search', 'api/v1/promotions/retrieve', 'api/v1/promotions/latest',
+        'api/v1/promotions/prices', 'api/v1/promotions/estimate', 'api/v1/cart/connect',
+        'api/v1/cart/add', 'api/v1/cart/disconnect'].includes(path)) throw new AppError('not_found', 'This operation does not exist.', 404);
       if (request.method !== 'POST') {
         response.setHeader('Allow', 'POST');
         throw new AppError('method_not_allowed', 'Use POST with a JSON search body.', 405);
@@ -131,6 +173,7 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
       const origin = request.headers.origin;
       const expectedOrigin = config.publicOrigin || `http://${host}`;
       if (origin && origin !== expectedOrigin) throw new AppError('origin_not_allowed', 'Open this app directly to search.', 403);
+      if (path.startsWith('api/v1/cart/') && origin !== expectedOrigin) throw new AppError('origin_required', 'Open this app directly for a cart action.', 403);
       // Origin-less requests support local/native/agent HTTP clients. Origin is
       // a browser CSRF control, not authentication. This is a public read app.
       const time = now();
@@ -140,7 +183,39 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
       active++;
       try {
         const body = await requestJson(request, abort.signal);
-        const input = path.endsWith('/stores/search') ? validateStoreSearch(body) : validateDealSearch(body);
+        if (path.startsWith('api/v1/cart/')) {
+          let result;
+          if (path.endsWith('/connect')) {
+            if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length) throw new AppError('invalid_request', 'Use an empty JSON body to connect.');
+            result = cart.connect(request, response);
+          } else if (path.endsWith('/add')) result = await cart.add(request, response, body, { signal: abort.signal });
+          else result = { cart: cart.disconnect(request, response, body) };
+          json(response, 200, { ok: true, ...result }); return;
+        }
+        if (path.startsWith('api/v1/promotions/')) {
+          const latest = path.endsWith('/latest');
+          const prices = path.endsWith('/prices');
+          const estimate = path.endsWith('/estimate');
+          if (prices && !validPriceSearchRequest(body) || estimate && !validEstimateRequest(body)) {
+            throw new AppError('invalid_request', 'Use an exact store and approved topic. Estimates accept 1–10 distinct exact items with whole-unit quantities from 1 to 99.');
+          }
+          const input = prices || estimate ? body : latest ? validateLatestDealsRequest(body) : validatePromotionRequest(body, path.endsWith('/retrieve'));
+          if (client.environment !== 'production') {
+            json(response, 200, { ok: true, apiVersion: 1, status: 'unavailable', reason: 'history_environment_mismatch', locationId: input.locationId }); return;
+          }
+          if (!promotionProvider) { json(response, 200, { ok: true, apiVersion: 1, ...promotionsUnavailable(), locationId: input.locationId }); return; }
+          let result;
+          try { result = await (prices ? promotionProvider.searchPrices(input) : estimate ? promotionProvider.estimateBasket(input)
+            : latest ? promotionProvider.getLatestDeals(input)
+            : path.endsWith('/retrieve') ? promotionProvider.retrievePromotion(input) : promotionProvider.searchPromotions(input)); }
+          catch (error) {
+            if (error?.code === 'promotion_request_invalid') throw new AppError('invalid_request', 'Check the promotion fields and use a cursor from the same search.', 400);
+            throw new AppError('promotion_service_unavailable', 'The promotions service could not be read. Try again later.', 503);
+          }
+          json(response, 200, { ok: true, apiVersion: 1, ...result }); return;
+        }
+        const input = path.endsWith('/stores/search') ? validateStoreSearch(body)
+          : path.endsWith('/products/search') ? validateProductSearch(body) : validateDealSearch(body);
         if (!client.configured) throw new AppError('setup_required', 'This installation needs a Kroger API connection. Ask its operator to finish setup.', 503);
         if (path.endsWith('/stores/search')) {
           const stores = await client.searchStores(input.zipCode, { signal: abort.signal });
@@ -164,14 +239,24 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
             locationId: input.locationId, offers: result.offers, asOf: retrievedAt,
           }, client.environment);
           result.offers.forEach((offer, index) => { offer.history = histories[index]; });
+          for (const product of result.products) {
+            if (product.pricing.status !== 'promotion') product.history = {
+              status: 'unavailable', reason: 'current_promotion_unqualified',
+              message: 'This item has no qualifying current promotion for a historical promotion comparison.',
+            };
+          }
           json(response, 200, { ok: true, apiVersion: 1,
             scope: { locationId: input.locationId, mode: input.term === null ? 'sample' : 'search',
               term: input.term, topics, queries, sort: input.sort,
+              ...(path.endsWith('/products/search') ? { includeAll: input.includeAll } : {}),
               productLimit: topics.length * perQueryLimit, perQueryLimit, fulfillment: 'ais', exhaustive: false,
               coverage: input.term === null
                 ? 'A bounded sample of up to 15 products each for milk, bread and eggs. This does not cover all store promotions.'
                 : 'Up to 50 products matching this search. This does not cover all matching products or all store promotions.' },
             offers: orderOffers(result.offers, input.sort), summary: result.summary,
+            ...(path.endsWith('/products/search') ? {
+              products: orderProducts(input.includeAll ? result.products : result.offers, input.sort),
+            } : {}),
             history, dataSource, retrievedAt });
         }
       } finally { active--; }
@@ -190,5 +275,45 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
   server.headersTimeout = 10_000;
   server.keepAliveTimeout = 5000;
   server.maxHeadersCount = 50;
+  server.once('close', () => cart.close());
   return server;
+}
+
+function validatePromotionRequest(value, retrieve) {
+  const required = retrieve ? ['locationId', 'observationId'] : ['locationId'];
+  const optional = retrieve ? [] : ['term', 'productId', 'itemId', 'observedFrom', 'observedTo', 'limit', 'cursor'];
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      Object.keys(value).some(key => !required.includes(key) && !optional.includes(key)) ||
+      required.some(key => !Object.hasOwn(value, key)) || !/^[a-zA-Z0-9]{8}$/.test(value.locationId) ||
+      typeof value.locationId !== 'string') throw new AppError('invalid_request', 'Use the documented promotion search fields and exact store.');
+  if (retrieve && (typeof value.observationId !== 'string' || !/^[1-9]\d{0,15}$/.test(value.observationId) ||
+      !Number.isSafeInteger(Number(value.observationId)))) throw new AppError('invalid_request', 'Use the observation ID returned by promotion search.');
+  for (const name of ['term', 'productId', 'itemId', 'cursor', 'observedFrom', 'observedTo']) {
+    if (value[name] === undefined) continue;
+    const max = name === 'cursor' ? 512 : name.startsWith('observed') ? 40 : ['productId', 'itemId'].includes(name) ? 100 : 80;
+    if (typeof value[name] !== 'string' || !value[name].trim() || value[name] !== value[name].trim() || value[name].length > max || /[\p{Cc}\p{Cf}]/u.test(value[name])) throw new AppError('invalid_request', 'Use bounded text fields for promotion search.');
+  }
+  for (const name of ['observedFrom', 'observedTo']) {
+    if (value[name] !== undefined && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value[name]) ||
+        !Number.isFinite(Date.parse(value[name])) || new Date(value[name]).toISOString().replace('.000Z', 'Z') !== value[name].replace('.000Z', 'Z'))) {
+      throw new AppError('invalid_request', 'Use explicit valid UTC instants for promotion date bounds.');
+    }
+  }
+  if (value.observedFrom && value.observedTo && Date.parse(value.observedFrom) > Date.parse(value.observedTo)) throw new AppError('invalid_request', 'Promotion date bounds must begin before they end.');
+  if (value.limit !== undefined && (!Number.isInteger(value.limit) || value.limit < 1 || value.limit > 50)) throw new AppError('invalid_request', 'Use a promotion result limit from 1 to 50.');
+  return value;
+}
+
+function validateLatestDealsRequest(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      Object.keys(value).some(key => !['locationId', 'topic', 'limit', 'cursor'].includes(key)) ||
+      typeof value.locationId !== 'string' || !/^[a-zA-Z0-9]{8}$/u.test(value.locationId) ||
+      typeof value.topic !== 'string' || value.topic !== value.topic.trim() || value.topic.length < 3 ||
+      value.topic.length > 80 || value.topic.split(/\s+/u).length > 8 || /[\p{Cc}\p{Cf}]/u.test(value.topic) || value.topic === '*' ||
+      (value.limit !== undefined && (!Number.isInteger(value.limit) || value.limit < 1 || value.limit > 50)) ||
+      (value.cursor !== undefined && (typeof value.cursor !== 'string' || value.cursor.length > 512 ||
+        !/^[a-zA-Z0-9_-]+$/u.test(value.cursor)))) {
+    throw new AppError('invalid_request', 'Use an exact selected store, approved collection topic, and bounded latest-deal fields.');
+  }
+  return value;
 }

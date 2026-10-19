@@ -8,6 +8,7 @@
     {"source": "docs/USER_GUIDE.md", "path": "pages/USER_GUIDE.md", "title": "Human shopping guide"},
     {"source": "docs/SELF_HOSTING.md", "path": "pages/SELF_HOSTING.md", "title": "App installation and configuration"},
     {"source": "docs/HISTORY.md", "path": "pages/HISTORY.md", "title": "History prerequisites and operator boundary"},
+    {"source": "docs/PROMOTION_SERVICE.md", "path": "pages/PROMOTION_SERVICE.md", "title": "Private promotions service and permission-aware reads"},
     {"source": "docs/KROGER_PERMISSION_REQUEST.md", "path": "pages/KROGER_PERMISSION_REQUEST.md", "title": "Source-permission questions, not a grant"}
   ],
   "exclusions": [

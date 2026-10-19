@@ -23,6 +23,8 @@ COPY package.json package-lock.json LICENSE THIRD_PARTY_NOTICES.md ./
 COPY src/ ./src/
 COPY public/ ./public/
 COPY migrations/ ./migrations/
+COPY scripts/ ./scripts/
+COPY config/collection-plan.example.json ./config/collection-plan.example.json
 USER node
 EXPOSE 4173
 STOPSIGNAL SIGTERM

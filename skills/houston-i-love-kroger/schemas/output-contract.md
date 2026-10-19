@@ -1,50 +1,87 @@
-# Shopping and setup result contract
+# Stored-deal, history and setup result contract
 
 ## When to read this
 
-Read this file in full before returning a shopping comparison or setup result.
+Read this file in full before returning a stored-deal, history or setup result.
 Use concise prose or a table; no output file or saved catalog copy is required.
+
+### Human shopping answer
+
+Lead with useful picks or the actual data gap. For "what's good, cheap or on
+deal?", explain which fresh returned products have a supported discount and
+which have a low reported whole-package price. These are separate judgments.
+Match supplied category, budget and brand preferences; do not invent preferences,
+compare incompatible packages or infer health quality from a discount.
+
+A compact answer normally has product name/full source description, package
+when known, reported promotional price/currency, supported savings and one short
+reason it may help. A concise note gives collection/check time and sample limits,
+then one useful next action. IDs, raw field names and operator settings remain
+technical traceability, not default shopping columns. Translate freshness into
+ordinary language; an old/stale or expired observation is not a recommendation.
+If names or package/price context are missing, say there is too little evidence
+to rank a useful pick. Do not invent a product label.
+
+For a price check, lead with the exact named item/package's reported selling
+price and currency, its observation date and any stock/qualification limit.
+Regular-only stored prices are useful price facts; they are not promotions.
+For requested quantities or a budget, use supported service/tool arithmetic and
+show each selected item/package, quantity, qualifying line cost and a clearly
+qualified full or partial subtotal. State unresolved missing/weight/currency/
+stale/stock lines and exclusions (tax, deposits, fees, coupons and checkout
+conditions) next to the amount. Do not label a partial or mixed-currency amount
+as the total shopping cost. Do not invent USD from store location. Alternatives
+must be actual returned products with compatible context, within known coverage.
+Historical comparisons need matching item/package/currency/basis and dated facts;
+incompatible observations are not evidence of savings today.
+
+For a curated subset, state selected count, returned count and additional-page
+availability. Preserve full descriptions for products actually shown. A ranking
+is among the fresh qualifying returned deals, never cheapest storewide or across
+retailers. Unknown currency, unit basis, stock and checkout conditions stay clear.
+
+### Evidence carried into the answer
 
 ## Inputs and outputs
 
-For a shopping result, preserve these meanings:
-
 | Required meaning | Evidence or explicit unavailable value |
 |---|---|
-| State | Completed, completed with gaps, blocked, empty result or known request failure. |
-| Store | Exact chosen ID, full returned name and address through the permitted channel. |
-| Source and time | Environment/dataSource, response retrieval time with timezone, source versus synthetic status. |
-| Coverage | Mode, queried topics, product/per-query limits, fulfillment and incomplete promotion coverage. |
-| Ranking | Dollars saved, percentage off or promo price; rankings cover returned qualifying offers only. |
-| Offer identity | Full unaltered source description, item/package facts and IDs when supplied. |
-| Current comparison | Source regular/promo USD values; calculated savings and percentage separately labeled. |
-| Unit comparison | Each supplied estimate at its precision; missing measure basis or estimate explicit. |
-| Historical comparison | Per-item status/reason, qualified prior prices/dates/source labels and observation count where available; no substituted regular price or all-time claim. |
-| Limits and next action | Advisory stock, unknown validity/checkout conditions, excluded counts and useful recovery. |
+| State | Fresh deals, fresh empty, no completed collection, stale, permission required, unavailable, not found or known request failure. |
+| Store and query | Exact accepted ID and exact collection topic for latest, or history filters. Name/address are unavailable from the stored API; do not invent them or fetch live metadata. |
+| Source and dates | Source labels, each observation date, snapshot ID and observed/completed times with timezone; request time is distinct. Synthetic status remains explicit. |
+| Latest freshness | Snapshot age and operator max-age threshold, default 24 hours; latest attempt status/times when supplied. No supplier validity guarantee follows. |
+| Coverage | Exact returned bounded topic sample or retained-history query, collection product/page limits, returned count, incomplete coverage and additional-page state. |
+| Order | Preserve server order or explain an explicitly requested local ordering of the returned page; do not imply a whole-store ranking. |
+| Item identity | Full unaltered source description, item/package facts and IDs when supplied. |
+| Comparison | Stored regular/promo source values with currency; savings and percentage separately identified as calculations from that dated pair. |
+| Unit comparison | Each supplied estimate at its precision; missing measure basis/estimate explicit. |
+| Past comparison | Qualified prior prices/dates/source labels and count where supplied; failed, insufficient or incomparable history remains explicit. Latest rows have no history wrapper. |
+| Limits and next action | No live checkout quote or stock guarantee; conditions/validity stay bounded to supplied evidence; exact operator or connection dependency. |
 
-Use the requested top subset only when its size is clear; state shown count and
-returned total. Never hide omitted offers or abbreviate a source description to
-make a table fit. Do not echo the person's ZIP or persist search values merely
-to add context. Missing values remain unavailable, not zero.
+For a curated or explicitly requested top subset, state shown count and returned total.
+Do not silently omit pages or abbreviate source descriptions. Missing fields
+stay unavailable, never zero. `available` with an empty deals list is a fresh
+completed empty result, distinct from `no_data`, `stale` and
+`permission_required`. Stale/no-data results must not be filled with history.
 
-For a setup result, state the installation identity, requested help, checks
-actually executed, current configured/environment status, required permission
-or tool gap and next action. Instructions given to a person are labeled as
-instructions, not completed installations or submitted registrations.
+History search/retrieve returns dated retained observations. Do not describe an
+old price as today's offer, a regular-only observation as a promotion, or a
+collected low as an all-time low. No stored response means no stored-price claim.
+
+For setup, state actual installation identity, requested help, checks executed,
+service status, permission/client/data gaps and next action. Human instructions
+are instructions rather than executed installations, registrations or reads.
 
 ## Checks and failures
 
-Before delivering, verify store/query match, full source text, monetary units,
-sample coverage, status/reason interpretation, actual observation dates and
-allowed recipients. No live response means no live price report.
+Before delivery, check store/topic/query and snapshot-bound pagination, complete
+source text, currency, observation versus request dates, freshness/coverage,
+actual recipients and result meanings. No completed collection does not mean no
+store promotions; permission-required is not an empty read; an unavailable
+service leaves records unknown. A failed collection attempt does not refresh the
+last completed snapshot. Missing unit basis remains unknown.
 
-For example, `permission_required` means the history lookup was not authorized;
-it does not establish an empty history. `history_read_failed` leaves history
-unknown. Certification `history_environment_mismatch` is a separate environment
-boundary. A bounded empty `offers` response means no qualifying promotions in
-that response, not no deals at the store.
-
-On an HTTP error, report its fixed code and practical recovery without raw
-upstream text. On transport failure, report that no usable response was obtained.
-Stop dependent work when identity, permission or required compatibility is
-missing. These checks are manual report checks, not an invented output validator.
+Report fixed HTTP/tool code and useful recovery without raw server errors or
+private configuration. Stop dependent work on missing identity, authority or
+compatibility. No failure triggers a live Kroger call or collector. These are
+manual report checks rather than an invented automated output validator.

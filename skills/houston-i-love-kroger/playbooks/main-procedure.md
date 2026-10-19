@@ -1,139 +1,156 @@
-# Find and compare promotions at an exact store
+# Read the latest collected deals for an exact store and topic
 
-Return the requested bounded comparison using real app results, with the right
-store and the limits visible.
-
-```mermaid
-flowchart TD
-    A[Check access and recipients] --> B{Usable status?}
-    B -->|No| C[Return setup gap]
-    B -->|Yes| D[Find and choose exact store]
-    D --> E[Request bounded sample or term]
-    E --> F[Validate scope and compare]
-    F --> G[Return sourced result and stop]
-```
+Help a person choose useful deals from the service's latest completed collection,
+or explain missing permission, collection or freshness. Turn the returned facts
+into a concise shopping recommendation, preserving age and limited coverage.
+This procedure reads stored data and never refreshes Kroger prices.
 
 ## Continued From
 
-`SKILL.md` shopping route, or setup with a current accepted installation.
-Direct entry accepts an existing valid store choice and access context.
+`SKILL.md` latest-deals route, or setup with a usable permitted installation.
+Direct entry accepts an existing valid store/topic choice and access context.
 
 ## Resources
 
-Before catalog requests, read `references/source-permissions.md` in full. Before
-the first app request, read `references/api_reference.md` and
-`research/official_docs/pages/API.md` in full. Before the final report, read
-`schemas/output-contract.md` in full. For a browser route, read
-`research/official_docs/pages/USER_GUIDE.md` in full and use the host's actual
-browser-tool contract, including its session/privacy rules.
+Before source-record requests, read `references/source-permissions.md` in full.
+Before the first request, read `references/api_reference.md` and
+`schemas/command-rules.md` section "Stored promotion CLI" in full. Read
+`research/official_docs/pages/API.md` section "Latest collected deals" for exact
+HTTP fields. Before reporting, read `schemas/output-contract.md` in full.
 
-## Step 1: Accept the installation and permitted data channel
+## Step 1: Accept the installation and permitted recipients
 
-Confirm the user-selected base URL and actual recipients. Reuse established
-permission when its scope and recipients still match. If forwarding to this
-agent/provider is unresolved, do not request catalog data through a tool that
-would expose it; return the permission gap and permitted human-use guidance.
+Use the actual app base URL supplied by the operator, including its final `/`.
+Confirm that source rights and user privacy cover every tool/agent/model
+recipient. Reuse established current authority; `--data-use-approved` records
+that check and cannot grant rights. Do not load raw records into a disallowed
+channel and redact them afterward.
 
-Use `GET api/v1/status` relative to the full base URL. It returns installation
-readiness without contacting Kroger or returning catalog payloads. A false
-`configured` status goes to setup. A true value only proves settings exist;
-search success is separate evidence. Mark certification or synthetic results.
+When connection or permission status is uncertain, run
+`python scripts/promotions.py status --base-url BASE_URL --json --no-input`
+from this skill folder, replacing BASE_URL. This uses only the stored service's
+status endpoint. A successful `permission_required` response is a missing grant,
+not an empty database. `available` does not establish a completed store/topic
+collection. Setup gaps return to `playbooks/setup-and-recovery.md`.
 
-Complete when the installation, response format and permitted channel are known.
+## Step 2: Bind the accepted store and exact collection topic
 
-## Step 2: Resolve the person's exact store
+Use the person's complete eight-character store ID as a string, including any
+leading zeros. If the person has not selected one, explain how they choose in
+the human web app and provide its ID through an allowed channel. Do not call
+the app's live ZIP/store search for the agent. The stored service has no store
+name/address lookup; missing metadata stays unavailable.
 
-Get the ZIP through an allowed input channel. Send
-`POST api/v1/stores/search` with only `zipCode` as a five-digit string, preserving
-leading zeros. Keep inputs in JSON bodies, never URL queries.
+Accept the person's category, budget or brand preferences when supplied. Use
+them to select among known approved topics or filter the returned records;
+do not imply that local filters enlarged collection coverage. If no preferences
+are given, use the known accepted topic scope and explain its limits.
 
-Present full returned names, addresses and store IDs through the permitted
-channel. Ask the user to choose when more than one location remains plausible;
-do not choose the first result or assume ZIP identifies one store. An empty list
-means no matches in this bounded search, not no stores anywhere.
+Use an exact operator-configured topic, such as an operator-confirmed `milk`.
+Latest topics are exact collection labels, not arbitrary product substring
+searches. Do not assume a starter sample or broaden to every topic. A missing
+topic goes to the operator's collection configuration; a missing store choice
+goes to the person. Neither is solved by a live API fallback.
 
-An already supplied exact store can skip discovery if its identity is verified
-for this installation. A changed store invalidates every prior offer response.
-Complete when the exact eight-character `locationId` is accepted.
+## Step 3: Read one bounded latest-deals page
 
-## Step 3: Load a bounded sample or requested term
+Run `python scripts/promotions.py latest --store STORE_ID --topic TOPIC
+--base-url BASE_URL --data-use-approved --json --no-input`, replacing all named
+values. Default page size is 20, maximum 50. The only request is to this app's
+stored latest endpoint; it cannot start a collector or fetch live products.
 
-Send `POST api/v1/deals/search` with the accepted `locationId`. Omit `term` for
-the starter sample: milk, bread and eggs, at most 15 products each. For a requested
-grocery or brand, send `term` with 3–80 characters and at most eight words; one
-page requests at most 50 products. Do not send an empty `term` string.
+Check that the returned store/topic match the accepted request. Preserve the
+completed snapshot identity, observation and completion dates, age, operator
+freshness threshold, latest-attempt status/times, coverage and page information.
+The default threshold is 24 hours; it is an operator policy, not a supplier price
+validity guarantee or a client override. Request time is not observation time.
 
-Default `sort` to `savings`; `percent` and `price` are the other supported
-values. Use one bounded request, not pagination, department sweeps or repeated
-scans to simulate a complete promotion feed. Record `dataSource`, environment,
-`retrievedAt`, `scope`, summary and response identity.
+Follow a matching cursor only for the person's specified bounded result. A
+changed/expired snapshot cursor requires a new bounded request and a clearly
+identified new snapshot; never combine pages from different snapshots or silently
+truncate additional pages. Preserve returned order without inventing a ranking.
 
-On failure, follow the typed error and recovery reference. Respect `Retry-After`.
-A read failure does not authorize a rapid retry loop. Complete when a successful
-response or an explicit bounded failure is known.
+## Step 4: Interpret the state before comparing prices
 
-## Step 4: Verify scope before comparing
+| State | Meaning and action |
+|---|---|
+| `available`, deals present | Fresh under the operator's policy. Report dated collected facts and limited coverage; these are not live checkout quotes. |
+| `available`, deals empty | A fresh completed snapshot has no qualifying deals in this topic/scope. Do not revive an older promotion. |
+| `no_data` | No usable completed collection for this exact store/topic. Report its reason; it does not mean the store has no promotions. |
+| `stale` | The completed snapshot exceeds the operator's freshness policy; deals are withheld. Report snapshot dates/age and the operator dependency. |
+| `permission_required` | Source permission is absent, expired, revoked or outside scope. Stop source-record reads; do not call it empty. |
+| `unavailable` or request failure | The service or read failed. No useful result was obtained; return the fixed recovery. |
 
-Require `ok: true`, supported API version and `scope.locationId` matching the
-current accepted store. Discard stale store/query responses. Confirm mode,
-topics, limits and `exhaustive: false`; do not call these results all promotions.
+A newer failed/pending attempt is distinct from the last completed snapshot.
+Describe its fixed status and times when provided. A failed run does not prove
+the accepted last completed snapshot was refreshed. Latest selection excludes
+superseded promotions; never restore suppressed older rows from history.
 
-Keep full source description, item/package identity and current price pair.
-Explain `calculated.savingsCents` and `percentOff` as calculations against the
-current regular price. Rank only returned qualifying offers. The web page uses
-the shared ordering helper locally; an HTTP-only client can choose one server
-sort or apply the documented comparator to already received data, without a new
-upstream query solely to rerank it.
+For returned deals preserve full source description, item/package identity,
+reported regular/promo prices and observation date. Describe supplied savings
+separately as calculations from that stored pair. Show supplied unit estimates
+at their precision and leave missing basis unknown; package text cannot invent
+`$/oz` or `$/lb`. Latest rows contain no prior-history comparison; request dated
+history separately only when asked, keeping context and qualification explicit.
 
-Show either supplied per-unit estimate at its precision. Missing basis stays
-unknown; size/sold-by strings do not supply a standardized measure. Inspect each
-offer's history, not only provider availability. Differentiate pending permission,
-no observations, insufficient/incompatible history, failed reads, and environment
-mismatch. Use dated prior values and source labels only when actually supplied;
-qualified deltas must be non-null and context-compatible.
+## Step 5: Explain what looks useful or inexpensive and stop
 
-An empty offer list is a successful bounded result. Current regular prices,
-sample fixtures and missing data never become historical observations.
+Use the output contract to answer the person's shopping question in plain
+language. Separate a good reported discount from a low whole-package price:
+large savings do not by themselves mean low spending, and a cheap package may
+not be good value for a different size. Rank only fresh returned qualifying deals
+with enough description/package/price context. Use supplied discount arithmetic
+or simple arithmetic against the identified stored pair; explain why each pick
+fits the person's category, budget or brand preference. Do not invent a measure,
+health benefit, comparable package or storewide ranking.
 
-## Step 5: Return the comparison and finish
+For "what's good/cheap/on deal?", give a small curated selection with full
+product name/description, package when supplied, reported promo price, supported
+saving and a short reason. State selected count, returned count and whether
+another page exists; a curated selection is not the full database or store.
+If rows are unnamed or lack usable context, explain the gap instead of inventing
+names or calling them good deals. Preserve dates and missing facts in a short
+coverage note, rather than dumping DTO fields, IDs or operator settings into the
+shopping answer. Include one practical action, such as checking the selected
+product/package and current price at the store. Confirm conditions/availability
+before the person relies on a price. Never recommend stale or expired offers.
 
-Use the output contract. Say which store, retrieval time, topics and ranking the
-answer covers. Include complete descriptions for every offer actually reported;
-if only a requested top subset is shown, state its count and the returned total.
-Never silently shorten the result set or source descriptions.
-
-Mark stock advisory and reconfirmation needs. When history or unit comparison is
-unavailable, preserve that limit alongside useful current prices. Do not save
-catalog/search data or send it to another recipient without the applicable
-source and user authority. Stop after the requested result.
+Stop after the requested stored result. Do not save a catalog copy, contact
+Kroger, collect history, add a cart item or run history search as an unannounced
+replacement for stale/empty latest data. Dated history is a separate requested
+route in `playbooks/stored-promotions.md`.
+For a requested item price check or quantity/budget estimate, enter
+`playbooks/price-check-and-estimate.md` with the accepted store/topic/recipients.
+Use actual stored-price and estimate operations rather than inventing totals in
+prose. A discovery request alone does not choose quantities or authorize purchases.
 
 ## Gotchas
 
-- One ZIP can return multiple stores; one product can have multiple item offers.
-- Lowest selling price is not necessarily lowest normalized unit price.
-- `history.observationCount: 0` under `permission_required` is not a completed
-  history lookup. `history_read_failed` is not evidence of an empty database.
-- Certification results never establish production shopping prices or history.
+- Same store with a different exact topic is a different completed snapshot.
+- A fresh empty snapshot replaces that topic's older deals.
+- No completed collection, stale collection and fresh empty deals are different.
+- Snapshot age says when data was collected; it does not establish offer expiry
+  or present stock. Synthetic source labels never establish live prices.
 
 ## Checklist
 
-- [ ] Source recipients and the exact store are permitted and accepted.
-- [ ] Response store/query/scope match the current request.
-- [ ] Source facts, calculations, test status and missing evidence remain clear.
-- [ ] No unrequested purchases, collection, persistence or forwarding occurred.
+- [ ] Exact store/topic, installation and recipient authority are accepted.
+- [ ] Only the stored latest/status interface was used.
+- [ ] Snapshot identity, dates, age, coverage and result state remain explicit.
+- [ ] Source facts, calculations and unknowns are preserved without live fallback.
 
 ## Recovery from interruption
 
-Resume from the earliest invalidated step. Recheck environment and permission
-scope; reuse a store choice only if it still matches. Treat old prices as a dated
-prior response, not a newly refreshed quote. Do not recreate previous searches
-from private logs. Cancellation stops local waiting and does not prove an
-already sent request was never received.
+Recheck changed installation, recipient and store/topic inputs. Resume only with
+a cursor still bound to the accepted snapshot; restart a bounded read if the
+server rejects it. Do not turn an earlier request date into a new observation or
+repeat failed collection through this reader. Preserve useful permitted results
+as dated prior responses rather than claiming a refresh.
 
 ## Handoff
 
-Producer: shopping procedure. Receiver: caller. Deliver the accepted store,
-scope, observation time, sourced comparison, actual checks and remaining gaps.
-The caller verifies those meanings before acting. Return connection problems to
-`playbooks/setup-and-recovery.md`, store ambiguity to the user and permission
-questions to the appropriate authority. Stop after the requested bounded result.
+Producer: latest-deals procedure. Receiver: caller. Deliver accepted store/topic,
+snapshot/observation dates and age, coverage, source facts, result state, actual
+checks and remaining gaps. The caller checks those meanings before use. Return
+connection failures to setup, store choice to the person and collection/freshness
+or source authority to the operator. Stop at the requested bounded result.

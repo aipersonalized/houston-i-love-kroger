@@ -141,7 +141,7 @@ test('date-invalid/future/expired price windows cannot become qualified history'
   assert.equal(impossibleDate.status, 'incomparable');
 });
 
-test('same item across operator topics is one observation; conflicting topic results roll back', t => {
+test('overlapping topics retain both memberships without inventing two historical collection periods', t => {
   const { store } = setup(t);
   const write = (runId, other) => {
     store.startRun({ runId, sourceId: SOURCE, startedAt: FIRST, targetCount: 2, limit: 10 });
@@ -150,10 +150,12 @@ test('same item across operator topics is one observation; conflicting topic res
       { jobKey: `${runId}-bread`, locationId: 'TEST0001', term: 'bread', observedAt: FIRST, returnedProductCount: 1, offers: [other] },
     ] });
   };
-  assert.equal(write('same-item', offer()).observationCount, 1);
-  assert.equal(store.getSummary().observations, 1);
+  assert.equal(write('same-item', offer()).observationCount, 2);
+  assert.equal(store.getSummary().observations, 2);
+  assert.equal(history(store).observationCount, 1);
+  assert.equal(history(store).status, 'insufficient_history');
   assert.throws(() => write('topic-conflict', offer({ price: { regular: 5, promo: 1 } })), { code: 'history_input_invalid' });
-  assert.equal(store.getSummary().observations, 1);
+  assert.equal(store.getSummary().observations, 2);
 });
 
 test('permission scope, all three purposes, retention, expiration and revocation exclude rows', t => {
@@ -273,13 +275,13 @@ test('known v1 files migrate atomically and reopen; unknown legacy topic provena
     .run(SOURCE, Date.parse(FIRST), Date.parse('2026-02-01T12:00:00.000Z'));
   legacy.close();
   const migrated = openHistoryStore({ filename });
-  assert.equal(migrated.getSummary().schemaVersion, 2);
+  assert.equal(migrated.getSummary().schemaVersion, 4);
   assert.equal(migrated.getSummary().observations, 1);
   assert.equal(history(migrated).status, 'no_observations');
   assert.equal(migrated.purgeExpired({ sourceId: SOURCE, now: AS_OF }).removedObservations, 1);
   migrated.close();
   const reopened = openHistoryStore({ filename });
-  try { assert.equal(reopened.getSummary().schemaVersion, 2); assert.equal(reopened.getSummary().observations, 0); }
+  try { assert.equal(reopened.getSummary().schemaVersion, 4); assert.equal(reopened.getSummary().observations, 0); }
   finally { reopened.close(); }
 });
 

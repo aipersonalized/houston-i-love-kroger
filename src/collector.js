@@ -57,9 +57,16 @@ function observationsFromProducts(products, target, limit) {
       if (!item || typeof item !== 'object' || Array.isArray(item) || typeof item.itemId !== 'string') {
         throw new HistoryError('unsupported_response', 'The source returned an unsupported collection response.');
       }
-      if (item.fulfillment?.instore === false) continue;
+      if ((item.fulfillment != null && (typeof item.fulfillment !== 'object' || Array.isArray(item.fulfillment))) ||
+          (item.inventory != null && (typeof item.inventory !== 'object' || Array.isArray(item.inventory)))) {
+        throw new HistoryError('unsupported_response', 'The source returned unsupported item availability.');
+      }
       const offer = { productId: product.productId, itemId: item.itemId,
+        description: product.description ?? null, brand: product.brand ?? null,
         size: item.size ?? null, soldBy: item.soldBy ?? null, price: item.price ?? {},
+        // Retain explicit unavailability as a replacement fact. Dropping these
+        // items would let an older collected promotion reappear as a deal.
+        inStore: item.fulfillment?.instore ?? null, stockLevel: item.inventory?.stockLevel ?? null,
         // Kroger's public product schema does not state currency, a unit-price
         // measure, or the full eligibility/price basis. Keep those unreported.
         currency: null, unitBasis: null, eligibilityKey: null, priceBasis: null, modality: null };
@@ -115,7 +122,8 @@ export async function runCollection({ store, client, plan = DEFAULT_COLLECTION_P
         return true;
       });
     if (!pending.length) return { status: 'already_collected', requests: 0, observationsWritten: 0, skippedJobs, coverage };
-    store.startRun({ runId, sourceId: accepted.sourceId, startedAt, targetCount: pending.length, limit: accepted.limit });
+    store.startRun({ runId, sourceId: accepted.sourceId, startedAt, targetCount: pending.length, limit: accepted.limit,
+      targets: pending.map(({ target }) => target) });
     runStarted = true;
     const jobs = [];
     for (const { target, key } of pending) {
@@ -125,7 +133,7 @@ export async function runCollection({ store, client, plan = DEFAULT_COLLECTION_P
       requests++;
       const products = await client.searchProducts(target.locationId, target.term, { signal, limit: accepted.limit });
       const observedAt = timeValue(now);
-      jobs.push({ jobKey: key, locationId: target.locationId, term: target.term, observedAt,
+      jobs.push({ jobKey: key, locationId: target.locationId, term: target.term, observedAt, rightsId: currentAccess.rightsId,
         returnedProductCount: products.length, offers: observationsFromProducts(products, target, accepted.limit) });
     }
     // All network work finishes before one synchronous SQLite transaction. A

@@ -10,8 +10,11 @@
 !src/*.js
 !public/
 !public/index.html
-!public/app.js
-!public/ordering.js
+!public/*.js
 !public/styles.css
 !migrations/
 !migrations/*.sql
+!scripts/
+!scripts/*.js
+!config/
+!config/collection-plan.example.json

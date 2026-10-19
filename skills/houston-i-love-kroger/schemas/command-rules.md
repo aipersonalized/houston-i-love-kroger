@@ -3,10 +3,104 @@
 ## When to read this
 
 Read this file in full before running the skill's documentation tools or its
-optional step-listing utility. Run examples from the skill folder. App requests
-are owned by the collected API manual, not these maintenance commands.
+optional step-listing utility or promotion client. Run examples from the skill
+folder. The collected API manual owns the exact server DTOs.
 
 ## Inputs and outputs
+
+### Stored promotion CLI
+
+`scripts/promotions.py` is a portable Python 3.12+ standard-library HTTP client.
+It has been exercised with Python 3.14. It uses only this project's stored-read
+service through the public app proxy. It never reads `.env`, supplier credentials
+or database files, calls live store/product searches or starts collection.
+Use actual source and recipient permission before returning
+records to an agent/model service. `--data-use-approved` acknowledges that prior
+check; it cannot grant rights or bypass server policy.
+
+From this skill folder:
+
+```text
+python scripts/promotions.py --help
+python scripts/promotions.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+python scripts/promotions.py latest --store TEST0001 --topic milk --summary-only --dry-run --json --no-input
+python scripts/promotions.py prices --store TEST0001 --topic milk --summary-only --dry-run --json --no-input
+python scripts/promotions.py estimate --store TEST0001 --item milk PRODUCT_ID ITEM_ID 2 --summary-only --dry-run --json --no-input
+python scripts/promotions.py search --store TEST0001 --term milk --summary-only --json --no-input
+python scripts/promotions.py retrieve --store TEST0001 --observation-id 1 --data-use-approved --json --no-input
+```
+
+The TEST0001/1 values are synthetic examples, not a real selected store or record.
+Set `HOUSTON_APP_URL` or supply `--base-url` ending in `/`. HTTPS is required
+except for localhost/loopback HTTP. Credentials, address queries, fragments and
+redirects are refused. Requests declare a client User-Agent, do not inherit a
+proxy/cookie/credential configuration, use bounded timeouts and read at most 1 MB.
+
+Operations: status GETs `api/v1/promotions/status`; latest/prices/estimate/search/
+retrieve POST JSON to the matching relative `api/v1/promotions/` path.
+`--store` is required for every record operation and preserves leading zeros.
+Latest/prices additionally require `--topic`, an exact operator-approved collection
+label of 3–80 characters and at most eight words. `--limit` is 1–50, default 20;
+`--cursor` must be the returned matching snapshot/query cursor (at most 512
+URL-safe characters). Latest rejects historical search fields and has no sorting
+or arbitrary live term. Prices additionally accepts exact `--product-id` and
+`--item-id`; it returns usable regular/promo prices and explicit unavailable facts.
+The operator alone configures freshness, default 24 hours.
+
+Estimate takes `--store` and repeated `--item TOPIC PRODUCT_ID ITEM_ID QUANTITY`:
+1–10 unique source-backed product/item pairs, each whole quantity 1–99. It sends
+only IDs/topics/quantities, never caller prices, and enforces the 4 KB request
+limit before network. No source calls or customer basket persistence occur.
+It verifies selected identities, unit multiplication, line/subtotal sums, context
+gaps and unknown/mixed currency handling. `complete` means line arithmetic
+coverage only; `partial` means unresolved lines. Both preserve qualifiers and
+excluded checkout costs. No resolvable line gives null totals, never fake zero.
+
+Historical search filters are `--term` (literal text, 1–80 characters),
+`--product-id`, `--item-id`, `--from`/`--to` (real UTC timestamps with no fraction
+or exactly three fractional digits), `--limit`
+(1–50, default 20) and `--cursor` from a matching page, at most 512 characters. Retrieval needs
+`--observation-id`. History rejects `--topic`; it returns dated retained rows,
+not current offers or a latest-deals fallback.
+
+`--summary-only` emits fixed status/counts without source rows or store IDs.
+For latest/prices it also projects snapshot dates, age/threshold, fixed attempt
+status/times and recognized reason; it omits topic, snapshot/observation IDs,
+descriptions and prices. Summary still makes a server read and grants no rights.
+Estimate summary gives evaluatedAt and resolved/unresolved line counts, with no
+source rows, selections, prices or totals. Full estimates use backend evaluatedAt;
+latest/prices adds tool checkedAt after a validated read, distinct from source
+observation time and snapshot age. Dry-run contains no check/observation claim.
+The default record mode requires actual permission and `--data-use-approved`.
+
+Latest validates exact store/topic, completed snapshot dates/age, fixed attempt
+status/time, page, coverage and full qualifying deal schema. `available` with an
+empty list is a fresh completed empty result. `no_data`, `stale` and
+`permission_required` are distinct and have no deals. An `unavailable` operational
+envelope is a fixed service/environment gap without invented snapshot fields.
+Rejected/changed cursors require a new bounded read; do not combine snapshots.
+History includes `priceQualification`; `unsupported_source_price` retains its
+explicit unqualified state with unsupported values null, never a free offer.
+
+`--json`, `--no-input`, noninteractive output or `--quiet` emit one JSON object
+without banners/colors/prompts. `--no-color` and NO_COLOR disable human color;
+interactive human mode supplies orientation. `--dry-run` validates the inputs
+and returns the operation/field names without network or writes. `--timeout`
+is 1–35 seconds, default 15. `--verbose` does not expose backend exceptions.
+
+Exit 0 means available/complete/partial/preview (including fresh empty);
+1 request/format failure;
+2 invalid input; 3 permission required, unavailable, no data, stale or not found.
+A successful permission_required status is still exit 3. Errors are fixed
+code/message/recovery objects; raw server
+bodies, local exceptions and credentials are not printed. There is no automatic
+retry, output file, database write or local result cache. Source/recipient policy
+and fixed store binding are checked independently of command syntax.
+
+Run deterministic tool checks from the repository root:
+`python -B -m unittest discover -s skills/houston-i-love-kroger/tests -p test_promotions.py`.
+They use synthetic loopback HTTP and no supplier data/account. These tests do
+not establish actual source permission or universal server/client compatibility.
 
 ### Read-only step listing
 
@@ -35,8 +129,8 @@ python scripts/fetch_docs.py --url repo:/ --output research/official_docs --json
 The repository defaults to the app checkout containing this skill. If installed
 elsewhere, provide `--repository` with the actual app folder. No URL fetch,
 account access, API search, private settings or runtime database read occurs.
-The inventory allowlists API.md, USER_GUIDE.md, SELF_HOSTING.md, HISTORY.md and
-KROGER_PERMISSION_REQUEST.md from the app's docs folder. Every selected source
+The inventory allowlists API.md, USER_GUIDE.md, SELF_HOSTING.md, HISTORY.md,
+PROMOTION_SERVICE.md and KROGER_PERMISSION_REQUEST.md from the app's docs folder. Every selected source
 must be substantive UTF-8 Markdown and no more than one megabyte. Linked paths,
 unsupported files, traversal and output outside this skill's exact
 research/official_docs folder are refused.

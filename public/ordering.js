@@ -10,3 +10,16 @@ export function orderOffers(offers, sort = 'savings') {
     b.calculated.savingsCents - a.calculated.savingsCents ||
     b.calculated.percentOff - a.calculated.percentOff);
 }
+
+export function orderProducts(products, sort = 'savings') {
+  const savings = product => product.calculated?.savingsCents ?? -1;
+  const percent = product => product.calculated?.percentOff ?? -1;
+  const price = product => product.pricing?.currentCents ?? Infinity;
+  const byValue = {
+    savings: (a, b) => savings(b) - savings(a),
+    percent: (a, b) => percent(b) - percent(a),
+    price: (a, b) => price(a) - price(b),
+  };
+  return [...products].sort((a, b) => (byValue[sort] || byValue.savings)(a, b) ||
+    savings(b) - savings(a) || percent(b) - percent(a));
+}

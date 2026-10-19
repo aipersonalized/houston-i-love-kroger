@@ -1,279 +1,300 @@
 # Install, configure and run the app
 
-These instructions use no particular AI product or hosting company. Local
-operation has been checked on Windows with Node.js 22.23.2; other operating
-systems and production hosting have not yet been qualified.
+Use this guide only to run an installation. People using a hosted app need only
+the [user guide](USER_GUIDE.md), a browser and its supplied address. No AI
+provider, paid model account or global Python installation is required.
 
-For an optional Linux container behind your own reverse proxy, use
-[the container instructions](#6a-optional-container-behind-a-reverse-proxy).
-Container files are supplied for qualification; their presence does not prove
-that an image was built or a host deployed.
+Native operation has been checked on Windows with Node.js 22.23.2. The locked
+database dependency is `better-sqlite3@13.0.3`. Other runtime/platform combinations
+need qualification. The [Compose option](#6a-optional-compose-installation) runs
+the web app and private database service separately; supplied container files
+alone do not prove a particular image or host has been tested or deployed.
 
-## 1. Prepare your computer
+Real Kroger retention/display permission remains unestablished for this project.
+New databases start empty and permission-gated. Installing the app, supplying
+API credentials or enabling a setting cannot create source rights. Cart is
+optional and disabled by default.
 
-1. Download a supported Node.js LTS release from [Node.js](https://nodejs.org/).
-   Include npm when installing. This project requires Node.js 22.21 or newer;
-   use a release supported by the native database package as well.
-2. Open Terminal on macOS/Linux or PowerShell on Windows.
-3. Run `node --version` and `npm --version`. Both should print a version.
-   If either command is missing, close and reopen the terminal after installation.
-4. Open the [project repository](https://github.com/aipersonalized/houston-i-love-kroger),
-   select **Code**, then **Download ZIP**. Extract the archive to a folder you
-   control. You can also use a reviewed source checkout.
-5. In the terminal, change into the project folder. You should see `package.json`
-   when opening that folder in your file manager.
-6. Run `npm ci --ignore-scripts`. Wait for it to finish. It installs the locked
-   dependencies, including the native SQLite adapter. The locked `better-sqlite3@13.0.3`
-   package includes prebuilt bindings and has no lifecycle install script.
-   This locked dependency graph needs no install scripts. The flag skips npm's
-   automatic native-build behavior as well, so no script approval or compiler
-   toolchain is needed for the qualified targets. It applies to this command
-   only; it does not change global policy or prevent a later `npm start` or
-   `npm test`. Recheck this choice when upgrading dependencies.
-   If the adapter is unavailable for your system, retain the error for diagnosis;
-   do not disable dependency checks or substitute an unrelated database package.
+## 1. Prepare a native installation
 
-### Check the native database binding
+1. Install Node.js with npm from [Node.js](https://nodejs.org/). The package
+   requires Node.js 22.21 or newer and a compatible native database binding;
+   Node.js 22.23.2 is the checked native version.
+2. Open PowerShell on Windows or a terminal on your system. Run `node --version`
+   and `npm --version`. Both should print a version. Reopen the terminal if the
+   installed commands are not yet found.
+3. Obtain the reviewed version from the
+   [project repository](https://github.com/aipersonalized/houston-i-love-kroger),
+   using **Code → Download ZIP** and extracting it, or a reviewed source checkout.
+   A public repository may not yet contain the version described by a development
+   checkout. Check the release/version before following its instructions.
+4. Open that folder in your file manager; it should contain `package.json`.
+   Open a terminal there, or use `cd` followed by your actual folder path.
+5. Install the locked dependencies:
 
-Run the synthetic tests after installation to check the actual native binding:
-
-```text
-npm test
-```
-
-These tests use temporary databases and synthetic fixtures, without live Kroger
-access or real history. The locked SQLite package ships prebuilt bindings and
-declares no lifecycle install script, but npm versions handle implicit native
-builds differently. Plain `npm ci` with npm 10.9.8 can still attempt `node-gyp`
-and fail looking for Python. Use the documented `npm ci --ignore-scripts`
-command instead of installing unnecessary compiler tools. npm 12.1.0 may warn
-about a blocked automatic build even when its prebuilt binding works; that
-warning alone does not establish a loading failure. The npm documentation
-describes [implicit native builds](https://docs.npmjs.com/cli/v10/using-npm/scripts/)
-and the [ignore-scripts option](https://docs.npmjs.com/cli/v10/commands/npm-ci/#ignore-scripts).
-
-If the tests pass, the binding supports that checked use. For an actual loading
-failure, record the error, Node/npm versions, operating system and CPU
-architecture. Check that `npm ci --ignore-scripts` installed the locked package
-completely and that its prebuilt binding supports that runtime/platform.
-Use the help and feedback guidance in
-the repository README. Do not broaden global or all-package script permissions
-or install arbitrary build tools as a guessed repair.
-
-## 2. Try the page before adding credentials
-
-1. Run `npm start`.
-2. Open `http://localhost:4173/apps/houston-i-love-kroger/` in your browser.
-3. Expect a setup notice. The app does not display made-up stores or offers.
-4. Leave the terminal open while using the page. Press Ctrl+C to stop it.
-
-Starting the server creates the private history database if needed. It does not
-start price collection, sign in to a shopper account or contact Kroger for a
-search merely because you opened the page.
-
-## 3. Obtain and configure API access privately
-
-1. Open the [Kroger developer portal](https://developer.kroger.com/). Read its
-   official [Quick Start](https://developer.kroger.com/documentation/public/getting-started/quick-start),
-   [Applications Help](https://developer.kroger.com/documentation/support/website-help/applications),
-   [Acceptable Use](https://developer.kroger.com/documentation/public/getting-started/acceptable-use)
-   and [Terms](https://developer.kroger.com/terms). Check that your intended use
-   is covered before requesting or using access. This project's software license
-   does not grant supplier permissions.
-2. Follow the portal's current account and application-registration instructions
-   in your own browser. Complete any account verification it requires. If you
-   previously submitted an application and the response was uncertain, inspect
-   your application list or ask Kroger support before submitting another.
-   This project has not verified an authenticated registration or credential
-   issuance, so these steps do not promise approval or specific account controls.
-3. Use an application name allowed by Kroger's current registration rules. The
-   repository name is not a recommendation for the registered name. If a portal
-   step asks for information you cannot supply truthfully, pause and use Kroger's
-   help; do not invent a deployed site or a working callback.
-4. Obtain your own client ID and client secret with access for Locations and the
-   public Products operations used here, using the official Quick Start.
-   This application needs the Products `product.compact` scope. It does not use
-   Cart or Identity and does not require a shopper's password.
-5. In your file manager, copy `.env.example` to a new file named `.env` in the
-   project folder. Ensure the filename is exactly `.env`, not `.env.txt`.
-6. Open `.env` in a private local text editor. Enter your client ID after
-   `KROGER_CLIENT_ID=` and client secret after `KROGER_CLIENT_SECRET=`.
-   Never put these values in a chat, screenshot, issue, command argument or
-   browser script. Do not use an online credential encoder.
-7. Keep `KROGER_ENVIRONMENT=production` for real data, or choose `certification`
-   for that environment. Certification responses are not verified store prices;
-   production history is never attached to them.
-8. Save the file and restart with `npm start`. The page's setup notice should
-   clear when both settings are present. A configured status means settings were
-   loaded; the first successful search is separate evidence of API access.
-9. Enter a ZIP, choose a returned store, and check the result. If access is
-   rejected, check the selected environment, application status and scope in the
-   portal. Do not paste the secret into troubleshooting messages.
-
-`.env` is ignored by Git. That does not protect it from file sharing, backups,
-screenshots or a public web directory. Limit access to the operator and runtime.
-
-## 4. Understand the settings
-
-| Setting | Default / purpose |
-|---|---|
-| `HOST` | `127.0.0.1`, accessible only from this computer |
-| `PORT` | `4173`; change it if another program already uses that port |
-| `APP_BASE_PATH` | `/apps/houston-i-love-kroger/`; begins and ends with `/`; `/` is also supported |
-| `PUBLIC_ORIGIN` | Blank locally; an exact origin such as `https://your-domain.example`, without a folder path |
-| `KROGER_ENVIRONMENT` | `production` or `certification` |
-| `HISTORY_DB_PATH` | Blank uses this project's `.runtime/history.sqlite`; an explicit file path can place it on private persistent storage |
-
-Use a private deployment environment or secret manager instead of `.env` when
-your host supports it. No credential value is public configuration. Relative
-history paths resolve against the process working directory; use an absolute
-private path in a service configuration. See [history operations](HISTORY.md).
-
-## 5. Operate and troubleshoot locally
-
-- **Page cannot connect:** check the terminal is running, then open the exact
-  port and folder path.
-- **Port already in use:** stop your own earlier instance or choose a different
-  `PORT`. Do not stop another person's application.
-- **Setup notice persists:** check `.env` spelling, both credential fields and
-  restart. Do not share the file.
-- **No promotions:** try a specific product or brand. The starter sample is
-  deliberately small; missing data does not mean the whole store has no deals.
-- **Search limit or busy message:** pause, then try again. The app bounds its
-  work and does not silently bypass Kroger's quota.
-- **Database cannot open:** check the chosen folder is writable and private.
-  The app refuses symlink paths or an unrelated/incompatible database. Never
-  erase a database just to make the error disappear.
-- **History is unavailable:** current prices may still work. Configure history
-  only after the source permission described in [HISTORY.md](HISTORY.md) exists.
-
-Run `npm run check` and `npm test` after changing the code. The automated tests
-use synthetic fixtures and temporary databases; passing them does not establish
-live API entitlement, completeness of promotions or source retention rights.
-
-## 6. Prepare hosting
-
-Before offering a public installation, complete the exact-candidate licensing
-and legal-liability review and test the actual host. A setup-only installation
-can serve the page with blank credentials; it does not establish live API access
-or historical-source permission. Verify those separately before enabling their
-dependent operations. MIT is selected for original project
-code and companion instructions; it does not authorize hosting supplier data.
-The source-release guide linked from the repository README defines the public
-source boundary.
-Do not treat these local instructions as deployment evidence.
-
-A host needs a supported Node.js runtime, private persistent local storage for
-SQLite, HTTPS at the public edge, a process supervisor, a private credential
-store and a reverse proxy that preserves the configured path. Set
-`PUBLIC_ORIGIN` to the actual HTTPS origin before binding beyond loopback. Bind
-to a private interface where possible. Do not expose the database, source tree,
-`.env`, collector plan, policy files or development fixtures through the proxy.
-
-This prototype's request limits and API budget are local to one process and
-reset on restart. Multiple replicas do not share them. Before a public launch,
-verify supplier quota, edge rate limits, shared budgeting, traffic admission,
-availability, backup and deletion behavior. Keep access logs from recording
-search bodies or catalog payloads, and do not use them to track shoppers;
-inspect your proxy and host defaults. No analytics or external AI forwarding
-is built into the app. Hosting providers can add their own logging or page
-features, so check the delivered page as well as the application source.
-
-Before anyone uses your installation with live API access:
-
-1. Open `public/index.html` in a local text editor. Find **Privacy and use notes**.
-2. Replace the paragraph explicitly scoped to the `aipersonalized.io` installation
-   with your operator name and actual hosting providers. That paragraph describes
-   one deployment; it does not make aipersonalized the operator of your copy.
-3. Disable proxy access logs for this app's routes before live searches. With
-   Nginx, add `access_log off;` inside the app's path, bare-path redirect and
-   dedicated error locations. Keep unrelated site routes under their existing
-   logging policy. Do not log search bodies or build records of customer activity.
-4. Verify and update what you collect, why, who receives it, and how long you
-   retain it. Describe operational records such as IP addresses, request
-   addresses, browser details and timestamps if your host or proxy keeps them.
-   Replace the app-route access-log and 1 MB/two-file rotation statements with
-   your real settings. Error and hosting records may still exist; size
-   rotation does not promise deletion after a fixed time. Include an actual
-   private contact method if you offer one; never invent contact details or
-   send private requests to a public issue or an AI chat by default.
-5. Keep the **Privacy** and **Use notes** links visible before searching and in
-   the footer. Keep the official Kroger Terms and Acceptable Use links, lawful-use
-   notice and source-use limits. Do not remove them when you change branding.
-6. Check the deployed notices against your real behavior, then complete the
-   exact-candidate review and live-access checks. Update the notices before
-   changing collection, retention, advertising or sharing. Price-history
-   collection and forwarding data to an assistant provider need their own
-   source permission; live API credentials do not grant it.
-
-## 6a. Optional container behind a reverse proxy
-
-The source includes a `Dockerfile`, a strict build-context allowlist in
-`.dockerignore`, and `compose.example.yaml`. You need Docker Engine with modern
-Compose/BuildKit and permission to use an existing reverse-proxy network. This
-is a Linux container path, separate from the Windows/Node qualification above.
-No GPU, external AI service or Kroger credential is needed for the setup page.
-
-1. Install Docker using the [official installation instructions](https://docs.docker.com/engine/install/)
-   for your system if needed. Open a terminal in this source folder. Run
-   `docker version` and `docker compose version`; both must connect successfully.
-2. Copy `compose.example.yaml` to a private `compose.yaml` in this folder.
-   The local file is ignored by Git. Set its `PUBLIC_ORIGIN` to your actual HTTPS
-   origin, for example `https://groceries.example`, without a folder path. Replace
-   the example gateway network name with the existing network shared by your
-   reverse proxy. Do not attach unrelated networks or publish the container port.
-3. Keep `APP_BASE_PATH=/apps/houston-i-love-kroger/`. Configure the proxy to pass
-   that full path to `http://kroger:4173`, retaining the public `Host` header.
-   With NGINX, a `proxy_pass` URL without a URI suffix preserves the path:
-
-   ```nginx
-   location = /apps/houston-i-love-kroger {
-       return 308 /apps/houston-i-love-kroger/;
-   }
-   location ^~ /apps/houston-i-love-kroger/ {
-       proxy_pass http://kroger:4173;
-       proxy_set_header Host $host;
-       proxy_cache off;
-       proxy_buffering off;
-       proxy_read_timeout 40s;
-       proxy_next_upstream off;
-   }
+   ```text
+   npm ci --ignore-scripts
    ```
 
-   Use this inside the appropriate existing HTTPS server configuration after
-   reviewing its actual policy. The service name must resolve on the shared
-   network. Do not strip the prefix with the default app configuration: requests
-   outside `APP_BASE_PATH` are rejected. Assets and API calls use relative URLs.
-   NGINX documents this distinction in its
-   [proxy_pass reference](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass).
-4. Keep both credential fields blank for the initial setup-only installation.
-   Do not pass your local `.env` into the image or enable collection. The build
-   context admits only runtime source, dependency metadata and required notices;
-   it excludes local skills, settings, databases, tests, Git data and caches.
-   The image starts `node src/server.js`, without automatically loading `.env`.
-5. The default base image is the specific `node:22.23.2-bookworm-slim` tag.
-   For a release, select and record the qualified resolved image digest and set
-   `NODE_IMAGE` in the private Compose build arguments to that immutable image
-   reference. Rebuild and requalify for a new image or CPU architecture; never
-   copy this computer's `node_modules` into a Linux image. The dependency stage
-   uses `npm ci --ignore-scripts` to install the locked package and its supplied
-   prebuilt bindings without npm's automatic native build, then checks the
-   binding with an in-memory `SELECT 1`. No compiler
-   toolchain is installed. The runtime runs as the image's unprivileged `node`
-   user; qualify the actual target architecture and native loading after build.
-6. The named `history` volume mounts the complete private `/data` directory;
-   `HISTORY_DB_PATH=/data/history.sqlite`. SQLite also needs to write its WAL/SHM
-   files there. A new empty volume takes the image directory's ownership; an
-   existing volume must already permit the runtime user to write. The source
-   filesystem is read-only. This web image contains no collector command or
-   scheduled collection service.
-7. Review the example's CPU, memory and process limits: 0.5 CPU, `256m` memory and 64
-   processes by default. They are configurable starting limits, not measured
-   production capacity. It uses one process, no host port mapping, dropped Linux
-   capabilities and bounded local logs. Keep the proxy from caching responses
-   or logging request bodies/catalog data. Shared-network access is not user
-   authentication; the edge owns public traffic controls.
-8. After the release checks, build and start your reviewed configuration:
+6. Check the native binding and synthetic behavior:
+
+   ```text
+   npm run check
+   npm test
+   ```
+
+Tests use temporary databases and synthetic data, without real source collection.
+The locked dependency supplies prebuilt bindings and declares no lifecycle
+install script. `--ignore-scripts` intentionally skips npm's implicit native
+build as well. It applies to that install only and does not prevent `npm start`
+or tests. No compiler or globally installed Python is needed for the qualified
+prebuilt targets. Recheck the choice when updating dependencies.
+
+Plain `npm ci` with npm 10.9.8 can attempt `node-gyp` and fail looking for Python.
+Use the documented command rather than installing guessed compiler tools.
+npm 12.1.0 may warn about a blocked automatic build while the prebuilt binding
+still works. A passing binding test is better evidence than that warning alone.
+For an actual load failure, record Node/npm versions, OS, CPU architecture and
+the non-sensitive error. Check package completeness and prebuilt compatibility;
+do not broaden global script permissions or replace the database dependency to
+hide the failure. npm documents
+[implicit native builds](https://docs.npmjs.com/cli/v10/using-npm/scripts/) and
+[ignore-scripts](https://docs.npmjs.com/cli/v10/commands/npm-ci/#ignore-scripts).
+
+## 2. Try the page with no credentials
+
+1. Run `npm start` from the project folder.
+2. Open `http://localhost:4173/apps/houston-i-love-kroger/`.
+3. Expect the connection setup notice, disabled searches and no shopping offers.
+4. Keep the terminal open while using the page. Stop it with Ctrl+C.
+
+With no remote service configured, startup creates/verifies the local history
+database under `.runtime/`. It does not collect history, sign in a shopper or
+query Kroger merely because the page opens. The local database supports current
+promotion comparisons; the separate stored-observation search UI needs the
+private HTTP service described in section 4a.
+
+## 3. Configure current-price access privately
+
+1. Read the official [Kroger Quick Start](https://developer.kroger.com/documentation/public/getting-started/quick-start),
+   [Applications Help](https://developer.kroger.com/documentation/support/website-help/applications),
+   [Acceptable Use](https://developer.kroger.com/documentation/public/getting-started/acceptable-use)
+   and [Terms](https://developer.kroger.com/terms). Confirm the intended use is
+   covered. The project's software license grants no supplier permission.
+2. Follow current account/application-registration instructions at the
+   [developer portal](https://developer.kroger.com/) in your own browser. Complete
+   required verification. This project has not qualified authenticated
+   registration/credential issuance; it cannot promise approval or particular
+   account controls. For an uncertain prior submission, inspect the application
+   list or ask Kroger support before submitting again.
+3. Use a truthful application name and registration details allowed by Kroger.
+   A repository name does not select an acceptable registered name. Do not invent
+   a deployment, callback or grant to fill a portal field.
+4. Obtain your own client ID/secret for Locations and public Products with
+   `product.compact`. Browsing needs no shopper password or Cart grant.
+5. In your file manager copy `.env.example` to `.env` beside `package.json`.
+   Check it is not accidentally named `.env.txt`.
+6. Edit it privately. Enter the client ID after `KROGER_CLIENT_ID=` and secret
+   after `KROGER_CLIENT_SECRET=`. Never paste them into chat, screenshots, issues,
+   commands, browser scripts or an online credential encoder.
+7. Use `KROGER_ENVIRONMENT=production` for that environment, or `certification`
+   for sandbox access. Sandbox prices are not verified shopping offers and
+   never receive production history.
+8. Save and restart with `npm start`. Loaded credentials clear the setup notice;
+   that only proves settings are present. A successful exact-store search is
+   separate evidence of actual access.
+9. Follow the [user guide](USER_GUIDE.md) to find a store and search a grocery.
+   Check all-priced versus promotion-only views, details, source filters and
+   the visit-only list. If access is rejected, inspect environment/application
+   status and actual scopes privately.
+
+`.env` is ignored by Git, but remains readable to anyone with file access.
+Restrict it to the operator/runtime and keep it out of shared folders, screenshots
+and public hosting. A private deployment environment or secret manager can
+supply settings instead; the native npm scripts load `.env` if it exists.
+
+## 4. Choose the settings and storage mode
+
+| Setting | Default / purpose |
+| --- | --- |
+| `HOST`, `PORT` | `127.0.0.1`, `4173`; local web listener. |
+| `APP_BASE_PATH` | `/apps/houston-i-love-kroger/`; simple folder names, leading/trailing `/`; `/` supported. |
+| `PUBLIC_ORIGIN` | Blank locally; exact HTTP(S) origin without a path, credentials, query or fragment. HTTPS is required for Cart. |
+| `KROGER_ENVIRONMENT` | `production` or `certification`. |
+| `HISTORY_DB_PATH` | Local SQLite filename; blank uses the installed project's `.runtime/history.sqlite`. Explicit relative paths resolve from the process working directory. |
+| `PROMOTION_SERVICE_URL` | Blank uses local comparison mode. An HTTP(S) origin selects the separate private service. No path, credentials, query or fragment. |
+| `PROMOTION_SERVICE_TOKEN` | Private shared app/service token; required with the app's service URL. 32–512 printable ASCII characters without spaces. |
+| `PROMOTION_SERVICE_HOST`, `PROMOTION_SERVICE_PORT` | Private service listener, default `127.0.0.1:4174`; not the app listener. |
+| `PROMOTION_MAX_AGE_SECONDS` | Private service's latest-deal freshness rule, default86400; supported1–604800 seconds. A site policy, not a supplier price guarantee. |
+| `KROGER_CART_ENABLED`, `KROGER_CART_GRANTED` | Both default `false`; configuration flags, not proof of actual supplier assignment. |
+| `KROGER_CART_REDIRECT_URI` | Blank by default. If set, must equal `PUBLIC_ORIGIN` plus `APP_BASE_PATH` plus `api/v1/cart/callback`, over HTTPS. |
+
+Use an absolute private database path in a service configuration. SQLite needs
+a writable local directory for the database and WAL/SHM sidecars. Do not put it
+under public assets or an unqualified network share. Protect policies, plans,
+sidecars and backups with actual OS access controls; Unix mode requests alone
+do not establish Windows ACL protection.
+
+### 4a. Native private promotion service
+
+Use this mode for stored-observation search/retrieval and promotion comparisons
+through one private database authority. Do not run another independently writable
+database copy for the app.
+
+1. Stop the app while changing its configuration. Choose the authoritative
+   private `HISTORY_DB_PATH`; preserve any existing database.
+2. Generate a fresh random secret in your password/secret manager. Set it
+   privately as `PROMOTION_SERVICE_TOKEN`. Set the app's `PROMOTION_SERVICE_URL`
+   to `http://127.0.0.1:4174` for the default local service. The app and service
+   must use the same token. A single private `.env` can supply both processes;
+   separate runtime environments must receive the same value securely.
+3. Keep `PROMOTION_SERVICE_HOST=127.0.0.1` for local use. In a terminal in the
+   project folder, start:
+
+   ```text
+   npm run promotions:serve
+   ```
+
+4. Expect `Private promotion service is listening. Source permission is checked
+   separately.` Leave this terminal open. `http://127.0.0.1:4174/healthz` returns
+   only `{"ok":true}`; this is liveness, not source permission or coverage.
+5. In another terminal in the same project, run `npm start`. In this mode the
+   web process uses HTTP and does not open/initialize a SQLite file.
+6. Open the app's `api/v1/status` URL to check `promotionService`. A fresh
+   database should remain `permission_required`. With actual permission later
+   established, exercise an exact-store history search and detail retrieval.
+7. Stop each process with Ctrl+C. A stopped private service makes history
+   unavailable; current-price searches can still succeed independently.
+
+The private token belongs only to the backend/service runtime. Never place it
+in browser code, URLs, command arguments, assistant instructions or public source.
+Do not expose port 4174 publicly. Use authenticated encrypted transport across
+untrusted networks. The client has a five-second whole-response deadline, 2 MiB
+response cap, no redirects, automatic retries or result cache.
+
+Follow [PROMOTION_SERVICE.md](PROMOTION_SERVICE.md) for its full private protocol
+and [HISTORY.md](HISTORY.md) for actual reviewed rights and operator writes.
+No HTTP request enables collection or permission. New installations do not
+contain real historical observations.
+
+### 4b. Optional Cart configuration
+
+Leave both Cart flags false unless Kroger has actually assigned the required
+`cart.basic:write` access and registered your exact HTTPS callback. A pending
+application, shopper consent, sample policy or setting does not create a grant.
+Live Cart authorization/writes remain unqualified for this project.
+
+For an authorized installation, verify all of the following before enabling:
+
+1. Actual production assignment and credentials match the installed application.
+2. `PUBLIC_ORIGIN` is the actual HTTPS origin, and the callback registered with
+   Kroger exactly matches the configured path, for example
+   `https://groceries.example/apps/houston-i-love-kroger/api/v1/cart/callback`.
+   This example is not a registered URL.
+3. Privately set `KROGER_CART_REDIRECT_URI` to that registered URI and both flags
+   to `true`, then restart. Qualify sign-in/callback/session behavior with a
+   separately authorized real account before offering it to shoppers.
+4. Suppress callback query/code/state and cookie/token logging at the app route,
+   proxy, edge and error tooling. Keep one app process for the in-memory session;
+   a restart loses it. Replicas do not share sessions or quota counters.
+5. Check notices disclose the secure HttpOnly cookie, server-memory authorization,
+   session expiry within 30 minutes, periodic cleanup, disconnect/restart limits, direct
+   image requests and external Kroger destinations.
+
+The app uses state and PKCE and discards refresh tokens. Sign-in alone adds no
+items. Every write needs the explicit add action; no payment/order is handled.
+There is no cart readback, undo, idempotency key or automatic add retry. Follow
+[Cart usage and unknown-outcome recovery](USER_GUIDE.md#6-optional-add-the-list-to-a-kroger-cart)
+before using a connected account.
+
+## 5. Troubleshoot locally
+
+| Problem | Check / recovery |
+| --- | --- |
+| Page unreachable | Keep the app terminal running; use the exact configured port/base path. |
+| Port occupied | Stop your own earlier instance or select a different port; preserve unrelated processes. |
+| Setup notice persists | Check the `.env` filename, both credential fields and restart. Do not share the file. |
+| No products/promotions | Try another term and remove local filters. The sample is bounded. |
+| Busy, provider or daily budget limit | Respect the wait shown; do not restart to bypass quotas. |
+| Database cannot open | Check storage permissions, file identity, schema and free space. Linked/unrelated files are refused. Do not delete history as a repair. |
+| Private service cannot start | Check token format, listener/port and authoritative database access privately. |
+| History unavailable | Check the paired token, URL, listener/network and production environment. A failure is not empty history. |
+| History permission required | Review actual rights/scope/expiry; do not change fabricated policy values to bypass the gate. |
+| Cart setup/connection failed | Check actual assignment, registered callback, HTTPS origin and session state. Never share callback codes or cookies. |
+| Cart add unknown | Inspect the actual cart at Kroger before any reconnect/new add. Do not automate a replay. |
+
+After source changes, run `npm run check`, `npm test` and relevant real-interface
+evaluation. Synthetic tests establish no live access, real checkout prices,
+actual retention rights or production capacity.
+
+## 6. Prepare public hosting
+
+Before publication, complete the exact-candidate licensing/legal-liability review
+and qualify the actual host. See [release preparation](RELEASING.md). A hosted
+setup page with blank credentials establishes no live or historical-source
+permission. MIT covers original software, not supplier data or branding rights.
+
+A host needs HTTPS at its edge, a supervisor, private secrets, private local
+database storage at the service owner and a path-preserving reverse proxy.
+Set the actual `PUBLIC_ORIGIN` before binding the app beyond loopback. Expose
+only the web app. Do not serve the source tree, `.env`, database, private service,
+policies, collection plans or fixtures as public files.
+
+Quotas/admission counters and Cart sessions are process-local and reset on
+restart. Coordinate upstream quotas across web and collector processes; verify
+edge limits, capacity, backup/deletion and real task behavior. The defaults are
+bounded starting limits, not measured production capacity.
+
+Before live use, edit **Privacy and use notes** in `public/index.html` for your
+actual installation:
+
+1. Replace the `aipersonalized.io` operator/hosting paragraphs with your operator,
+   providers, data recipients, purpose and actual retention. That deployment's
+   statements do not describe every self-hosted copy.
+2. Disable access logs for these routes, including the bare-path redirect and
+   callback. Do not log request bodies, catalog payloads, OAuth parameters,
+   cookies, tokens or customer search/location activity. Check edge/error tools
+   separately; default logging can retain information outside the app.
+3. Replace the example log-rotation statements with verified settings. Size
+   rotation does not guarantee deletion at a fixed age or control edge retention.
+   Use a real private support contact if provided, never invented details or a
+   public issue for private records.
+4. Preserve the direct Kroger image request, possible existing-cookie and
+   product/cart destination disclosures. Preserve the optional Cart session
+   explanation when enabled; closing a page does not immediately erase its
+   server-memory session.
+5. Keep **Privacy**, **Use notes**, official terms, lawful-use restrictions and
+   independent-project notice visible. Recheck the delivered page against actual
+   behavior before release or a change in collection, sharing or retention.
+
+No analytics or external AI forwarding is built into the app. Hosting can add
+behavior, so inspect the delivered page as well as source. An assistant recipient
+and historical collection/display each require applicable source permission.
+
+## 6a. Optional Compose installation
+
+This separate path uses Linux containers, Docker Engine and modern Compose.
+Follow [Docker's installation guide](https://docs.docker.com/engine/install/)
+for your platform. Container compatibility and your host/network must be tested
+separately from native Windows checks.
+
+1. Obtain the reviewed source and open a terminal in its folder. Run
+   `docker version` and `docker compose version`; both should work.
+2. Copy `.env.example` to private `.env`, and `compose.example.yaml` to private
+   `compose.yaml`. Both private files are ignored by Git. Use your secret manager
+   to create `PROMOTION_SERVICE_TOKEN` in `.env`; Compose requires it even when
+   source permission is pending. Keep Kroger credentials blank initially and
+   Cart flags false. Keep `PUBLIC_ORIGIN=http://localhost:4173` for this local
+   example, or configure your actual origin before hosting.
+3. Review the recipe: `app` publishes only `127.0.0.1:4173`; `promotions` has no
+   host port and shares the token privately with the app. Only the promotion
+   service mounts the persistent `promotions-data` volume during ordinary use.
+   The web app reaches `http://promotions:4174` and opens no local database.
+4. The optional `collector` is in the **operator** profile and stays off during
+   ordinary startup. Do not enable the profile or run its write command until
+   [history prerequisites](HISTORY.md) are met. Its mere presence starts no
+   collection or schedule.
+5. Build and start the reviewed private configuration:
 
    ```text
    docker compose -f compose.yaml build
@@ -281,44 +302,93 @@ No GPU, external AI service or Kroger credential is needed for the setup page.
    docker compose -f compose.yaml ps
    ```
 
-   Building downloads the selected image and locked npm
-   dependencies. Starting creates or opens the private empty database; it does
-   not call Kroger or start collection. The health check calls only the local
-   status route and accepts a reachable, unconfigured installation as healthy.
-9. Open your actual HTTPS origin followed by `/apps/houston-i-love-kroger/`.
-   Confirm the page, CSS and scripts load, the setup notice is visible, searches
-   are disabled and no shopping offers appear. The public status endpoint should
-   report `configured: false`; a valid direct search receives `setup_required`
-   with HTTP 503. This verifies setup-state hosting, not live supplier access.
-10. For a 502 response, check service/network naming, the preserved path and
-    proxy `Host` header before changing firewall exposure. For a database failure,
-    check volume ownership and free space; do not delete retained data. Use
-    `docker compose -f compose.yaml stop` to stop the service while preserving
-    its volume. Back up and restore only under the rules below; do not use a
-    volume-removal option as a routine restart or upgrade.
+6. Open `http://localhost:4173/apps/houston-i-love-kroger/`. Expect setup mode,
+   disabled searches, no invented groceries, disabled Cart and permission-gated
+   history. The app status route should return `configured: false` and a history
+   capability status. Health checks confirm reachable listeners, not live rights.
+7. After actual current-price access is established, supply credentials privately
+   and recreate the affected service from the reviewed configuration. Exercise
+   the real task and privacy notices. Do not enable collection as a side effect.
+8. Stop while preserving storage with:
 
-Enabling real searches later requires private runtime credential configuration,
-actual access/recipient permission and a fresh operation review. Historical
-collection and display remain separately gated by [HISTORY.md](HISTORY.md).
-Record the committed source, resolved image ID/digest, limits, actual host checks
-and rollback image before any public deployment. Rebuild after source changes.
+   ```text
+   docker compose -f compose.yaml stop
+   ```
+
+The image uses `node:22.23.2-bookworm-slim` by default. For a release record the
+resolved image digest and qualify it; the build accepts `NODE_IMAGE` for an
+explicit reviewed image reference. It installs locked dependencies using
+`npm ci --ignore-scripts --omit=dev` and checks the native binding with an
+in-memory `SELECT 1`. It installs no compiler toolchain. Requalify new runtime
+images or CPU architectures; never copy host `node_modules` into Linux.
+
+The strict build context excludes private configuration, history, Git data,
+fixtures and skill files. The image includes runtime source, migrations and
+operator scripts; it loads no `.env` by itself. Compose supplies environment
+settings. It runs as the unprivileged `node` user with read-only source, dropped
+capabilities and starting limits of 0.5 CPU, `256m` memory and 64 processes per
+service. Logs rotate at 1 MB/two files; this is not a time-based retention rule.
+The complete `/data` directory must be writable to the service identity for
+SQLite and its sidecars. Existing volumes need compatible ownership/access.
+
+For HTTPS hosting, place your own reverse proxy before the loopback app port.
+Keep the full base path and public `Host`, disable caching/retries/access logs
+on these routes, and allow enough time for the app's 35-second deadline. A
+host-based NGINX example inside your reviewed HTTPS server is:
+
+```nginx
+location = /apps/houston-i-love-kroger {
+    access_log off;
+    return 308 /apps/houston-i-love-kroger/;
+}
+location ^~ /apps/houston-i-love-kroger/ {
+    access_log off;
+    proxy_pass http://127.0.0.1:4173;
+    proxy_set_header Host $host;
+    proxy_cache off;
+    proxy_buffering off;
+    proxy_read_timeout 40s;
+    proxy_next_upstream off;
+}
+```
+
+A containerized proxy needs reviewed private network wiring and an app-resolving
+upstream instead; its own `127.0.0.1` refers to that proxy container. Do not expose
+the database service to solve routing. NGINX documents path preservation in
+[proxy_pass](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass).
+For 502s check listener, path, Host and network route. For storage failures check
+volume access/free space; never use volume deletion as a restart or upgrade.
 
 ## 7. Back up, upgrade and recover
 
-1. Stop the app and any collector you started with Ctrl+C before making an
-   offline backup. Ensure your service supervisor will not restart them.
-2. Back up the private database and any remaining SQLite `-wal`/`-shm` sidecars
-   together while all writers are stopped. Backups require the same source
-   retention, expiry and revocation controls as the live database.
-3. Keep source-policy evidence outside public code and back it up privately.
-4. For an upgrade, retain the previous reviewed code and a stopped-state database
-   backup. Install dependencies with `npm ci --ignore-scripts` and run checks before restarting.
-5. The current schema is version 2; the verified version-1 schema upgrades in a
-   transaction. Migration checksum checks reject unexpected or incompatible
-   contents. Do not use an older app against a newer schema.
-6. Restore only a compatible, still-authorized backup into a private location
-   while services are stopped. Reconcile expiry and revocations before serving.
+1. Stop the app, private service and any operator collector/maintenance writer.
+   Prevent a supervisor from restarting them. In Compose, stop all affected
+   services and jobs, while preserving the named volume.
+2. Make a consistent private backup of the authoritative database and remaining
+   `-wal`/`-shm` sidecars together while writers are stopped. Do not copy a live
+   SQLite file alone. Backups obey the same retention/revocation duties.
+3. Keep private source-policy evidence separately. Retain the previous reviewed
+   code/image and compatible stopped-state backup as the rollback reference.
+4. Install the reviewed update with `npm ci --ignore-scripts`, or rebuild the
+   container from the exact committed source. Run checks and evaluate actual
+   supported interfaces before release.
+5. Schema version **4** preserves the description/brand and paging additions from
+   version 3 and adds completed-snapshot permission, retention, target and product
+   availability facts. Verified version 1/2/3 databases upgrade transactionally
+   after checksum/schema checks. Legacy missing text or snapshot provenance is
+   never guessed: latest-deal reads cannot use unqualified old snapshots, while
+   dated reads still require valid row provenance and rights. Unknown or modified
+   schemas are refused.
+6. Recheck listener status, exact-store products, list calculations and permitted
+   history search/retrieval. Record the exact source/image, actual checks and
+   untested paths. Liveness alone does not qualify the upgrade.
+7. An older version cannot open schema 4. For rollback, stop services and restore
+   a compatible, still-authorized backup with its matching version. There is no
+   in-place schema downgrade. Account for new observations since the backup and
+   reconcile expiry, scope and revocation before serving any restored data.
 
-Do not copy a running SQLite file by itself or put it on an unqualified shared
-network drive. Backups and a recovery rehearsal are operator responsibilities;
-no production backup service has been configured here.
+Purge removes scoped database rows, not guaranteed physical traces in free pages,
+WAL, backups or devices. Qualify a separate erasure process if your agreement
+requires one. No production backup service or successful recovery rehearsal is
+established by these instructions. See [history maintenance](HISTORY.md) and
+[service recovery](PROMOTION_SERVICE.md#7-upgrade-recover-and-troubleshoot).

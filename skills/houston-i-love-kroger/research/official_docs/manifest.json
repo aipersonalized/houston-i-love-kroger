@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "publisher": "Houston I Love Kroger project",
   "inventoryUrl": "repo:/",
-  "appVersion": "0.1.0",
+  "appVersion": "0.2.0",
   "sourceRevision": "working-tree-snapshot",
-  "retrievedAt": "2026-10-19T19:37:32.613050+00:00",
-  "inventorySha256": "c8cea972d360996f6a95c8995281ac7e84df71de70e0c4b7a37ab29b0e2bc3bb",
+  "retrievedAt": "2026-10-19T21:23:37.014656+00:00",
+  "inventorySha256": "870746c1f8b90c3ae955930ead90e5ba4f347e556899c454553db29368cd927b",
   "counts": {
-    "indexed": 5,
-    "saved": 5,
+    "indexed": 6,
+    "saved": 6,
     "failed": 0,
     "reviewedExclusions": 4
   },
@@ -19,9 +19,9 @@
       "title": "App HTTP API",
       "url": "repo:/docs/API.md",
       "status": "saved",
-      "sha256": "02e558492bd7e14202d82ef64f7722903492fd01c83ba87b7cf0cd001ae53753",
-      "bytes": 22238,
-      "retrievedAt": "2026-10-19T19:37:32.613050+00:00",
+      "sha256": "45cde6cd9f19d45542c2b7db01cb4be51bbfeabe46edaaf67f4e86dfd820d274",
+      "bytes": 53541,
+      "retrievedAt": "2026-10-19T21:23:37.014656+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -30,9 +30,9 @@
       "title": "Human shopping guide",
       "url": "repo:/docs/USER_GUIDE.md",
       "status": "saved",
-      "sha256": "b1615171bd2e4e68322ed34b09401621759cc8e1dbbc6d460b915dd85167bee4",
-      "bytes": 14083,
-      "retrievedAt": "2026-10-19T19:37:32.613050+00:00",
+      "sha256": "fb25da5ae63e39b01597be605c25013b5b647096c25efc6d75d181a01ea4416f",
+      "bytes": 17727,
+      "retrievedAt": "2026-10-19T21:23:37.014656+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -41,9 +41,9 @@
       "title": "App installation and configuration",
       "url": "repo:/docs/SELF_HOSTING.md",
       "status": "saved",
-      "sha256": "a1e17322ed7e2150dbe50c782adf732c62e520e6246f863abc4a077346b2db75",
-      "bytes": 20028,
-      "retrievedAt": "2026-10-19T19:37:32.613050+00:00",
+      "sha256": "7abc547002ae8343622ddbe7145ecc7f26c70360e418e3f2f421d52dd1e0d8d7",
+      "bytes": 23705,
+      "retrievedAt": "2026-10-19T21:23:37.014656+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -52,9 +52,20 @@
       "title": "History prerequisites and operator boundary",
       "url": "repo:/docs/HISTORY.md",
       "status": "saved",
-      "sha256": "6288e7b43fa59da725c35d27962ae8165d3940f196b1710393adbad3e53030bd",
-      "bytes": 11233,
-      "retrievedAt": "2026-10-19T19:37:32.613050+00:00",
+      "sha256": "09546b434f2075534afa67838567d842787a7c016fcabfac25d4c6afbdeed33a",
+      "bytes": 18951,
+      "retrievedAt": "2026-10-19T21:23:37.014656+00:00",
+      "discovery": "reviewed first-party inventory"
+    },
+    {
+      "source": "docs/PROMOTION_SERVICE.md",
+      "path": "pages/PROMOTION_SERVICE.md",
+      "title": "Private promotions service and permission-aware reads",
+      "url": "repo:/docs/PROMOTION_SERVICE.md",
+      "status": "saved",
+      "sha256": "e3d8a4eb01117d1a1926109d01c560322136fc8073bbea7885c9db6237f16e92",
+      "bytes": 19332,
+      "retrievedAt": "2026-10-19T21:23:37.014656+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -65,7 +76,7 @@
       "status": "saved",
       "sha256": "55644461f1384cf564404ed6ac2e8d0e0a54328f38b19c5c1030ee6d5aeac598",
       "bytes": 2423,
-      "retrievedAt": "2026-10-19T19:37:32.613050+00:00",
+      "retrievedAt": "2026-10-19T21:23:37.014656+00:00",
       "discovery": "reviewed first-party inventory"
     }
   ]

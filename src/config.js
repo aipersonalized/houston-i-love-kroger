@@ -24,10 +24,40 @@ export function readConfig(env = process.env) {
       throw new Error('PUBLIC_ORIGIN must be an http(s) origin without a path or credentials.');
     }
   }
+  const flag = name => {
+    const value = env[name] || 'false';
+    if (!['true', 'false'].includes(value)) throw new Error(`${name} must be true or false.`);
+    return value === 'true';
+  };
+  const cartEnabled = flag('KROGER_CART_ENABLED');
+  const cartGranted = flag('KROGER_CART_GRANTED');
+  const cartRedirectUri = env.KROGER_CART_REDIRECT_URI || '';
+  if (cartRedirectUri) {
+    try {
+      const callback = new URL(cartRedirectUri);
+      if (!publicOrigin || callback.protocol !== 'https:' || callback.origin !== publicOrigin || callback.username || callback.password ||
+          callback.pathname !== `${basePath}api/v1/cart/callback` || callback.search || callback.hash) throw new Error();
+    } catch { throw new Error('KROGER_CART_REDIRECT_URI must be the registered HTTPS callback at PUBLIC_ORIGIN and APP_BASE_PATH/api/v1/cart/callback.'); }
+  }
+  const promotionServiceUrl = env.PROMOTION_SERVICE_URL || '';
+  const promotionServiceToken = env.PROMOTION_SERVICE_TOKEN || '';
+  if (promotionServiceUrl) {
+    try {
+      const endpoint = new URL(promotionServiceUrl);
+      if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password ||
+          endpoint.pathname !== '/' || endpoint.search || endpoint.hash) throw new Error();
+    } catch { throw new Error('PROMOTION_SERVICE_URL must be an http(s) service origin without a path or credentials.'); }
+  }
+  if (Boolean(promotionServiceUrl) !== Boolean(promotionServiceToken) || promotionServiceToken.length > 512 ||
+      promotionServiceToken && promotionServiceToken.length < 32 ||
+      promotionServiceToken && !/^[\x21-\x7e]+$/.test(promotionServiceToken)) {
+    throw new Error('PROMOTION_SERVICE_URL and PROMOTION_SERVICE_TOKEN must both be configured with a supported private token.');
+  }
   return {
     host, port: +portText, basePath, publicOrigin, environment,
     clientId: env.KROGER_CLIENT_ID || '',
     clientSecret: env.KROGER_CLIENT_SECRET || '',
     historyDbPath: env.HISTORY_DB_PATH || undefined,
+    cartEnabled, cartGranted, cartRedirectUri, promotionServiceUrl, promotionServiceToken,
   };
 }

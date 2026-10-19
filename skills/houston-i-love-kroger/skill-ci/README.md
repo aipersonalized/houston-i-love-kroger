@@ -2,17 +2,23 @@
 
 ## Who
 
-People use the app directly; permitted agents use the companion to return an
-exact-store comparison. Maintainers own source/contract reconciliation. An
+People use the app directly; permitted agents use the companion to read our
+stored deals/history service and explain useful shopping choices. Maintainers
+own source/contract reconciliation. An
 independent reviewer assesses the actual candidate and evidence. If model trials
 are explicitly requested later, an orchestrator assigns a fresh trial agent and
 separate reviewer; the author does not call a static walkthrough a trial.
 
 ## What
 
-Supported tasks are setup help, permitted store discovery and bounded promotion
-comparison. A useful result preserves store identity, response time/scope, full
-source descriptions/prices, separate arithmetic, and missing unit/history facts.
+Supported tasks are setup help, latest completed store/topic snapshots, stored
+item price checks, requested-quantity/budget estimates and separate history
+search/retrieval. Human store selection and live app
+browsing remain human workflows; the agent calls no live source or collector.
+A useful shopping answer explains supported discounts and low whole-package
+prices separately, matching supplied preferences. It preserves store/topic,
+snapshot/observation dates, age and bounded coverage, full source facts,
+separate arithmetic and missing unit/history facts without a raw DTO dump.
 Missing authority blocks dependent data exposure while setup/manual guidance
 remains useful. Required inputs and effects are owned by `SKILL.md` and its
 procedures, not by a maintenance record.
@@ -37,10 +43,12 @@ deterministic source-tool results to the caller's designated record owner.
 
 ## Why
 
-Similar store names, sample limits and incomplete source fields make an answer
+Exact store/topic identity, sample limits and incomplete source fields make an answer
 misleading if context is dropped. Supplier/user authority and a tool's real
 recipients must be checked before exposure. Old regular prices, package text or
 synthetic fixtures cannot repair missing historical or normalized-unit facts.
+Stale/no-data and fresh empty snapshots differ; none triggers live-source or
+history fallback. A failed attempt does not refresh the last completed sample.
 
 ## How
 
@@ -50,7 +58,7 @@ documented local CLI and reconcile changed instructions; hashes alone do not
 prove comprehension. Preserve the development record and unrelated work.
 
 Run the creator's canonical artifact checks and workflow validator within the
-authorized report-writing scope. Run the local source-tool tests and review
+authorized report-writing scope. Run local source-tool and promotion-client tests and review
 their actual limits. Walk through the static scenarios, including returns and
 resumption; report them as authored trace checks.
 
@@ -63,13 +71,21 @@ model tests, live searches or private account reads were performed by authoring.
 
 ## Quality Criteria
 
-- Exact store, scope, source and retrieval time survive every handoff.
+- Exact store/topic, source, snapshot/observation dates, freshness and limited
+  coverage survive every handoff; request time never substitutes for observation.
 - Full source facts and calculations are distinguishable; no silent truncation.
-- Pending/empty/failed/incompatible history and missing unit basis stay explicit.
+- Fresh empty, no completed collection, stale, permission-required and failed
+  reads remain distinct. Missing unit basis and price qualification stay explicit.
 - Setup facts, instructions and actual live success are not conflated.
 - Source rights are matched to real recipients; no assumed universal agent ban.
 - Commands, paths, snapshots, documented exits and recovery match implementation.
-- A task finishes at its bounded deliverable; no unrequested purchase or ingest.
+- Useful shopping picks explain supported value versus low package outlay;
+  unnamed/incomplete rows and stale/expired data never get invented recommendations.
+- Price/quantity estimates use real source-backed arithmetic, distinguish
+  complete line coverage from checkout cost, and disclose partial sums,
+  unresolved lines and unknown/mixed currency/context without inference.
+- A task finishes at its bounded stored result; no live query, purchase,
+  collection or silent historical fallback follows.
 
 ## Evaluation Evidence
 

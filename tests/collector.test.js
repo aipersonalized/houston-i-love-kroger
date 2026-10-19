@@ -84,7 +84,7 @@ test('second target failure saves no partial history or completed jobs; fixed fa
   assert.equal(JSON.stringify(result).includes('private test marker'), false);
 });
 
-test('malformed prices roll back writes; duplicate payload facts deduplicate and conflicts fail', async t => {
+test('duplicate payloads deduplicate and unsupported finite prices replace older promotions explicitly', async t => {
   const { store } = setup(t);
   const client = { configured: true, async searchProducts() { return [PRODUCTS[0], PRODUCTS[0]]; } };
   const first = await runCollection({ store, client, plan: PLAN, now: () => NOW, runId: 'duplicates' });
@@ -92,9 +92,18 @@ test('malformed prices roll back writes; duplicate payload facts deduplicate and
   const malformed = { configured: true, async searchProducts() {
     return [{ productId: 'new', items: [{ itemId: 'new', price: { regular: 3, promo: 1.234 } }] }];
   } };
-  const failed = await runCollection({ store, client: malformed, plan: PLAN, now: () => '2026-01-03T12:00:00.000Z', runId: 'bad-price' });
+  const written = await runCollection({ store, client: malformed, plan: PLAN, now: () => '2026-01-03T12:00:00.000Z', runId: 'bad-price' });
+  assert.equal(written.status, 'completed'); assert.equal(written.observationsWritten, 1);
+  assert.equal(store.getSummary().observations, 2);
+  const row = store.searchPromotions({ sourceId: SOURCE, locationId: 'TEST0001', asOf: '2026-01-03T12:00:00.000Z' }).observations[0];
+  assert.equal(row.price.promo, null);
+  assert.equal(row.priceQualification, 'unsupported_source_price');
+  const invalid = { configured: true, async searchProducts() {
+    return [{ productId: 'new', items: [{ itemId: 'new', price: { regular: 3, promo: 'private-invalid-number' } }] }];
+  } };
+  const failed = await runCollection({ store, client: invalid, plan: PLAN, now: () => '2026-01-04T12:00:00.000Z', runId: 'invalid-price-type' });
   assert.equal(failed.status, 'failed'); assert.equal(failed.category, 'unsupported_response');
-  assert.equal(store.getSummary().observations, 1);
+  assert.equal(store.getSummary().observations, 2);
 });
 
 test('a zero no-promotion price does not abort a mixed sample or invent a free promotion', async t => {

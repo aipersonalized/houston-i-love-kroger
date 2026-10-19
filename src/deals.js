@@ -1,5 +1,6 @@
 import { AppError } from './errors.js';
 import { historyAvailability } from './history.js';
+import { productDetails, fulfillment } from './catalog.js';
 
 export const SAMPLE_TOPICS = Object.freeze(['milk', 'bread', 'eggs']);
 export const SAMPLE_QUERY_LIMIT = 15;
@@ -34,6 +35,13 @@ export function validateDealSearch(value) {
     throw new AppError('invalid_sort', 'Choose savings, percent or price for sorting.');
   }
   return { locationId: value.locationId, term, sort };
+}
+
+export function validateProductSearch(value) {
+  exactObject(value, ['locationId'], ['term', 'sort', 'includeAll']);
+  const { includeAll = true, ...search } = value;
+  if (typeof includeAll !== 'boolean') throw new AppError('invalid_request', 'includeAll must be true or false.');
+  return { ...validateDealSearch(search), includeAll };
 }
 
 function exactObject(value, fields, optional = []) {
@@ -123,15 +131,17 @@ export function compareOffers(products, { now = Date.now() } = {}) {
   if (!Array.isArray(products) || products.length > SEARCH_QUERY_LIMIT) throw invalidUpstream();
   const summary = { products: products.length, items: 0, unpriced: 0, notDiscounted: 0,
     unqualifiedDates: 0, outOfStock: 0, duplicateItems: 0, conflictingItems: 0,
-    incompleteProducts: 0, notInStore: 0 };
+    incompleteProducts: 0, notInStore: 0, noReportedPromotion: 0,
+    missingRegularPrice: 0, unsupportedPrice: 0, usablePriced: 0, qualifyingPromotions: 0 };
   const groups = new Map();
   for (const product of products) {
     if (!isObject(product)) throw invalidUpstream();
     const description = textField(product.description, 512);
     const productId = textField(product.productId, 64);
     const brand = textField(product.brand, 200);
+    const detail = productDetails(product);
     if (product.items != null && (!Array.isArray(product.items) || product.items.length > MAX_ITEMS_PER_PRODUCT)) throw invalidUpstream();
-    if (!description || !product.items) { summary.incompleteProducts++; continue; }
+    if (!description || !product.items?.length) { summary.incompleteProducts++; continue; }
     for (const item of product.items) {
       summary.items++;
       if (!isObject(item)) throw invalidUpstream();
@@ -141,6 +151,8 @@ export function compareOffers(products, { now = Date.now() } = {}) {
         productId, itemId: textField(item.itemId, 64), description, brand,
         size: textField(item.size, 100), soldBy: textField(item.soldBy, 40),
         price: copyPrice(item.price), stockLevel: textField(item.inventory?.stockLevel, 80),
+        ...detail, fulfillment: fulfillment(item.fulfillment),
+        nationalPrice: item.nationalPrice == null ? null : copyPrice(item.nationalPrice),
       };
       const inStore = item.fulfillment?.instore ?? null;
       const fingerprint = JSON.stringify([source, inStore]);
@@ -154,21 +166,41 @@ export function compareOffers(products, { now = Date.now() } = {}) {
     }
   }
   const offers = [];
+  const pricedProducts = [];
   for (const { source, inStore, conflict } of groups.values()) {
     if (conflict) { summary.conflictingItems++; continue; }
     if (inStore === false) { summary.notInStore++; continue; }
     if (source.stockLevel === 'TEMPORARILY_OUT_OF_STOCK') { summary.outOfStock++; continue; }
     const regular = cents(source.price.regular);
     const promo = cents(source.price.promo);
-    if (regular === null || promo === null) { summary.unpriced++; continue; }
-    if (promo >= regular) { summary.notDiscounted++; continue; }
-    if (!datesAllowComparison(source.price, now)) { summary.unqualifiedDates++; continue; }
-    offers.push({ source,
-      calculated: { savingsCents: regular - promo, percentOff: ((regular - promo) / regular) * 100 },
+    // v1's unpriced counter means "cannot compare both prices"; retain it for
+    // compatibility, with disjoint, truthful reasons for the new interface.
+    if (regular === null || promo === null) summary.unpriced++;
+    const regularMissing = source.price.regular == null;
+    const promoNotReported = source.price.promo == null || source.price.promo === 0;
+    let reason = null;
+    if (regularMissing) { summary.missingRegularPrice++; reason = 'missing_regular_price'; }
+    else if (regular === null || (promo === null && !promoNotReported)) { summary.unsupportedPrice++; reason = 'unsupported_price'; }
+    else if (promoNotReported) { summary.noReportedPromotion++; reason = 'no_reported_promotion'; }
+    else if (promo >= regular) { summary.notDiscounted++; reason = 'not_discounted'; }
+    else if (!datesAllowComparison(source.price, now)) { summary.unqualifiedDates++; reason = 'unqualified_dates'; }
+    const qualifies = reason === null;
+    // An unsupported/unqualified promotion does not displace a usable regular
+    // price. A promo-only price is shown without inventing regular savings.
+    const current = qualifies || regular === null && promo !== null && datesAllowComparison(source.price, now) ? promo : regular;
+    if (current === null) continue;
+    const offer = { source,
+      calculated: qualifies ? { savingsCents: regular - promo, percentOff: ((regular - promo) / regular) * 100 } : null,
       perUnit: perUnit(source.price), history: historyAvailability(),
       dateStatus: Object.hasOwn(source.price, 'effectiveDate') || Object.hasOwn(source.price, 'expirationDate')
-        ? 'within_reported_window' : 'not_provided',
-    });
+        ? datesAllowComparison(source.price, now) ? 'within_reported_window' : 'unqualified' : 'not_provided',
+      pricing: { status: qualifies ? 'promotion' : regular === null ? 'unqualified_promotion' : 'regular_only',
+        regularCents: regular, promoCents: promo, currentCents: current, reason },
+    };
+    pricedProducts.push(offer);
+    if (qualifies) offers.push(offer);
   }
-  return { offers, summary };
+  summary.usablePriced = pricedProducts.length;
+  summary.qualifyingPromotions = offers.length;
+  return { offers, products: pricedProducts, summary };
 }

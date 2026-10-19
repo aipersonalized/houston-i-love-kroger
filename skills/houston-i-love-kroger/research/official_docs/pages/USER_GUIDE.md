@@ -1,239 +1,304 @@
 # Using Houston I Love Kroger
 
-Choose a Kroger store, view a small sample of reported promotions, and search
-for groceries you want to compare. The app shows current reported prices and
-calculated savings. Historical comparisons appear only when suitable prior
-observations exist.
+Choose your Kroger store, browse reported prices and promotions, and make a
+shopping list for this page visit. You can also look for past prices when they
+are available on the site you use.
 
-This is an independent project in development. It is not affiliated with,
-endorsed by, or sponsored by The Kroger Co. Kroger is a trademark of its owner.
-An intention to release open source does not itself grant a software license;
-consult the repository's licensing information before reusing the software.
+This independent project is in development. It is not affiliated with, endorsed
+by, or sponsored by The Kroger Co. Kroger is a trademark of its owner. The
+software license does not grant rights to Kroger data or services.
 
-## 1. Open a working installation
+## 1. Open an installation
 
-Use the address supplied by the person running your installation. A proposed
-project address is
-`https://aipersonalized.io/apps/houston-i-love-kroger/`; that proposal does not
-mean the app has been published there. A self-hosted installation may use a
-different address or path.
+1. Open the address supplied by your installation's operator. You need a browser
+   with JavaScript and an internet connection. Hosted use needs no terminal,
+   software installation or AI-provider account.
+2. Read **Privacy** and **Use notes** beside the ZIP form or in the footer.
+   These explain the installation's operator, search handling and hosting logs.
+3. Wait for the connection check. Continue when **ZIP code** becomes available.
+   Loaded settings alone do not prove live Kroger access.
 
-If you want to run the app yourself, follow the
-[self-hosting instructions](SELF_HOSTING.md) first, then return to this guide.
-You need an internet connection and a browser with JavaScript enabled. The app
-does not ask for your Kroger customer account, loyalty number, payment details,
-or an AI-provider account.
+**Store searches aren’t ready yet.** means this site cannot load stores or prices
+yet. Try **Check again** later, or contact the person who runs the site. If you
+run it yourself, follow [self-hosting](SELF_HOSTING.md). For **The store connection
+could not be checked**, check your internet connection and try **Check again**;
+contact the site operator if it persists. No made-up groceries replace a failure.
 
-Before searching, open **Privacy** and **Use notes** beside the ZIP form or in
-the footer. These links explain who runs that installation, where searches go
-and what hosting logs may contain. Use the app for your own store and product
-searches, following the linked Kroger Terms and Acceptable Use rules. Do not
-bulk-collect, archive, alter or resell API content, track customers' searches or
-locations, or compare Kroger prices with other retailers. If an assistant helps
-you, its provider has separate privacy terms; do not send Kroger data there
-without permission.
+**TEST DATA ONLY** identifies synthetic examples. **SANDBOX DATA** identifies
+Kroger's certification environment. Neither is a verified shopping offer.
+A project address does not establish that the latest version is deployed there.
+To run your own copy, use [self-hosting](SELF_HOSTING.md).
 
-Wait for the connection check near the top of the page:
+Ordinary browsing needs no customer sign-in. Optional Cart uses separate Kroger
+sign-in and an explicit add action; it handles no payment or checkout. Never put
+passwords, API secrets or service tokens into searches or support messages.
 
-- If the ZIP code field becomes available, continue below. Having connection
-  settings loaded does not prove that a live Kroger request will succeed.
-- If you see **This installation needs a Kroger connection**, the installation's
-  operator must complete API setup. **Check again** repeats the readiness check;
-  it does not create credentials or finish setup.
-- If you see **The store connection could not be checked**, check your internet
-  connection and use **Check again**. If it persists, contact the operator.
-- A **TEST DATA ONLY** banner means stores and prices are synthetic examples for
-  testing. They are not shopping offers. A **SANDBOX DATA** banner identifies
-  Kroger's certification environment, whose results are not verified live
-  shopping offers.
+Use the app for ordinary browsing under the linked Kroger Terms and Acceptable
+Use rules. Do not bulk-collect, archive, alter or resell API content, track
+customer searches or locations, or compare Kroger prices with other retailers.
+An assistant's access does not grant permission to send data to its provider.
 
-## 2. Find and choose your exact store
+## 2. Choose your store
 
-1. Under **Find your store**, enter a five-digit US ZIP code in **ZIP code**.
-   Do not enter a street address or a ZIP+4 code.
-2. Select **Find stores**, or press Enter while filling the form.
-3. Wait for the nearby-store list. The current search requests up to ten Kroger
-   locations within ten miles. The displayed search limits describe the actual
-   request; a store list is not a promise of every nearby location.
-4. Match the store's name, address, and full **Store ID** to the location you
-   intend to visit. Stores with similar names can have different prices.
-5. Select **Choose this store** for that location.
+1. Under **Find your store**, enter five US ZIP digits in **ZIP code**, without
+   a street address or ZIP+4.
+2. Select **Find stores**, or press Enter in the form.
+3. Match the returned name and address to the location you plan to visit.
+   Similar names can identify stores with different prices.
+4. Select **Choose this store**. Check the selected name and address above the
+   results before using a price.
+5. Open **Store hours, departments and contact details** for supplied phone,
+   hours, timezone and departments. Missing facts stay marked. Confirm hours
+   with the store, especially on holidays. If an assistant needs the store's
+   reference, it appears inside this section as **Store reference for an
+   assistant**; you do not need it to browse.
 
-The selected store's name, address, and full ID appear above its promotions. Check
-this information before using any displayed price. The app immediately requests
-the starter sample; you do not need to enter a product search first.
+The search asks for up to ten Kroger locations within ten miles, rather than
+every nearby store. If none return, try a nearby ZIP. The app does not request
+your device's precise location. Editing the ZIP or changing stores clears the
+previous results, past-price results and shopping list.
 
-If no stores are returned, try another nearby ZIP code. The app does not request
-your device's precise location. Changing the ZIP code clears the previous store
-and its prices so that results from different areas are not mixed.
+Choosing a store immediately loads a starter grocery sample.
 
-## 3. Read the starter promotion sample
+## 3. Browse groceries and promotions
 
-The starter sample currently searches **milk**, **bread**, and **eggs**, requesting
-up to 15 products for each topic, or 45 products before duplicate handling. The
-page displays the queried topics and limits with the results.
+The starter sample searches **milk**, **bread** and **eggs**, requesting up to
+15 products per topic, or 45 before duplicate handling. It is a bounded sample,
+not a complete catalog, weekly ad or digital-coupon feed.
 
-Only qualifying item offers are displayed. An item needs a usable regular price
-and a lower usable promo price. Results can exclude missing prices, invalid or
-out-of-window promotion dates, reported out-of-stock items, conflicting duplicate
-data, and other incomplete results. The exclusion summary explains the returned
-data that could not be used. Products and item offers are different counts: one
-product can contain more than one item offer.
+To search for something else:
 
-This is a bounded product search. It does not enumerate all promotions in the
-store, include the complete weekly ad, or provide a digital-coupon feed. A small
-result count does not mean that the store has few promotions.
+1. Keep the correct store selected.
+2. In **Find a grocery or brand**, enter 3–80 characters and at most eight words,
+   such as `whole milk` or `coffee`.
+3. Select **Search**, or press Enter. A term search requests up to 50 products
+   in one page. Kroger's approximate search may return related descriptions.
+4. Read the selection covered by the search and the **Checked** time. Check
+   descriptions and package sizes.
 
-## 4. Search for groceries you care about
+Clear the field and select **Search** for the starter sample. Editing text clears
+the old results; it does not search on every keystroke. Your existing list stays
+while you search the same store.
 
-1. Keep the correct location selected.
-2. In **Find a grocery or brand**, enter a product or brand, such as `coffee` or
-   `apples`. Use 3–80 characters and no more than eight words.
-3. Select **Search**, or press Enter in the field.
-4. Read the new search scope and retrieval time above the results.
+**Products to show** starts at **All priced products**. Usable regular-price
+groceries stay visible alongside qualifying promotions. A reported price without
+a usable regular comparison can appear without a savings claim. A zero or
+missing promo does not make a product free; a usable regular price can still
+appear. Conflicting details, reported out-of-stock items, explicitly unavailable
+in-store fulfillment and unusable prices can exclude a result. Read **Result
+details** for the reasons; counts can overlap.
 
-A specific search requests up to 50 products at the selected store. Results can
-include related descriptions because Kroger's product search is approximate.
-Check the complete product description and package size yourself.
+Choose **Promotions only** for positive regular and lower promo prices with
+qualified supplied dates. No matching promotion describes this returned sample,
+not the whole store.
 
-To return to the starter sample, clear the search field and select **Search**.
-Editing a search clears the previous results; submit the edited text to load a
-new set. There is no automatic search on every keystroke.
+When relevant source facts exist in the loaded results, these filters appear:
 
-If the page says **No qualifying promotions in these results**, try another
-grocery or brand, or return to the starter sample. This message describes the
-limited returned results, not every product or promotion at the store.
+- **SNAP eligibility**: reported eligible, reported not eligible,
+  or not reported. Missing facts stay unknown.
+- **Dietary labels**: an exact supplied claim.
+  This is source wording, not the app's certification of a diet or allergy
+  requirement. Missing claims remain unknown.
 
-## 5. Choose how to order the returned offers
+These labels come from Kroger. Filters work on the groceries already shown.
+Relax them or change views if nothing matches. Check the package for ingredients
+and allergens; these fields do not establish allergen safety.
 
-Use **Show first** above the offer list:
+Use **Show first** to reorder the loaded results:
 
-| Option | What it places first |
+| Option | Meaning |
 | --- | --- |
-| **Biggest dollar savings** | The largest difference between the current reported regular and promo prices. This is the initial order. |
-| **Highest percent off** | The largest calculated percentage reduction from the current reported regular price. |
-| **Lowest promo price** | The lowest reported promo selling price among the returned offers. |
+| **Biggest dollar savings** | Largest calculated regular-minus-promo saving first; unqualified savings follow. |
+| **Highest percent off** | Largest calculated percentage reduction first; unqualified savings follow. |
+| **Lowest reported price** | Lowest usable displayed price first, including regular prices in the all-priced view. |
 
-Changing the order rearranges the loaded results without sending a new product
-search. It does not discover additional products. A new search starts with the
-initial order again.
+These orders do not discover more groceries or compare standardized prices per
+ounce, pound or item. Smaller packages can have lower selling prices. A new
+search resets ordering and source filters.
 
-These rankings answer different questions. The lowest selling price can belong
-to a smaller package, and the largest percentage reduction can save fewer
-dollars. None of these options ranks by a standardized price per ounce, pound,
-or item.
+## 4. Read a product
 
-## 6. Understand an offer
+Start with the name, brand, package size and price. A photo and a high/low stock
+note appear when Kroger supplies them. Open **Price and product details** when
+you want more information, such as the reported aisle, how an item is sold,
+eligibility, unit estimates, sale dates or a past-price comparison.
 
-Each offer keeps the full source description visible. Read its package size,
-brand, item identity, and **Sold by** information where supplied.
+- **Promo price**, **Regular price** or **Reported price** is Kroger's selected
+  store snapshot, not a checkout quote. A note explains an unqualified promotion.
+- **Save** compares the current regular and lower promo prices. It is not a
+  past-week, competing-store or coupon saving.
+- **Reported unit-price estimates** preserve supplied numeric estimates. Their
+  measure basis is not supplied; do not label them as a known price per ounce,
+  pound or item, or infer the basis from package size. Missing estimates stay
+  unavailable.
+- **Stock reported** is advisory, even when high. Confirm availability.
+- Inside **Price and product details**, **More about this product** appears when
+  extra facts are supplied, such as delivery options, ingredients, allergen
+  statements, warnings and nutrition facts.
+  Missing statements do not establish that an item is safe for a particular diet;
+  check the package before buying or eating.
+- Reported effective/expiration times use your browser's timezone; a source
+  timezone appears where supplied. Missing dates do not establish an offer's end.
+- Supported source photos may appear. **Image not supplied** or **Image
+  unavailable** leaves the text usable; no replacement photo is invented.
+- **View product at Kroger**, when a supported source link exists, opens a new
+  tab. Check its item, store, price and conditions there.
 
-- **Promo price** and **Regular** are the current prices reported by Kroger for
-  that item at the selected store. They are not checkout quotes.
-- **Save** shows the calculated difference between that pair of current prices,
-  followed by the calculated percent reduction. It does not compare with a
-  previous week, a competing store, or a previous promotion.
-- **Reported unit-price estimates** show the numeric estimate or estimates
-  supplied by Kroger. If only one is supplied, the missing estimate is marked.
-  Kroger's current response does not provide a standardized unit basis, so the
-  app does not label these values as dollars per ounce, pound, or item and does
-  not derive a basis from package size. Do not use them as a fair unit-price
-  comparison without verifying the measure separately.
-- **Unit comparison unavailable** means no usable unit-price estimate was
-  supplied. It does not mean the item has no size or that its selling price is
-  zero.
-- **Stock reported** is an advisory source value. Even a high stock report does
-  not guarantee that the product is available when you arrive.
-- **Effective** or **Expires** dates appear when suitable dates are supplied.
-  Displayed times include the browser's local timezone abbreviation; an
-  additional source timezone is identified where supplied. Missing dates are
-  explicitly marked and do not establish how long an offer lasts.
+Product images load directly from Kroger. Your browser sends the image address,
+IP address and browser information to that host; browser cookie settings may
+also allow existing Kroger cookies. This page does not send its referring
+address. Product and cart links take you to Kroger under its own
+[privacy notice](https://www.kroger.com/i/privacy-policy).
 
-The retrieval time identifies when the app obtained the response, not a promise
-that Kroger updated every price or stock field at that moment. Confirm the exact
-item, price, loyalty or purchase conditions, and stock with your store before
-buying. The app does not clip coupons, maintain a shopping cart, or place orders.
+The retrieval time says when the app obtained the response, not when Kroger
+changed every field. Confirm the item, price, purchase conditions and stock
+before buying.
 
-## 7. Interpret historical comparisons carefully
+## 5. Make a list for this visit
 
-New history databases start empty. Browsing or searching the app does not collect
-price history. An operator must configure a separate permitted collection
-process; see [price-history setup and limits](HISTORY.md). A working current-price
-connection does not establish permission to retain provider responses.
+1. Select **Add to shopping list** on a result. If it is unavailable, Kroger has
+   not supplied enough information to identify that exact item for the list.
+2. Follow **Your shopping list** near the top, or scroll to it.
+3. Set **Quantity** to a whole number 1–99. Adding the same known item again
+   increases its quantity. The list holds up to 100 distinct lines.
+4. Read the line estimates and price snapshots. Only positive item prices for
+   products reported as sold by the unit contribute to the subtotal.
+5. For **Amount unresolved**, read the reason. Variable weight/measure, missing
+   basis and other unresolved amounts are excluded. **Estimated subtotal of
+   resolved lines** is a partial sum. Even a complete estimate excludes tax,
+   coupons, variable weight and checkout conditions.
+6. Select **Group by reported aisle** to group by the first supplied position.
+   All reported positions stay on the line; unknown aisles have their own group.
+   This is not an optimized walking route.
+7. Use **Remove** for one line or **Clear list** for all lines.
 
-The default collection path remains gated by source permission. **Historical
-collection needs source permission** means that the required permission is not
-established for collection. This is separate from an empty database or an
-ordinary temporary connection failure. No historical prices are invented to
-fill the gap, and today's regular price is never substituted for a past promo
-price.
+Invalid quantities leave the last valid quantity in use; correct the field before
+relying on the estimate. Prices do not refresh automatically. Re-adding a known
+product from a later search updates its snapshot and increases its quantity, so
+review the resulting quantity.
 
-Possible item states include:
+The list stays in page memory only. Reloading, leaving, editing the ZIP or
+changing stores clears it. Adding to the list does not change a Kroger cart.
+There is no saved-list account, export or cross-device synchronization.
 
-| What you see | What it means |
+## 6. Optional: add the list to a Kroger cart
+
+Cart access is optional and may be unavailable on the site you use. When it is
+unavailable, you can still use the shopping list. Signing in alone does not make
+cart access available. If you run the site, its required Kroger access and setup
+are explained in [self-hosting](SELF_HOSTING.md).
+
+If Cart is available:
+
+1. Expand **Optional: add this list to a Kroger cart**. Read the status and
+   note about any items that cannot be sent. Adds need known unit amounts and a
+   reported 13-digit barcode number (UPC). Remove or adjust every ineligible
+   line first. At most 50 distinct UPCs can be sent, with at most 99 total units
+   for each UPC.
+2. Select **Connect a Kroger cart**, then **Continue to Kroger sign-in** to open
+   a new tab. Sign in only at Kroger and decide whether to authorize Cart access.
+3. Return to the original app tab and select **Check cart connection**. Your
+   list stays in that tab. Failed/expired sign-in can be started again; sign-in
+   adds no items.
+4. Review the list. Select **Add listed quantities to Kroger cart** only when
+   you want to add those quantities. Each add sends the full listed quantities
+   and may increase existing cart quantities; it does not replace the cart. The
+   selected browsing store does not set the store for your Kroger cart.
+5. After acknowledgement, follow **Review your cart at Kroger**. Verify actual
+   items, quantities, store, fulfillment, prices and stock. The app cannot read
+   the cart, undo additions, clip coupons or place orders.
+
+After acknowledgement, adding the unchanged list is disabled. Editing the list
+enables another add of its full quantities; review Kroger's actual cart first.
+
+If an add times out, disconnects or reports an **unknown** result, it may have
+reached Kroger. Do not replay it. Inspect the actual cart first. The app blocks
+another add in that uncertain session. Disconnect/reconnect only after checking
+the outcome. Disconnect does not undo changes.
+
+Optional Cart uses a secure, HttpOnly visit cookie and keeps authorization only
+in server memory. The session expires within 30 minutes and the token may expire
+sooner; expired sessions are cleaned up periodically. No refresh token is stored.
+**Disconnect cart** or server restart discards the app session. Closing a tab
+only clears the page list and does not immediately erase the server session.
+Disconnect does not revoke an account grant at Kroger; use Kroger's controls.
+
+## 7. Look for past prices
+
+Past prices are available only when the site has permission to save and show
+them. That permission remains unestablished for real Kroger history in this
+project, so history can be unavailable even when today's prices work. Your
+grocery searches do not save price history or fill a new history source.
+
+When past prices are available:
+
+1. Choose your store, then follow **Past prices** near the top or scroll to that
+   section.
+2. Enter a **Grocery or brand (optional)**, using up to 80 characters. Leave it
+   blank to browse a limited selection. The search looks for that text within a
+   saved product name or brand; it does not find approximate matches.
+3. If you already have a product reference, expand **Find a specific product by
+   its reference** and enter it in **Product reference** (up to 100 characters).
+   This is optional; it can be combined with the grocery or brand search.
+4. Select **Find past prices** for up to 20 of the newest matching saved prices.
+5. Read the date, source, and sale or regular price. Use **See past price
+   details** for the supplied source, package size, how the item was sold,
+   regular price and any reported sale dates. Missing facts stay marked.
+6. Use **Show more past prices** if available. Start a new search to change
+   what you are looking for or include prices saved since the first page.
+
+A past price is not a current deal. Saved prices can include regular prices or
+reported zero values; these do not establish free offers or verified sales.
+Some older entries lack a product name or brand. If a word search misses them,
+try a product reference if you have one. Missing details are not guessed.
+
+**Price history isn’t available here yet** or **Past prices aren’t available on
+this site yet** means the site cannot show history; it does not mean the product
+has never been on sale. **No matching past prices were found** means an available
+search found no matches in its limited record. Try another grocery or brand.
+**Past prices couldn’t be loaded** describes a failed lookup; try again later.
+If **This past price is no longer available** appears when you open details,
+search again. Permissions and how long saved prices may be kept are checked
+each time, so an entry can become unavailable between actions.
+
+Current promotion cards can also show a past-price comparison inside **Price
+and product details**. A most recent or lowest saved sale price covers only
+available, comparable past prices for the same store, product and package; it is
+never an all-time low or a complete sales history. Today's regular price does not
+stand in for a past sale. One comparable past price can show a difference, but
+does not establish a trend. Missing currency, quantities, purchase conditions,
+dates or units can prevent comparison. Read the item's explanation.
+
+## 8. Cancel, start over or recover
+
+**Cancel search** and **Cancel history search** stop this page waiting; a sent
+request may already have reached its destination. The project name reloads the
+starting page and clears page state. Use **Disconnect cart** separately to end
+an optional cart session.
+
+| Problem | Recovery |
 | --- | --- |
-| Historical comparison unavailable | A source or history-reading capability is not available. It does not establish that no past promotions occurred. |
-| No observations collected | No stored prior observations were found for this item and store. |
-| One comparable prior promotion | A qualified price difference can be shown against that observation. One observation does not establish a trend. |
-| Historical prices cannot be compared reliably | Observations exist, but their item or price context does not match well enough. Any displayed past price stays qualified. |
-| Collected promotion history | Dated, suitable prior observations can be shown with their public source names. |
+| ZIP rejected | Enter exactly five digits. |
+| Grocery search rejected | Use 3–80 characters and at most eight words, or clear it for the sample. |
+| No products/promotions in a view | Clear source filters, choose all-priced products or try another grocery. Coverage stays bounded. |
+| Missing photo, aisle, claim or hours | Use text details and confirm with Kroger; missing source facts stay unknown. |
+| Quantity rejected | Enter a whole number 1–99; the previous valid quantity remains in use. |
+| Partial estimate | Check unresolved lines; their amounts are excluded. |
+| Busy, rate or daily budget limit | Wait for the displayed interval; rapid repetition will not help. |
+| Connection or access rejected | Try again later or contact the person who runs the site; never share passwords or secrets. If you run it, use the setup guide. |
+| Read failed or cannot be parsed | Retry later; use a more specific term for oversized results. No sample data replaces failure. |
+| History unavailable | You can still try today's prices above. Try again later or contact the person who runs the site. |
+| Cart add result unknown | Check the actual Kroger cart before any new add. No automatic replay or undo exists. |
 
-When available, the **most recent collected promo** is the latest retained prior
-observation for the matching context. A displayed dollar change compares today's
-reported promo with that prior observation: lower means today's promo is cheaper,
-and higher means it is more expensive. A missing comparison stays unavailable;
-the app does not assume equality. A qualified difference can be shown with one
-prior observation while the page still warns that it does not establish a trend.
+Page inputs and list state do not enter browser local/session storage. Search
+values travel in request bodies to the installation, then Kroger or its private
+history service. Hosting/provider logs have separate behavior; read the actual
+notices. Optional Cart has the separate cookie/server-memory behavior above.
 
-The **lowest collected promo** covers only retained qualifying prior observations,
-not every historical promotion or an all-time low. Read its date and source.
-Gaps between observations can hide better intervening offers. Historical
-unit-price comparison remains unavailable when a standardized unit basis is
-missing.
-
-## 8. Change stores, cancel, or start over
-
-- Select **Change store** to clear the current location's results. Choose another
-  returned store, or edit the ZIP code and search a different area.
-- During a pending search, **Cancel search** stops this page waiting for the
-  result. You can submit a new search afterward. Cancellation does not establish
-  that an already sent request was never received by Kroger.
-- Selecting the project name at the top reloads the starting page. Reloading or
-  leaving the page clears the app's current-visit selections and results.
-
-The page uses memory for the current visit, not browser local or session storage.
-Search values are sent in request bodies to the installation, rather than added
-to the page URL. The installation then queries Kroger. The app does not send
-searches to an external AI service or use them to populate its history database.
-The operator controls any separate hosting or network logs; this guide does not
-promise that the host or provider keeps no records.
-
-## 9. Recover from a problem
-
-| Problem | What to do |
-| --- | --- |
-| ZIP code is rejected | Use exactly five digits, without spaces, a street address, or ZIP+4. |
-| Search text is rejected | Use 3–80 characters and at most eight words, or clear it for the starter sample. |
-| Store list is empty | Try another nearby ZIP code. Availability of a store in this API search is limited. |
-| No qualifying promotions | Try another term or the starter sample. There may be other store offers outside these results. |
-| Connection or permissions are rejected | Ask the installation's operator to check API credentials, environment, and permissions. Do not enter API secrets into a grocery search field. |
-| Installation is busy or Kroger limits requests | Wait for the interval shown in the message before trying again. Repeated rapid searches will not help. |
-| Daily request budget is reached | Try later or ask the operator about the installation's request budget. |
-| Search takes too long or fails | Wait briefly, then submit it again. Use a more specific term if the result is too large. |
-| Unexpected result cannot be read | Retry later. If it persists, contact the operator; the app does not quietly replace the failed response with sample groceries. |
-| History is unavailable | Current-price comparisons can still work. Read the history status and contact the operator if a permitted history source should be available. |
-
-## Keyboard use and small screens
-
-Use Tab and Shift+Tab to move among controls, Enter to submit forms, and your
-browser's standard select-control keys to change **Show first**. A **Skip to deal
-finder** link appears when focused near the start of keyboard navigation.
-
-On narrow screens the store section appears before the promotions section, so
-scroll down after choosing a location. Full product descriptions wrap instead of
-being shortened. No particular screen-reader or browser combination is certified
-by this guide; see the project's recorded testing limits.
-
-For installation and operator tasks, use [self-hosting](SELF_HOSTING.md) and
-[history configuration](HISTORY.md). For an agent or another application, use the
-[API contract](API.md); human shopping does not require those technical steps.
+Use Tab/Shift+Tab for controls, Enter for forms and standard browser keys for
+selects and expandable details. **Skip to grocery finder** appears on keyboard
+focus. On small screens, scroll below the store section for results; full
+descriptions wrap. This guide certifies no particular screen reader or browser.
+Operators should read [self-hosting](SELF_HOSTING.md), [history operations](HISTORY.md)
+and the [private service guide](PROMOTION_SERVICE.md). Assistant clients should
+use [the shared API contract](API.md).

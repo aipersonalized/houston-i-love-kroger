@@ -1,4 +1,10 @@
-# Local documentation maintenance tools
+# Companion tools
+
+`promotions.py` helps humans and assistants read the latest collected deals or
+dated promotion history, check item prices and estimate requested quantities from
+our service through the app. It never contacts
+Kroger, starts collection or needs a database mount or supplier key. The other
+commands maintain bundled documentation and do not query the app.
 
 ## Quick Start
 
@@ -11,9 +17,54 @@ python scripts/refresh_docs.py --check --json --no-input
 Read `schemas/command-rules.md` in full before other operations. Paths in that
 file resolve from the skill root, one folder above this directory.
 
+To read stored deals, first check your actual installation:
+
+```text
+python scripts/promotions.py --help
+python scripts/promotions.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+```
+
+The status command can report permission_required with exit 3; that is a
+successful connection with missing data authority. Replace the address with your
+actual installation. For an approved synthetic example, preview a request:
+
+```text
+python scripts/promotions.py latest --store TEST0001 --topic milk --summary-only --dry-run --json --no-input
+```
+
+Expect preview status with network/writes false. For an actual read, replace
+TEST0001 with the accepted full store ID and milk with the exact approved
+operator collection topic. Supply the actual --base-url. Human store selection
+is separate; this client has no live ZIP/store lookup. After actual source and
+recipient permission is established, omit --dry-run and use --data-use-approved
+for records, or --summary-only for fixed state/count/freshness facts.
+
+Latest available can contain fresh deals or a completed empty sample. no_data,
+stale and permission_required are distinct exit-3 gaps with no deals; they never
+trigger a live-source fallback. Read snapshot dates, age, the operator threshold
+(default 24 hours) and coverage. These are collected observations, not live
+checkout prices. Search dated history with `search --store STORE_ID --term TERM`.
+For a known package price, use `prices --store STORE_ID --topic TOPIC` and select
+an actual returned product/item. Estimate requested quantities with
+`estimate --store STORE_ID --item TOPIC PRODUCT_ID ITEM_ID QUANTITY`, repeating
+--item for up to 10 distinct selections and whole quantities 1–99. Supply the
+same app URL and established data-output authority; use --dry-run to preview.
+No caller prices are accepted. Complete/partial estimates preserve actual line
+arithmetic, unresolved lines, currency/context gaps and excluded checkout costs.
+`complete` means calculated line coverage, not a guaranteed checkout total.
+Retrieve a specific permitted observation with `retrieve --store STORE_ID
+--observation-id OBSERVATION_ID`; use IDs returned by your own search, the same
+base URL and the same data-output choice. See
+[the user guide](../references/user-guide.md)
+for installation, complete steps and recovery. No command prompts or writes data.
+
 ## What It Does
 
-- Collect five explicitly selected public first-party app Markdown documents.
+- Read bounded latest store/topic snapshots, search dated history and retrieve
+  selected observations with no automatic retry, collection or local cache.
+- Check stored regular/promo prices and estimate source-verified whole-unit
+  quantities, preserving partial sums, missing currency and unresolved lines.
+- Collect six explicitly selected public first-party app Markdown documents.
 - Audit their inventory, exact bytes, identities, version, exclusions and hashes.
 - Optionally compare the snapshot with an explicitly selected app checkout.
 - Refresh the selected snapshot locally; never query a shopper, account or API.
@@ -21,8 +72,9 @@ file resolve from the skill root, one folder above this directory.
 ## Requirements
 
 Python 3.12 or newer, standard library only. Executed here with Python 3.14.
-The shopping skill itself needs no Python runtime when using a host's existing
-browser or HTTP tool. Collection requires ordinary local files, not linked paths.
+An equivalent permitted HTTP client can use the same stored-read contract;
+human browser shopping is a separate app workflow. Documentation collection
+requires ordinary local files, not linked paths.
 
 If you want to run these optional maintenance commands:
 

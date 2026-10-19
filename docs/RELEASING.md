@@ -18,7 +18,7 @@ The first source candidate includes:
   `config/collection-plan.example.json`.
 - Human and operator manuals in `docs/`.
 - The companion at `skills/houston-i-love-kroger/`, excluding the local-only
-  paths below. Its five project-authored manual copies under
+  paths below. Its six project-authored manual copies under
   `research/official_docs/pages/`, plus their manifest and exclusions file, are
   part of the companion's documented workflow.
 

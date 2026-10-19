@@ -11,7 +11,7 @@ import uuid
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_FILES = frozenset({
     'docs/API.md', 'docs/USER_GUIDE.md', 'docs/SELF_HOSTING.md',
-    'docs/KROGER_PERMISSION_REQUEST.md', 'docs/HISTORY.md',
+    'docs/KROGER_PERMISSION_REQUEST.md', 'docs/HISTORY.md', 'docs/PROMOTION_SERVICE.md',
 })
 
 

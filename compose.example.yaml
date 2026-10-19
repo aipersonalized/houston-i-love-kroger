@@ -1,48 +1,79 @@
-# Copy to a private compose.yaml. See docs/SELF_HOSTING.md before starting.
+name: houston-i-love-kroger
+
+x-runtime: &runtime
+  image: houston-i-love-kroger:local
+  user: node
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  mem_limit: 256m
+  cpus: 0.5
+  pids_limit: 64
+  logging:
+    driver: json-file
+    options: {max-size: 1m, max-file: '2'}
+
 services:
-  kroger:
-    build:
-      context: .
-      args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:22.23.2-bookworm-slim}
-    image: houston-i-love-kroger:local
-    init: true
-    user: node
-    read_only: true
+  app:
+    <<: *runtime
+    build: .
+    ports: ['127.0.0.1:4173:4173']
     environment:
       HOST: 0.0.0.0
-      PORT: "4173"
+      PORT: '4173'
       APP_BASE_PATH: /apps/houston-i-love-kroger/
-      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-https://groceries.example}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:4173}
+      KROGER_CLIENT_ID: ${KROGER_CLIENT_ID:-}
+      KROGER_CLIENT_SECRET: ${KROGER_CLIENT_SECRET:-}
+      KROGER_ENVIRONMENT: ${KROGER_ENVIRONMENT:-production}
+      PROMOTION_SERVICE_URL: http://promotions:4174
+      PROMOTION_SERVICE_TOKEN: ${PROMOTION_SERVICE_TOKEN:?Generate a private promotion service token in .env first}
+      KROGER_CART_ENABLED: ${KROGER_CART_ENABLED:-false}
+      KROGER_CART_GRANTED: ${KROGER_CART_GRANTED:-false}
+      KROGER_CART_REDIRECT_URI: ${KROGER_CART_REDIRECT_URI:-}
+    depends_on:
+      promotions: {condition: service_healthy}
+    restart: unless-stopped
+
+  promotions:
+    <<: *runtime
+    command: [node, src/promotion-server.js]
+    environment:
+      PROMOTION_SERVICE_HOST: 0.0.0.0
+      PROMOTION_SERVICE_PORT: '4174'
+      PROMOTION_MAX_AGE_SECONDS: ${PROMOTION_MAX_AGE_SECONDS:-86400}
+      PROMOTION_SERVICE_TOKEN: ${PROMOTION_SERVICE_TOKEN:?Generate a private promotion service token in .env first}
       HISTORY_DB_PATH: /data/history.sqlite
-      KROGER_ENVIRONMENT: production
-      # This example deliberately serves setup guidance without supplier access.
-      KROGER_CLIENT_ID: ""
-      KROGER_CLIENT_SECRET: ""
+    volumes: [promotions-data:/data]
+    healthcheck:
+      test: [CMD, node, --input-type=module, -e, "const r=await fetch('http://127.0.0.1:4174/healthz',{signal:AbortSignal.timeout(3000)});if(!r.ok||(await r.json()).ok!==true)process.exit(1)"]
+      interval: 10s
+      timeout: 4s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # Explicit operator action only; never started by ordinary compose up.
+  # Configure actual reviewed source rights before running this profile.
+  collector:
+    <<: *runtime
+    profiles: [operator]
+    entrypoint: [node, scripts/collect-history.js]
+    command: [--plan, /operator/collection-plan.json, --once, --json, --no-input]
+    environment:
+      HISTORY_DB_PATH: /data/history.sqlite
+      KROGER_CLIENT_ID: ${KROGER_CLIENT_ID:-}
+      KROGER_CLIENT_SECRET: ${KROGER_CLIENT_SECRET:-}
+      KROGER_ENVIRONMENT: ${KROGER_ENVIRONMENT:-production}
     volumes:
-      - history:/data
-    networks:
-      - gateway
-    # No ports are published. A reverse proxy on this network is the public edge.
-    cpus: ${APP_CPUS:-0.5}
-    mem_limit: ${APP_MEMORY:-256m}
-    pids_limit: ${APP_PIDS:-64}
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    stop_grace_period: 20s
-    restart: "on-failure:5"
-    logging:
-      driver: local
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - promotions-data:/data
+      - type: bind
+        source: ./config
+        target: /operator
+        read_only: true
+    healthcheck: {disable: true}
+    restart: 'no'
 
 volumes:
-  history:
-
-networks:
-  gateway:
-    external: true
-    name: ${GATEWAY_NETWORK:-app-gateway}
+  promotions-data:

@@ -1,4 +1,6 @@
-import { orderOffers } from './ordering.js';
+import { orderProducts } from './ordering.js';
+import { addBasketItem, setBasketQuantity, estimateBasket, groupBasketByAisle, productKey, reportedAisles, cartItems } from './basket.js';
+import { currentCents, filterProducts, declarationsFor, productDeclarations, validKrogerLink, productImage, exclusionText, historicalPrice, reportedProductDetails } from './catalog.js';
 
 const byId = id => document.getElementById(id);
 const ui = Object.fromEntries([
@@ -10,14 +12,25 @@ const ui = Object.fromEntries([
   'search-error', 'deal-status', 'cancel-deals', 'results-region', 'result-count',
   'retrieved-at', 'sort-order', 'sample-coverage', 'query-coverage', 'empty-results',
   'offers-list', 'excluded-summary', 'history-title', 'history-message',
+  'store-details', 'store-details-content', 'product-view', 'snap-filter-field', 'snap-filter',
+  'declaration-filter-field', 'declaration-filter', 'empty-results-title', 'empty-results-message',
+  'list-count', 'basket-store', 'clear-basket', 'basket-status', 'basket-empty', 'basket-content',
+  'basket-total-label', 'basket-total', 'basket-unresolved', 'group-aisles', 'basket-lines',
+  'cart-panel', 'cart-status', 'cart-list-note', 'connect-cart', 'cart-signin', 'add-cart', 'refresh-cart',
+  'disconnect-cart', 'cart-unknown', 'history-store', 'history-form', 'history-term',
+  'history-product-id', 'search-history', 'history-search-status', 'cancel-history',
+  'history-coverage', 'history-results', 'more-history', 'history-detail',
+  'history-detail-title', 'history-detail-content',
 ].map(id => [id, byId(id)]));
 
 // Current-visit state only. Inputs never enter a URL or browser storage.
 const state = {
   alive: true, connection: 'checking', configured: false, environment: null,
   dataSource: null, selectedStore: null, stores: [], results: null,
-  requests: { connection: null, stores: null, deals: null },
-  sequence: { connection: 0, stores: 0, deals: 0 },
+  basket: [], cart: null, cartUncertain: false, cartAcknowledged: false,
+  history: null, historyQuery: null, historyCursor: null,
+  requests: { connection: null, stores: null, deals: null, history: null, detail: null, cart: null },
+  sequence: { connection: 0, stores: 0, deals: 0, history: 0, detail: 0, cart: 0 },
 };
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const percent = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -37,7 +50,7 @@ const errorMessages = {
   invalid_zip: 'Enter a five-digit US ZIP code, then search again.',
   invalid_store: 'Choose a store from a new store search, then try again.',
   invalid_search: 'Use 3–80 characters and no more than eight words, or leave the search blank for the starter sample.',
-  setup_required: 'This installation needs a Kroger API connection. Ask its operator to finish setup.',
+  setup_required: 'Store searches aren’t ready yet. Try again later.',
   connection_rejected: 'The Kroger connection was rejected. Ask this installation’s operator to check its API settings.',
   permission_denied: 'Kroger did not allow this search. Ask the operator to check API permissions.',
   busy: 'This installation is busy. Wait a moment before searching again.',
@@ -52,6 +65,20 @@ const errorMessages = {
   connection_failed: 'This installation could not be reached. Check your connection and try again.',
   timed_out: 'The search took too long. Try again shortly.',
   invalid_response: 'The result could not be read. Try again or ask the operator to check this installation.',
+  invalid_history_search: 'Use product words or a product ID with the supported length, then search again.',
+  history_unavailable: 'Collected history could not be reached. Current prices are still available; try history again later.',
+  promotion_service_unavailable: 'The collected-history service could not be reached. Current grocery prices remain available. Try history again later.',
+  invalid_promotion_search: 'Check the product words or exact product ID, then search history again.',
+  cart_disabled: 'Cart access is not enabled on this installation. Your visit-only shopping list is still available.',
+  cart_setup_required: 'Cart connection isn’t available right now. You can keep using your shopping list.',
+  cart_authorization_required: 'Sign in at Kroger to connect your cart.',
+  cart_authorization_failed: 'Kroger cart sign-in could not be completed. Check the connection, then sign in again.',
+  cart_write_outcome_unknown: 'Kroger may have received the add request. Check your cart at Kroger before adding again.',
+  cart_session_required: 'Check the cart connection, then sign in at Kroger again.',
+  cart_rejected: 'Kroger rejected this cart request. Check the connection and review your cart at Kroger.',
+  cart_busy: 'A cart request is already underway. Wait for its result before continuing.',
+  cart_csrf_invalid: 'The cart connection changed. Check the connection before trying again.',
+  invalid_cart_items: 'Cart items need a reported 13-digit UPC and a whole-number quantity from 1 to 99.',
 };
 
 function describeError(error) {
@@ -94,9 +121,16 @@ function updateControls() {
   ui['search-term'].disabled = !ready || !state.selectedStore;
   ui['search-deals'].disabled = !ready || !state.selectedStore || Boolean(state.requests.deals);
   ui['cancel-deals'].hidden = !state.requests.deals;
-  ui['sort-order'].disabled = !state.results || state.results.offers.length < 2;
+  ui['sort-order'].disabled = !state.results || state.results.products.length < 2;
+  ui['history-term'].disabled = !state.alive || !state.selectedStore;
+  ui['history-product-id'].disabled = !state.alive || !state.selectedStore;
+  ui['search-history'].disabled = !state.alive || !state.selectedStore || Boolean(state.requests.history);
+  ui['cancel-history'].hidden = !state.requests.history && !state.requests.detail;
+  ui['more-history'].disabled = Boolean(state.requests.history);
+  ui['history-form'].setAttribute('aria-busy', String(Boolean(state.requests.history)));
   ui['store-form'].setAttribute('aria-busy', String(Boolean(state.requests.stores)));
   ui['deal-form'].setAttribute('aria-busy', String(Boolean(state.requests.deals)));
+  updateCartControls();
 }
 
 function setDataBanner(dataSource = state.dataSource) {
@@ -112,7 +146,7 @@ function setDataBanner(dataSource = state.dataSource) {
   }
 }
 
-async function request(kind, path, body) {
+async function request(kind, path, body, { credentials = 'omit' } = {}) {
   abortRequest(kind);
   const sequence = state.sequence[kind];
   const controller = new AbortController();
@@ -127,7 +161,7 @@ async function request(kind, path, body) {
         Accept: 'application/json', 'Content-Type': 'application/json',
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      signal: controller.signal, cache: 'no-store', credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer',
+      signal: controller.signal, cache: 'no-store', credentials, redirect: 'error', referrerPolicy: 'no-referrer',
     });
     if (!response.headers.get('content-type')?.toLowerCase().includes('application/json')) {
       throw new SearchError('invalid_response');
@@ -161,7 +195,7 @@ async function checkConnection() {
   ui['connection-notice'].hidden = false;
   ui['connection-notice'].classList.remove('notice-error');
   ui['connection-title'].textContent = 'Checking the store connection…';
-  ui['connection-message'].textContent = 'Search will be available when this installation is ready.';
+  ui['connection-message'].textContent = 'Getting ready to find stores and prices.';
   ui['retry-connection'].hidden = true;
   updateControls();
   try {
@@ -173,14 +207,15 @@ async function checkConnection() {
     state.configured = payload.configured;
     state.environment = payload.environment;
     state.dataSource = payload.dataSource;
+    if (payload.cart) state.cart = payload.cart;
     setDataBanner();
     if (state.configured) {
       state.connection = 'ready';
       ui['connection-notice'].hidden = true;
     } else {
       state.connection = 'setup';
-      ui['connection-title'].textContent = 'This installation needs a Kroger connection.';
-      ui['connection-message'].textContent = 'The operator must finish API setup before stores or prices can be loaded. No sample shopping offers are substituted.';
+      ui['connection-title'].textContent = 'Store searches aren’t ready yet.';
+      ui['connection-message'].textContent = 'Stores and prices can’t be loaded here yet. If you run this site, follow the project’s setup guide.';
       ui['retry-connection'].hidden = false;
     }
   } catch (error) {
@@ -200,14 +235,25 @@ function clearResults() {
   ui['offers-list'].replaceChildren();
   for (const id of ['result-count', 'retrieved-at', 'sample-coverage', 'query-coverage', 'excluded-summary']) ui[id].textContent = '';
   ui['sort-order'].value = 'savings';
+  ui['snap-filter'].value = 'all';
+  ui['declaration-filter'].replaceChildren(element('option', '', 'Any declaration'));
+  ui['declaration-filter'].firstElementChild.value = '';
+  ui['snap-filter-field'].hidden = true;
+  ui['declaration-filter-field'].hidden = true;
 }
 
 function clearSelection() {
   abortRequest('deals');
+  clearHistory();
   state.selectedStore = null;
+  state.basket = [];
+  state.cartAcknowledged = false;
   clearResults();
   ui['selected-store'].hidden = true;
   ui['deal-form'].hidden = true;
+  ui['store-details'].hidden = true;
+  ui['store-details'].open = false;
+  ui['store-details-content'].replaceChildren();
   ui['initial-state'].hidden = false;
   ui['deals-title'].textContent = 'What’s worth a look.';
   for (const id of ['selected-store-name', 'selected-store-address', 'selected-store-id']) ui[id].textContent = '';
@@ -215,6 +261,7 @@ function clearSelection() {
   ui['search-error'].textContent = '';
   ui['search-term'].removeAttribute('aria-invalid');
   setStatus('deal');
+  renderBasket();
   updateControls();
 }
 
@@ -229,7 +276,7 @@ function validStores(stores) {
   return Array.isArray(stores) && stores.length <= 10 && stores.every(store =>
     typeof store?.locationId === 'string' && /^[a-zA-Z0-9]{8}$/.test(store.locationId) &&
     typeof store.name === 'string' && store.address && typeof store.address === 'object' &&
-    Object.values(store.address).every(value => typeof value === 'string'));
+    Object.values(store.address).every(value => value === null || typeof value === 'string'));
 }
 
 function renderStores() {
@@ -239,12 +286,11 @@ function renderStores() {
     const card = element('article', 'store-card');
     const selected = state.selectedStore?.locationId === store.locationId;
     card.classList.toggle('is-selected', selected);
-    card.append(element('h4', '', store.name), element('p', '', storeAddress(store)),
-      element('p', 'store-id', `Store ID: ${store.locationId}`));
+    card.append(element('h4', '', store.name), element('p', '', storeAddress(store)));
     const button = element('button', 'button button-secondary', selected ? 'Selected store' : 'Choose this store');
     button.type = 'button';
     button.disabled = selected;
-    button.setAttribute('aria-label', `${selected ? 'Selected' : 'Choose'} ${store.name}, ${storeAddress(store)}, store ID ${store.locationId}`);
+    button.setAttribute('aria-label', `${selected ? 'Selected' : 'Choose'} ${store.name}, ${storeAddress(store)}`);
     button.addEventListener('click', () => selectStore(store));
     card.append(button);
     item.append(card);
@@ -258,10 +304,14 @@ function selectStore(store) {
   ui['initial-state'].hidden = true;
   ui['selected-store'].hidden = false;
   ui['deal-form'].hidden = false;
-  ui['deals-title'].textContent = 'Promotions at your store.';
+  ui['store-details'].hidden = false;
+  renderStoreDetails(store);
+  ui['deals-title'].textContent = 'Groceries at your store.';
   ui['selected-store-name'].textContent = store.name;
   ui['selected-store-address'].textContent = storeAddress(store);
-  ui['selected-store-id'].textContent = `Store ID: ${store.locationId}`;
+  ui['selected-store-id'].textContent = `Store reference for an assistant: ${store.locationId}`;
+  ui['history-store'].textContent = `Past prices at ${store.name}. Search a grocery or brand, or leave the search blank to browse.`;
+  renderBasket();
   renderStores();
   updateControls();
   ui['deals-title'].focus();
@@ -308,15 +358,15 @@ async function searchStores(event) {
   }
 }
 
-function validOffers(payload) {
+function validProducts(payload) {
   return payload.scope?.locationId === state.selectedStore?.locationId &&
     ['sample', 'search'].includes(payload.scope?.mode) &&
     Array.isArray(payload.scope.topics) && payload.scope.topics.every(topic => typeof topic === 'string') &&
-    Array.isArray(payload.offers) && payload.offers.length <= 500 &&
-    payload.offers.every(offer => typeof offer?.source?.description === 'string' &&
-      Number.isFinite(offer.source.price?.regular) && Number.isFinite(offer.source.price?.promo) &&
-      offer.source.price.promo > 0 && offer.source.price.regular > offer.source.price.promo &&
-      Number.isFinite(offer.calculated?.savingsCents) && Number.isFinite(offer.calculated?.percentOff));
+    Array.isArray(payload.products) && payload.products.length <= 500 &&
+    payload.products.every(product => typeof product?.source?.description === 'string' &&
+      ['promotion', 'regular_only', 'unqualified_promotion'].includes(product.pricing?.status) &&
+      currentCents(product) !== null && (product.pricing.status !== 'promotion' ||
+        (Number.isFinite(product.calculated?.savingsCents) && Number.isFinite(product.calculated?.percentOff))));
 }
 
 async function loadDeals() {
@@ -332,17 +382,23 @@ async function loadDeals() {
   clearResults();
   ui['search-error'].textContent = '';
   ui['search-term'].removeAttribute('aria-invalid');
-  setStatus('deal', term ? 'Looking for qualifying promotions for this search…' : 'Loading a starter promotion sample for this store…');
+  setStatus('deal', term ? 'Looking for reported grocery prices for this search…' : 'Loading a starter grocery sample for this store…');
   const locationId = state.selectedStore.locationId;
   try {
-    const payload = await request('deals', './api/v1/deals/search', { locationId, ...(term ? { term } : {}) });
+    const payload = await request('deals', './api/v1/products/search', { locationId, includeAll: true, ...(term ? { term } : {}) });
     if (!payload) return;
-    if (!validOffers(payload)) throw new SearchError('invalid_response');
+    if (!validProducts(payload)) throw new SearchError('invalid_response');
     state.results = payload;
+    const declarations = declarationsFor(payload.products);
+    ui['declaration-filter'].replaceChildren(...['', ...declarations].map(value => {
+      const option = element('option', '', value || 'Any declaration'); option.value = value; return option;
+    }));
+    ui['declaration-filter-field'].hidden = declarations.length === 0;
+    ui['snap-filter-field'].hidden = !payload.products.some(product => typeof product.source.snapEligible === 'boolean');
     setDataBanner(payload.dataSource);
     ui['results-region'].hidden = false;
     renderResults();
-    setStatus('deal', `${payload.offers.length} qualifying ${payload.offers.length === 1 ? 'promotion' : 'promotions'} loaded for the selected store.`);
+    setStatus('deal', `${payload.products.length} priced ${payload.products.length === 1 ? 'product' : 'products'} loaded for the selected store.`);
   } catch (error) {
     setStatus('deal', describeError(error), true);
   }
@@ -387,6 +443,7 @@ function appendHistory(target, history) {
   if (history?.reason === 'no_authorized_source') message = 'Historical promo comparison unavailable — no authorized historical promotion source is connected.';
   if (history?.reason === 'history_read_failed') message = 'Historical promo comparison unavailable — stored history could not be read. Past prices remain unknown.';
   if (history?.reason === 'history_environment_mismatch') message = 'Historical promo comparison unavailable in the certification environment. These sandbox prices have no matching production-history comparison.';
+  if (history?.reason === 'current_promotion_unqualified') message = 'There isn’t a qualifying sale price to compare. You can look up earlier prices under Past prices.';
   if (status === 'permission_required') message = 'Historical promo comparison unavailable — collection requires the operator’s data-source permission.';
   if (['no_observations', 'empty'].includes(status)) message = 'Historical promo comparison: no observations have been collected for this item and store.';
   if (['one_observation', 'insufficient_history'].includes(status)) message = 'Historical promo comparison: one comparable prior promotion has been collected. One observation does not establish a trend.';
@@ -420,66 +477,130 @@ function appendHistory(target, history) {
 
 function renderOffer(offer, index) {
   const source = offer.source;
+  const promoted = offer.pricing.status === 'promotion';
   const item = element('li');
   const article = element('article', 'offer');
   const details = element('div', 'offer-product');
+  const photo = element('div', 'product-photo');
+  const imageUrl = productImage(offer);
+  const fallback = element('span', 'image-fallback', 'Image not supplied');
+  if (imageUrl) {
+    const image = element('img');
+    image.alt = source.description;
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    image.referrerPolicy = 'no-referrer';
+    image.src = imageUrl;
+    image.addEventListener('error', () => { image.remove(); photo.append(element('span', 'image-fallback', 'Image unavailable')); }, { once: true });
+    photo.append(image);
+  } else photo.append(fallback);
   const kicker = element('p', 'offer-kicker');
   kicker.append(element('span', 'offer-index', String(index + 1).padStart(2, '0')),
-    element('span', '', 'Reported promotion'));
+    element('span', '', promoted ? 'Reported promotion' : 'Reported price'));
   details.append(kicker, element('h4', '', source.description));
   if (source.size) details.append(element('p', 'offer-size', source.size));
   if (source.brand) details.append(element('p', 'offer-size', `Brand: ${source.brand}`));
+  if (source.stockLevel === 'LOW' || source.stockLevel === 'HIGH') details.append(element('p', 'offer-size', `Stock reported ${source.stockLevel === 'LOW' ? 'low' : 'high'} · check with your store`));
 
   const prices = element('div', 'offer-price-block');
   const pair = element('div');
-  pair.append(element('p', 'promo-label', 'Promo price'), element('strong', 'promo-price', money.format(source.price.promo)),
-    element('p', 'regular-price', `Regular ${money.format(source.price.regular)}`));
-  prices.append(pair, element('span', 'savings-badge', `Save ${money.format(offer.calculated.savingsCents / 100)} · ${percent.format(offer.calculated.percentOff)}%`));
+  pair.append(element('p', 'promo-label', promoted ? 'Promo price' : offer.pricing.regularCents === null ? 'Reported price' : 'Regular price'),
+    element('strong', 'promo-price', money.format(offer.pricing.currentCents / 100)));
+  if (promoted) pair.append(element('p', 'regular-price', `Regular ${money.format(offer.pricing.regularCents / 100)}`));
+  prices.append(pair);
+  if (promoted) prices.append(element('span', 'savings-badge', `Save ${money.format(offer.calculated.savingsCents / 100)} · ${percent.format(offer.calculated.percentOff)}%`));
+  else prices.append(element('p', 'field-hint', {
+    no_reported_promotion: 'No promotion reported.',
+    unsupported_price: 'A reported promotion price could not be used; regular price shown.',
+    not_discounted: 'No lower promotion price reported.',
+    unqualified_dates: 'The reported promotion dates could not be qualified; regular price shown.',
+    missing_regular_price: 'Regular price unavailable; confirm this reported price with Kroger.',
+  }[offer.pricing.reason] || 'No qualifying promotion.'));
 
-  const facts = element('div', 'offer-details');
+  const facts = element('details', 'offer-details');
+  facts.append(element('summary', '', 'Price and product details'));
   appendUnitComparison(facts, offer);
-  appendHistory(facts, offer.history ?? state.results.history);
+  if (promoted && !['unavailable', 'permission_required'].includes(offer.history?.status)) appendHistory(facts, offer.history);
   const stock = { HIGH: 'Stock reported: high', LOW: 'Stock reported: low', TEMPORARILY_OUT_OF_STOCK: 'Reported temporarily out of stock' }[source.stockLevel]
     || (source.stockLevel ? `Stock reported: ${source.stockLevel} (unrecognized level)` : 'Stock level not supplied');
   const factLine = element('p', 'offer-facts');
-  factLine.append(element('span', '', `${stock} · availability not guaranteed`), element('span', '', 'Savings calculated from current regular price'));
+  factLine.append(element('span', '', `${stock} · availability not guaranteed`));
+  if (promoted) factLine.append(element('span', '', 'Savings calculated from current regular price'));
   if (source.soldBy) factLine.append(element('span', '', `Sold by: ${source.soldBy}`));
   facts.append(factLine);
-  const identifiers = [`Product ID: ${source.productId || 'not supplied'}`, `Item ID: ${source.itemId || 'not supplied'}`];
-  facts.append(element('p', 'source-identifiers', identifiers.join(' · ')));
-  const dates = [priceDate('Effective', source.price.effectiveDate), priceDate('Expires', source.price.expirationDate)].filter(Boolean);
+  const aisles = reportedAisles(offer);
+  facts.append(element('p', 'unit-line', aisles.length ? `Kroger-reported location: ${aisles.join('; ')}` : 'Aisle location not reported.'));
+  facts.append(element('p', 'unit-line', `Kroger-reported SNAP eligibility: ${typeof source.snapEligible === 'boolean' ? source.snapEligible ? 'eligible' : 'not eligible' : 'not supplied'}.`));
+  const declarations = productDeclarations(offer);
+  if (declarations.length) {
+    facts.append(element('p', 'unit-line', `Kroger-reported declarations and claims: ${declarations.join('; ')}. Check the package for ingredients and allergens.`));
+  }
+  const reported = reportedProductDetails(offer);
+  if (reported.length) {
+    const disclosure = element('div', 'reported-details');
+    disclosure.append(element('h5', '', 'More about this product'));
+    const list = element('ul');
+    for (const line of reported) list.append(element('li', 'unit-line', line));
+    disclosure.append(list, element('p', 'field-hint', 'These are Kroger-reported facts and may be incomplete. Missing allergens or ingredients do not mean a product is safe for a particular diet. Check the package before buying or eating.'));
+    facts.append(disclosure);
+  }
+  const dates = [priceDate('Reported effective', source.price?.effectiveDate), priceDate('Reported expiration', source.price?.expirationDate)].filter(Boolean);
   if (dates.length) facts.append(element('p', 'offer-dates', dates.join(' · ')));
-  else facts.append(element('p', 'offer-dates', 'Promotion dates not supplied. Confirm the offer with your store.'));
-  article.append(details, prices, facts);
+  else if (promoted) facts.append(element('p', 'offer-dates', 'Promotion dates not supplied. Confirm the offer with your store.'));
+  const actions = element('div', 'product-actions');
+  const add = element('button', 'button button-secondary', 'Add to shopping list');
+  add.type = 'button';
+  add.setAttribute('aria-label', `Add ${source.description} to shopping list`);
+  add.disabled = productKey(offer) === null;
+  add.addEventListener('click', () => {
+    try {
+      state.basket = addBasketItem(state.basket, offer, state.selectedStore.locationId, state.results.retrievedAt);
+      state.cartAcknowledged = false;
+      renderBasket();
+      ui['basket-status'].textContent = `${source.description} added to your shopping list.`;
+      setStatus('deal', `${source.description} added to your shopping list. Choose quantities in Your shopping list below.`);
+    } catch (error) {
+      setStatus('deal', error.message === 'quantity_limit' ? 'This product is already at the list limit of 99.' : 'This list has reached its limit. Remove a line before adding another product.', true);
+    }
+  });
+  actions.append(add);
+  if (add.disabled) actions.append(element('p', 'field-hint', 'A stable product and item identity was not reported, so this result cannot be kept in the list.'));
+  const productUrl = validKrogerLink(source.productUrl);
+  if (productUrl) {
+    const link = element('a', 'external-link', 'View product at Kroger ↗');
+    link.href = productUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    link.setAttribute('aria-label', `View ${source.description} at Kroger (opens a new tab)`);
+    actions.append(link);
+  }
+  article.append(photo, details, prices, facts, actions);
   item.append(article);
   return item;
 }
 
 function renderHistorySummary(history) {
   const status = history?.status;
-  let title = 'Historical comparison unavailable';
-  let message = 'Historical promotion prices are unavailable. Today’s regular price is not a previous promotion price.';
-  if (history?.reason === 'no_authorized_source') message = 'No authorized historical promotion source is connected. Today’s regular price is not a previous promotion price.';
+  let title = 'Price history is unavailable.';
+  let message = 'We can’t compare these prices with past sales yet. Savings shown above compare today’s regular and sale prices.';
   if (history?.reason === 'history_read_failed') {
-    title = 'Stored history could not be read';
-    message = 'Current-price results are still shown. This failure does not establish that the item has no past observations. Try again later or contact the operator.';
+    title = 'Past prices couldn’t be loaded.';
+    message = 'You can still browse today’s prices. Try past prices again later.';
   }
   if (history?.reason === 'history_environment_mismatch') {
-    title = 'History unavailable for sandbox prices';
-    message = 'This installation is using Kroger’s certification environment. Its sandbox prices are not compared with production-history observations.';
+    title = 'These are test prices.';
+    message = 'Past shopping prices aren’t compared with test results.';
   }
   if (['no_observations', 'empty'].includes(status)) {
-    title = 'Price history is starting fresh';
-    message = 'No observations have been collected yet. Historical comparisons will need dated, comparable observations for this same store and item.';
+    title = 'No matching past prices yet.';
+    message = 'We haven’t saved matching past prices for these items at your store. That doesn’t mean they’ve never been on sale.';
   } else if (['one_observation', 'insufficient_history'].includes(status)) {
-    title = 'One prior promotion is not a trend';
-    message = 'One prior observation can support a qualified price difference, but it does not establish a trend. Read each item’s history and limits above.';
+    title = 'One past sale is available.';
+    message = 'You can compare with that sale, but one price isn’t enough to show a trend.';
   } else if (status === 'permission_required') {
-    title = 'Historical collection needs source permission';
-    message = 'The database starts empty. The operator needs permission to retain data from a source before collection can begin. Searches do not populate history.';
+    title = 'Price history isn’t available here yet.';
+    message = 'You can browse today’s prices, but we can’t compare them with past sales. Your searches don’t save price history.';
   } else if (['available', 'ready', 'comparable'].includes(status)) {
-    title = 'History covers collected observations';
-    message = 'Available item comparisons are shown above with dates and source names. An empty or incompatible item history stays marked. A collected low is limited to retained prior observations.';
+    title = 'Compare with past prices.';
+    message = 'Open an item’s price details to see available past prices and dates. They cover saved prices, not every sale the store has had.';
   }
   ui['history-title'].textContent = title;
   ui['history-message'].textContent = message;
@@ -488,30 +609,395 @@ function renderHistorySummary(history) {
 function renderResults() {
   const payload = state.results;
   if (!payload) return;
-  const offers = orderOffers(payload.offers, ui['sort-order'].value);
+  const offers = orderProducts(filterProducts(payload.products, {
+    view: ui['product-view'].value, snap: ui['snap-filter'].value, declaration: ui['declaration-filter'].value,
+  }), ui['sort-order'].value);
   const count = offers.length;
-  ui['result-count'].textContent = `${count} qualifying ${count === 1 ? 'promotion' : 'promotions'}`;
+  const promoted = ui['product-view'].value === 'promotions';
+  ui['result-count'].textContent = `${count} ${promoted ? 'promotions' : 'products'}${count !== payload.products.length ? ` of ${payload.products.length} priced products` : ''}`;
   const retrieved = readableDate(payload.retrievedAt);
-  ui['retrieved-at'].textContent = retrieved ? `Retrieved ${retrieved}` : 'Retrieval time not supplied.';
+  ui['retrieved-at'].textContent = retrieved ? `Checked ${retrieved}` : 'Price check time unavailable.';
   const sample = payload.scope.mode === 'sample';
   const topics = payload.scope.topics.join(', ');
-  const limit = Number.isInteger(payload.scope.productLimit) ? ` Up to ${payload.scope.productLimit} products total` : ' A limited number of products';
-  const perQuery = Number.isInteger(payload.scope.perQueryLimit) ? `, at most ${payload.scope.perQueryLimit} per topic.` : '.';
-  ui['sample-coverage'].textContent = `${sample ? 'Starter sample' : 'Product search'} — queried topics: ${topics}.${limit}${perQuery}`;
-  ui['query-coverage'].textContent = 'In-store API results only. This is not a complete promotion list, digital coupon feed or full weekly ad. Rankings apply only to the returned qualifying items.';
+  const limit = Number.isInteger(payload.scope.productLimit) ? ` up to ${payload.scope.productLimit} products` : ' a limited selection';
+  ui['sample-coverage'].textContent = `${sample ? 'A starter selection of' : 'Results for'} ${topics}, covering${limit}.`;
+  ui['query-coverage'].textContent = 'Sorted within these results. Compare package sizes as well as prices.';
   ui['empty-results'].hidden = count !== 0;
+  ui['empty-results-title'].textContent = promoted ? 'No qualifying promotions match this view.' : 'No priced products match this view.';
   ui['offers-list'].replaceChildren(...offers.map(renderOffer));
-  const summary = payload.summary || {};
-  const excluded = [
-    ['unpriced', 'missing usable prices'], ['notDiscounted', 'no lower promo price'],
-    ['unqualifiedDates', 'unqualified promotion dates'], ['outOfStock', 'reported out of stock'],
-    ['duplicateItems', 'duplicates'], ['conflictingItems', 'conflicting prices'],
-    ['incompleteProducts', 'incomplete products'], ['notInStore', 'not available in store'],
-  ].filter(([key]) => Number.isInteger(summary[key]) && summary[key] > 0)
-    .map(([key, label]) => `${summary[key]} ${label}`);
-  ui['excluded-summary'].textContent = `${Number.isInteger(summary.products) ? `${summary.products} returned products examined. ` : ''}${excluded.length ? `Excluded item counts: ${excluded.join('; ')}.` : ''}`;
+  ui['excluded-summary'].textContent = exclusionText(payload.summary);
   renderHistorySummary(payload.history);
   updateControls();
+}
+
+function appendHours(target, hours, heading = 'Reported hours') {
+  target.append(element('h4', '', heading));
+  if (!hours || typeof hours !== 'object') {
+    target.append(element('p', 'field-hint', 'Hours not supplied. Check with the store, including holidays.'));
+    return;
+  }
+  const format = value => value?.open24 === true || value?.Open24 === true ? '24 hours' :
+    typeof value?.open === 'string' && typeof value?.close === 'string' ? `${value.open}–${value.close}` : 'Not supplied';
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const reportedDays = days.filter(day => hours[day] && typeof hours[day] === 'object');
+  if (reportedDays.length) {
+    const list = element('dl', 'hours-list');
+    for (const day of reportedDays) list.append(element('dt', '', day[0].toUpperCase() + day.slice(1)), element('dd', '', format(hours[day])));
+    target.append(list);
+  } else target.append(element('p', 'field-hint', format(hours)));
+}
+
+function renderStoreDetails(store) {
+  const target = ui['store-details-content'];
+  target.replaceChildren();
+  target.append(element('p', 'field-hint', `Kroger-reported details for ${store.name}. Hours and department availability can change; confirm holiday hours with the store.`));
+  const timezone = typeof store.timezone === 'string' ? store.timezone : store.timezone?.timezone || store.hours?.timezone;
+  target.append(element('p', 'field-hint', `Store timezone: ${timezone || 'not supplied'}.`));
+  if (store.phone) target.append(element('p', 'field-hint', `Store phone: ${store.phone}`));
+  else target.append(element('p', 'field-hint', 'Store phone not supplied.'));
+  appendHours(target, store.hours);
+  target.append(element('h4', '', 'Reported departments'));
+  if (Array.isArray(store.departments) && store.departments.length) {
+    const list = element('ul', 'department-list');
+    for (const department of store.departments) {
+      const item = element('li');
+      item.append(element('strong', '', department.name || `Department ${department.departmentId || '(name not supplied)'}`));
+      if (department.phone) item.append(element('p', 'field-hint', `Phone: ${department.phone}`));
+      if (department.hours) appendHours(item, department.hours, 'Department hours');
+      list.append(item);
+    }
+    target.append(list);
+  } else target.append(element('p', 'field-hint', 'Department details not supplied.'));
+}
+
+const listReasons = {
+  variable_measure: 'Variable weight or measure — final amount is unknown.',
+  unknown_measure: 'Sold-by basis not reported — this line cannot be estimated.',
+  unknown_price: 'Usable item price unavailable.', different_store: 'Price belongs to another store.',
+  invalid_quantity: 'Choose a whole-number quantity from 1 to 99.',
+};
+
+function renderBasketLine(line) {
+  const item = element('li', 'basket-line');
+  const facts = element('div', 'basket-line-facts');
+  const name = line.product.source.description;
+  facts.append(element('h4', '', name));
+  if (line.product.source.size) facts.append(element('p', 'field-hint', line.product.source.size));
+  facts.append(element('p', 'field-hint', line.aisles.length ? `Reported location: ${line.aisles.join('; ')}` : 'Aisle not reported.'));
+  const retrieved = readableDate(line.retrievedAt);
+  facts.append(element('p', 'field-hint', retrieved ? `Price snapshot: ${retrieved}.` : 'Price snapshot time not supplied.'));
+  const quantity = element('div', 'basket-quantity');
+  const input = element('input');
+  input.type = 'number'; input.min = '1'; input.max = '99'; input.step = '1'; input.value = String(line.quantity);
+  input.inputMode = 'numeric'; input.setAttribute('aria-label', `Quantity for ${name}`);
+  input.setAttribute('aria-describedby', 'basket-status');
+  const label = element('label', '', 'Quantity');
+  label.append(input);
+  input.addEventListener('change', () => {
+    const value = Number(input.value);
+    if (!input.value || !Number.isInteger(value) || value < 1 || value > 99) {
+      input.setAttribute('aria-invalid', 'true');
+      ui['basket-status'].textContent = 'Enter a whole-number quantity from 1 to 99. The previous quantity is still used in the estimate.';
+      return;
+    }
+    state.basket = setBasketQuantity(state.basket, line.key, value);
+    state.cartAcknowledged = false;
+    input.removeAttribute('aria-invalid');
+    const updated = estimateBasket(state.basket, state.selectedStore?.locationId);
+    renderBasketTotals(updated);
+    renderLineEstimate(estimate, updated.lines.find(entry => entry.key === line.key));
+    updateCartControls();
+    ui['basket-status'].textContent = `Quantity updated for ${name}.`;
+  });
+  input.dataset.lineKey = line.key;
+  const remove = element('button', 'text-button', 'Remove');
+  remove.type = 'button'; remove.setAttribute('aria-label', `Remove ${name} from shopping list`);
+  remove.addEventListener('click', () => {
+    state.basket = state.basket.filter(entry => entry.key !== line.key);
+    state.cartAcknowledged = false;
+    renderBasket();
+    ui['basket-status'].textContent = `${name} removed from your list.`;
+    byId('basket-title').focus();
+  });
+  quantity.append(label, remove);
+  const estimate = element('div', 'basket-line-estimate');
+  renderLineEstimate(estimate, line);
+  item.append(facts, quantity, estimate);
+  return item;
+}
+
+function renderLineEstimate(target, line) {
+  target.replaceChildren(element('strong', '', line.estimateCents === null ? 'Amount unresolved' : money.format(line.estimateCents / 100)),
+    element('p', 'field-hint', line.reason ? listReasons[line.reason] : `${money.format(line.product.pricing.currentCents / 100)} × ${line.quantity}`));
+}
+
+function renderBasketTotals(estimate) {
+  ui['list-count'].textContent = `(${state.basket.reduce((sum, line) => sum + line.quantity, 0)})`;
+  ui['basket-total-label'].textContent = estimate.complete ? 'Estimated item subtotal' : 'Estimated subtotal of resolved lines';
+  ui['basket-total'].textContent = money.format(estimate.knownSubtotalCents / 100);
+  ui['basket-unresolved'].textContent = estimate.unresolvedCount ? `${estimate.unresolvedCount} ${estimate.unresolvedCount === 1 ? 'line has' : 'lines have'} an unresolved amount and ${estimate.unresolvedCount === 1 ? 'is' : 'are'} excluded from this subtotal.` : 'All current list lines have a known unit-price estimate.';
+}
+
+function renderBasket() {
+  const store = state.selectedStore;
+  const estimate = estimateBasket(state.basket, store?.locationId);
+  renderBasketTotals(estimate);
+  ui['basket-store'].textContent = store ? `${store.name} · ${storeAddress(store)}` : 'Choose a store, then add groceries from its results.';
+  ui['basket-empty'].hidden = state.basket.length > 0;
+  ui['basket-content'].hidden = state.basket.length === 0;
+  ui['clear-basket'].hidden = state.basket.length === 0;
+  const groups = ui['group-aisles'].checked ? groupBasketByAisle(estimate.lines) : [{ aisle: undefined, entries: estimate.lines }];
+  ui['basket-lines'].replaceChildren(...groups.map(group => {
+    const section = element('div', 'aisle-group');
+    if (group.aisle !== undefined) section.append(element('h3', 'aisle-heading', group.aisle || 'Aisle not reported'));
+    const list = element('ul', 'basket-items');
+    list.append(...group.entries.map(renderBasketLine));
+    section.append(list); return section;
+  }));
+  updateCartControls();
+}
+
+function updateCartControls() {
+  const cart = state.cart;
+  ui['cart-panel'].hidden = cart?.status === 'disabled';
+  const pending = Boolean(state.requests.cart);
+  const uncertain = state.cartUncertain || cart?.status === 'write_outcome_unknown';
+  const eligible = cartItems(state.basket, state.selectedStore?.locationId);
+  ui['connect-cart'].hidden = !cart?.enabled || !cart?.configured || cart.connected || uncertain;
+  ui['connect-cart'].disabled = pending || !state.alive;
+  ui['disconnect-cart'].hidden = !cart?.connected && !cart?.csrfToken && !uncertain;
+  ui['disconnect-cart'].disabled = pending || !cart?.csrfToken || !state.alive;
+  ui['refresh-cart'].disabled = pending || !state.alive;
+  ui['add-cart'].hidden = !cart?.connected || uncertain;
+  ui['add-cart'].disabled = pending || !state.alive || !eligible.items.length || eligible.items.length > 50 || eligible.excludedCount > 0 || state.cartAcknowledged;
+  ui['cart-unknown'].hidden = !uncertain;
+  ui['cart-list-note'].textContent = !state.basket.length ? 'Add groceries to your shopping list before sending quantities to a connected Kroger cart.' :
+    eligible.excludedCount ? `${eligible.excludedCount} list ${eligible.excludedCount === 1 ? 'line cannot' : 'lines cannot'} be sent. Cart adds need a known unit amount, a reported 13-digit UPC, and no more than 99 total units for each UPC. Remove or adjust those lines before sending.` :
+    eligible.items.length > 50 ? 'Kroger cart adds are limited to 50 lines at a time. Reduce this list before adding.' :
+      state.cartAcknowledged ? 'Kroger acknowledged the last add. Review your cart there. Changing this list will enable another add of the full listed quantities.' :
+        'Each add sends the full listed quantities. Existing quantities in your Kroger cart can increase; this does not replace your cart.';
+}
+
+function describeCart(cart) {
+  if (state.cartUncertain || cart?.status === 'write_outcome_unknown') return errorMessages.cart_write_outcome_unknown;
+  return {
+    disabled: errorMessages.cart_disabled, setup_required: errorMessages.cart_setup_required,
+    authorization_required: errorMessages.cart_authorization_required,
+    authorization_failed: errorMessages.cart_authorization_failed,
+    connected: 'Your Kroger cart is connected. Only the explicit add button sends your list.',
+  }[cart?.status] || 'Cart connection status is unavailable. Check again before continuing.';
+}
+
+async function checkCart() {
+  ui['cart-status'].textContent = 'Checking cart connection…';
+  try {
+    const payload = await request('cart', './api/v1/cart/status', undefined, { credentials: 'same-origin' });
+    if (!payload) return;
+    if (!payload.cart || typeof payload.cart.status !== 'string') throw new SearchError('invalid_response');
+    state.cart = payload.cart;
+    if (state.cart.connected) {
+      ui['cart-signin'].hidden = true;
+      ui['cart-signin'].removeAttribute('href');
+    }
+    ui['cart-status'].textContent = describeCart(state.cart);
+  } catch (error) { ui['cart-status'].textContent = describeError(error); }
+  updateCartControls();
+}
+
+async function connectCart() {
+  ui['cart-status'].textContent = 'Preparing Kroger sign-in…';
+  state.cart = null;
+  ui['cart-signin'].hidden = true;
+  ui['cart-signin'].removeAttribute('href');
+  try {
+    const payload = await request('cart', './api/v1/cart/connect', {}, { credentials: 'same-origin' });
+    if (!payload) return;
+    // Connect rotates the browser session. Keep the matching CSRF value for
+    // disconnect/recovery rather than reusing the previous session's token.
+    state.cart = null;
+    if (!payload.cart || payload.cart.configured !== true || payload.cart.enabled !== true ||
+      payload.cart.connected !== false || payload.cart.status !== 'authorization_required' ||
+      !/^[A-Za-z0-9_-]{43}$/.test(payload.cart.csrfToken)) throw new SearchError('invalid_response');
+    state.cart = payload.cart;
+    const url = new URL(payload.authorizationUrl);
+    if (url.protocol !== 'https:' || url.hostname !== 'api.kroger.com' ||
+      url.pathname !== '/v1/connect/oauth2/authorize' || url.username || url.password || url.port) throw new SearchError('invalid_response');
+    ui['cart-signin'].href = url.href;
+    ui['cart-signin'].hidden = false;
+    ui['cart-signin'].focus();
+    ui['cart-status'].textContent = 'Continue to Kroger in the new tab, then return here and choose Check cart connection. Your shopping list stays in this page.';
+  } catch (error) { ui['cart-status'].textContent = describeError(error); }
+  updateCartControls();
+}
+
+async function disconnectCart() {
+  if (!state.cart?.csrfToken || state.requests.cart) return;
+  ui['cart-status'].textContent = 'Disconnecting the cart…';
+  try {
+    const payload = await request('cart', './api/v1/cart/disconnect', { csrfToken: state.cart.csrfToken }, { credentials: 'same-origin' });
+    if (!payload) return;
+    state.cart = payload.cart;
+    ui['cart-signin'].hidden = true;
+    ui['cart-signin'].removeAttribute('href');
+    state.cartUncertain = false;
+    state.cartAcknowledged = false;
+    ui['cart-status'].textContent = 'Cart disconnected. Any previous cart changes remain at Kroger. Check those changes there before reconnecting and adding again.';
+  } catch (error) { ui['cart-status'].textContent = describeError(error); }
+  updateCartControls();
+}
+
+async function addCart() {
+  if (ui['add-cart'].disabled || !state.cart?.csrfToken || state.requests.cart) return;
+  const eligible = cartItems(state.basket, state.selectedStore?.locationId);
+  if (eligible.excludedCount || !eligible.items.length || eligible.items.length > 50) return;
+  ui['cart-status'].textContent = 'Sending the listed quantities to your Kroger cart…';
+  try {
+    const payload = await request('cart', './api/v1/cart/add', { items: eligible.items, csrfToken: state.cart.csrfToken }, { credentials: 'same-origin' });
+    if (!payload) {
+      if (state.alive) state.cartUncertain = true;
+      return;
+    }
+    if (payload.acknowledged !== true || !payload.cart) throw new SearchError('invalid_response');
+    state.cart = payload.cart;
+    state.cartAcknowledged = true;
+    ui['cart-status'].textContent = 'Kroger acknowledged the add request. Review the actual items, quantities, store and prices in your Kroger cart; no order has been placed.';
+  } catch (error) {
+    const knownRejections = ['cart_disabled', 'cart_setup_required', 'cart_session_required', 'cart_authorization_required', 'cart_csrf_invalid', 'invalid_cart_items', 'origin_not_allowed', 'invalid_host'];
+    if (!knownRejections.includes(error.code)) state.cartUncertain = true;
+    ui['cart-status'].textContent = state.cartUncertain ? errorMessages.cart_write_outcome_unknown : describeError(error);
+  } finally { updateCartControls(); }
+}
+
+function clearHistory() {
+  abortRequest('history'); abortRequest('detail');
+  state.history = null; state.historyQuery = null; state.historyCursor = null;
+  ui['history-results'].replaceChildren();
+  ui['history-detail-content'].replaceChildren();
+  ui['history-detail'].hidden = true;
+  ui['history-term'].value = ''; ui['history-product-id'].value = '';
+  ui['history-coverage'].textContent = '';
+  ui['history-search-status'].textContent = 'Search your store’s past prices below.';
+  ui['history-store'].textContent = 'Choose a store above to look for past prices.';
+  ui['more-history'].hidden = true;
+}
+
+function historyScopeValid(payload) {
+  return payload?.locationId === state.selectedStore?.locationId && ['available', 'permission_required', 'not_found', 'unavailable'].includes(payload.status);
+}
+
+function historyUnavailableMessage(payload) {
+  if (payload.status === 'permission_required') return 'Price history isn’t available here yet. You can still browse today’s prices above.';
+  if (payload.reason === 'history_environment_mismatch') return 'Past shopping prices aren’t available with this test connection.';
+  if (payload.reason === 'promotion_service_not_configured') return 'Past prices aren’t available on this site yet.';
+  return 'Past prices couldn’t be loaded. Try again later; today’s prices are still available above.';
+}
+
+function observationSummary(observation) {
+  const date = readableDate(observation.observedAt) || 'Date unavailable';
+  const promoted = observation.promotionStatus === 'reported_promotion';
+  const price = historicalPrice(promoted ? observation.price?.promo : observation.price?.regular, observation.currency);
+  return `${date} · ${promoted ? 'Sale price' : 'Regular price'}: ${price} · ${observation.sourceLabel || 'Source unavailable'}`;
+}
+
+function renderHistoryRows(observations) {
+  return observations.map(observation => {
+    const item = element('li', 'history-result');
+    item.append(element('h3', '', observation.description || 'Product name unavailable'),
+      element('p', 'field-hint', observationSummary(observation)));
+    const button = element('button', 'text-button', 'See past price details');
+    button.type = 'button';
+    button.setAttribute('aria-label', `See past price details for ${observation.description || 'this product'}, ${readableDate(observation.observedAt) || 'date unknown'}`);
+    button.addEventListener('click', () => { void loadHistoryDetail(observation.observationId); });
+    item.append(button); return item;
+  });
+}
+
+async function searchHistory({ more = false } = {}) {
+  if (!state.selectedStore || state.requests.history) return;
+  let query;
+  if (more) {
+    if (!state.historyQuery || !state.historyCursor) return;
+    query = { ...state.historyQuery, cursor: state.historyCursor };
+  } else {
+    const term = ui['history-term'].value.trim();
+    const productId = ui['history-product-id'].value.trim();
+    if ((term && (term.length > 80 || /[\p{Cc}\p{Cf}]/u.test(term))) ||
+      (productId && (productId.length > 100 || /[\p{Cc}\p{Cf}]/u.test(productId)))) {
+      ui['history-search-status'].textContent = 'Try a shorter grocery or brand name, or check the product reference.';
+      return;
+    }
+    query = { locationId: state.selectedStore.locationId, ...(term ? { term } : {}), ...(productId ? { productId } : {}), limit: 20 };
+    state.historyQuery = query;
+    state.history = null;
+    state.historyCursor = null;
+    ui['history-results'].replaceChildren();
+    ui['history-detail'].hidden = true;
+    ui['history-detail-content'].replaceChildren();
+    abortRequest('detail');
+  }
+  ui['more-history'].hidden = true;
+  ui['history-search-status'].textContent = 'Looking for past prices at your store…';
+  try {
+    const payload = await request('history', './api/v1/promotions/search', query);
+    if (!payload) return;
+    if (!historyScopeValid(payload)) throw new SearchError('invalid_response');
+    if (payload.status === 'permission_required' || payload.status === 'unavailable') {
+      ui['history-results'].replaceChildren();
+      ui['history-coverage'].textContent = '';
+      ui['history-search-status'].textContent = historyUnavailableMessage(payload);
+      return;
+    }
+    if (!Array.isArray(payload.observations) || payload.observations.length > 50 ||
+      payload.observations.some(observation => typeof observation?.observationId !== 'string' || observation.locationId !== state.selectedStore.locationId)) throw new SearchError('invalid_response');
+    state.history = payload;
+    ui['history-coverage'].textContent = 'These are saved prices for your store, not a complete record of its sales.';
+    ui['history-results'].append(...renderHistoryRows(payload.observations));
+    state.historyCursor = typeof payload.page?.nextCursor === 'string' ? payload.page.nextCursor : null;
+    ui['more-history'].hidden = !state.historyCursor;
+    const count = ui['history-results'].children.length;
+    ui['history-search-status'].textContent = count ? `${count} past ${count === 1 ? 'price' : 'prices'} found.${payload.page?.truncated ? ' Choose Show more past prices to see the next page.' : ''}` : 'No matching past prices were found. Try another grocery or brand. This doesn’t mean the item has never been on sale.';
+  } catch (error) { ui['history-search-status'].textContent = describeError(error); }
+  updateControls();
+}
+
+async function loadHistoryDetail(observationId) {
+  if (!state.selectedStore || typeof observationId !== 'string') return;
+  ui['history-search-status'].textContent = 'Loading past price details…';
+  ui['history-detail'].hidden = true;
+  ui['history-detail-content'].replaceChildren();
+  try {
+    const payload = await request('detail', './api/v1/promotions/retrieve', { locationId: state.selectedStore.locationId, observationId });
+    if (!payload) return;
+    if (!historyScopeValid(payload)) throw new SearchError('invalid_response');
+    if (payload.status !== 'available' || !payload.observation) {
+      if (payload.status === 'permission_required') {
+        state.history = null; state.historyCursor = null;
+        ui['history-results'].replaceChildren();
+        ui['more-history'].hidden = true;
+        ui['history-coverage'].textContent = '';
+      }
+      ui['history-search-status'].textContent = ['permission_required', 'unavailable'].includes(payload.status) ? historyUnavailableMessage(payload) : 'This past price is no longer available. Search again to see what’s available now.';
+      return;
+    }
+    const observation = payload.observation;
+    if (observation.locationId !== state.selectedStore.locationId || observation.observationId !== observationId) throw new SearchError('invalid_response');
+    const target = ui['history-detail-content'];
+    target.append(element('h4', '', observation.description || 'Product description not supplied'), element('p', 'field-hint', observationSummary(observation)));
+    const facts = element('dl', 'observation-facts');
+    const fields = [
+      ['Source', observation.sourceLabel], ['Package size', observation.size],
+      ['Sold by', observation.soldBy],
+      ['Regular price', historicalPrice(observation.price?.regular, observation.currency)],
+    ];
+    for (const [label, value] of fields) facts.append(element('dt', '', label), element('dd', '', typeof value === 'string' && value ? value : 'Not supplied'));
+    target.append(facts);
+    const dates = [priceDate('Reported effective', observation.price?.effectiveDate), priceDate('Reported expiration', observation.price?.expirationDate)].filter(Boolean);
+    if (dates.length) target.append(element('p', 'field-hint', dates.join(' · ')));
+    target.append(element('p', 'field-hint', 'This is a past price, not an offer you can buy today. Compare the same product, package and store. The lowest saved price may not be the store’s lowest-ever price.'));
+    ui['history-detail'].hidden = false;
+    ui['history-detail-title'].focus();
+    ui['history-search-status'].textContent = 'Past price details loaded.';
+  } catch (error) { ui['history-search-status'].textContent = describeError(error); }
 }
 
 ui['store-form'].addEventListener('submit', event => { void searchStores(event); });
@@ -544,7 +1030,7 @@ ui['cancel-stores'].addEventListener('click', () => {
 });
 ui['cancel-deals'].addEventListener('click', () => {
   abortRequest('deals');
-  setStatus('deal', 'Promotion search cancelled. You can search again.');
+  setStatus('deal', 'Grocery search cancelled. You can search again.');
   updateControls();
   ui['search-deals'].focus();
 });
@@ -554,19 +1040,50 @@ ui['change-store'].addEventListener('click', () => {
   ui['zip-code'].focus();
   setStatus('store', 'Choose another returned store, or change the ZIP code to search a different area.');
 });
-ui['sort-order'].addEventListener('change', () => {
+for (const id of ['sort-order', 'product-view', 'snap-filter', 'declaration-filter']) ui[id].addEventListener('change', () => {
   renderResults();
-  const label = ui['sort-order'].selectedOptions[0]?.textContent || 'the selected order';
-  setStatus('deal', `Returned promotions reordered: ${label.toLowerCase()}. No new search was sent.`);
+  setStatus('deal', 'Returned groceries updated for the selected view, filters and order. No new search was sent.');
+});
+ui['clear-basket'].addEventListener('click', () => {
+  state.basket = []; state.cartAcknowledged = false;
+  renderBasket(); ui['basket-status'].textContent = 'Shopping list cleared. Any Kroger cart changes remain at Kroger.';
+  byId('basket-title').focus();
+});
+ui['group-aisles'].addEventListener('change', () => { renderBasket(); ui['basket-status'].textContent = ui['group-aisles'].checked ? 'List grouped by the first reported aisle, with unknown locations last. No walking route is calculated.' : 'List shown in the order you added products.'; });
+ui['cart-panel'].addEventListener('toggle', () => { if (ui['cart-panel'].open && !state.requests.cart) void checkCart(); });
+ui['connect-cart'].addEventListener('click', () => { void connectCart(); });
+ui['refresh-cart'].addEventListener('click', () => { void checkCart(); });
+ui['disconnect-cart'].addEventListener('click', () => { void disconnectCart(); });
+ui['add-cart'].addEventListener('click', () => { void addCart(); });
+ui['history-form'].addEventListener('submit', event => { event.preventDefault(); void searchHistory(); });
+ui['more-history'].addEventListener('click', () => { void searchHistory({ more: true }); });
+for (const id of ['history-term', 'history-product-id']) ui[id].addEventListener('input', () => {
+  abortRequest('history'); abortRequest('detail');
+  state.history = null; state.historyQuery = null; state.historyCursor = null;
+  ui['history-results'].replaceChildren(); ui['history-detail-content'].replaceChildren();
+  ui['history-detail'].hidden = true; ui['more-history'].hidden = true;
+  ui['history-coverage'].textContent = '';
+  ui['history-search-status'].textContent = 'Historical search changed. Submit to search these product words or ID.';
+  updateControls();
+});
+ui['cancel-history'].addEventListener('click', () => {
+  abortRequest('history'); abortRequest('detail'); updateControls();
+  ui['history-search-status'].textContent = 'Historical search cancelled. You can search again.';
+  ui['search-history'].focus();
 });
 ui['retry-connection'].addEventListener('click', () => { void checkConnection(); });
 
 window.addEventListener('pagehide', () => {
   state.alive = false;
-  for (const kind of ['connection', 'stores', 'deals']) abortRequest(kind);
+  for (const kind of Object.keys(state.requests)) abortRequest(kind);
   clearSelection();
   state.stores = [];
   state.configured = false;
+  state.cart = null; state.cartUncertain = false; state.cartAcknowledged = false;
+  ui['cart-signin'].hidden = true; ui['cart-signin'].removeAttribute('href');
+  ui['cart-status'].textContent = '';
+  ui['basket-status'].textContent = '';
+  ui['group-aisles'].checked = false;
   ui['zip-code'].value = '';
   ui['stores-list'].replaceChildren();
   ui['stores-region'].hidden = true;
@@ -579,3 +1096,4 @@ window.addEventListener('pageshow', event => {
 });
 
 void checkConnection();
+renderBasket();

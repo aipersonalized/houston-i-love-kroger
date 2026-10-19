@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compareOffers, validateDealSearch, validateStoreSearch } from '../src/deals.js';
+import { compareOffers, validateDealSearch, validateProductSearch, validateStoreSearch } from '../src/deals.js';
 import { orderOffers } from '../public/ordering.js';
 import { NOW, STORE_ID, product } from './fixtures.js';
 
@@ -16,6 +16,56 @@ test('ZIP and exact store are required; omitting a term selects the bounded samp
     { locationId: STORE_ID, term: 'milk', filter: {} }, { locationId: STORE_ID, sort: 'unit' }]) {
     assert.throws(() => validateDealSearch(value));
   }
+});
+
+test('missing promo is separate from missing regular and unsupported prices; empty item lists are incomplete', () => {
+  const result = compareOffers([
+    product({ productId: 'regular-only', promo: null }), product({ productId: 'zero-is-not-free', promo: 0 }),
+    product({ productId: 'missing-regular', regular: null }), product({ productId: 'fractional-cent', promo: 2.001 }),
+    { productId: 'empty', description: 'Empty items', items: [] },
+  ], { now: NOW });
+  assert.equal(result.offers.length, 0);
+  assert.equal(result.products.length, 4);
+  assert.equal(result.summary.unpriced, 4);
+  assert.equal(result.summary.noReportedPromotion, 2);
+  assert.equal(result.summary.missingRegularPrice, 1);
+  assert.equal(result.summary.unsupportedPrice, 1);
+  assert.equal(result.summary.incompleteProducts, 1);
+  assert.equal(result.products[0].pricing.currentCents, 400);
+  assert.equal(result.products[1].pricing.currentCents, 400);
+  assert.equal(result.products[2].pricing.reason, 'missing_regular_price');
+  assert.equal(result.products[2].calculated, null);
+  const unsupportedRegular = compareOffers([product({ regular: -1, promo: 3 })], { now: NOW }).products[0];
+  assert.equal(unsupportedRegular.pricing.status, 'unqualified_promotion');
+  assert.equal(unsupportedRegular.pricing.reason, 'unsupported_price');
+});
+
+test('the reproduced 45-item sample reports 35 regular prices, eight promos and two out of stock', () => {
+  const rows = Array.from({ length: 45 }, (_, i) => product({ productId: String(i), promo: i < 8 ? 3 : 0,
+    item: i >= 43 ? { inventory: { stockLevel: 'TEMPORARILY_OUT_OF_STOCK' } } : {} }));
+  const result = compareOffers(rows, { now: NOW });
+  assert.equal(result.summary.noReportedPromotion, 35);
+  assert.equal(result.summary.missingRegularPrice, 0);
+  assert.equal(result.summary.unsupportedPrice, 0);
+  assert.equal(result.summary.outOfStock, 2);
+  assert.equal(result.products.length, 43);
+  assert.equal(result.offers.length, 8);
+});
+
+test('identity conflicts include different descriptions and product metadata', () => {
+  for (const changed of [product({ description: 'Different milk' }), product({ categories: ['Different category'] }),
+    product({ item: { soldBy: 'weight' } })]) {
+    const result = compareOffers([product(), changed], { now: NOW });
+    assert.equal(result.summary.conflictingItems, 1);
+    assert.equal(result.products.length, 0);
+  }
+});
+
+test('products search defaults to all priced products and rejects invented browse fields', () => {
+  assert.deepEqual(validateProductSearch({ locationId: STORE_ID }), { locationId: STORE_ID, term: null, sort: 'savings', includeAll: true });
+  assert.equal(validateProductSearch({ locationId: STORE_ID, includeAll: false }).includeAll, false);
+  assert.throws(() => validateProductSearch({ locationId: STORE_ID, includeAll: 'all' }));
+  assert.throws(() => validateProductSearch({ locationId: STORE_ID, page: 2 }));
 });
 
 test('source facts, fractional per-unit estimates and soldBy stay unchanged', () => {

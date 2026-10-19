@@ -4,13 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="referrer" content="no-referrer">
-    <meta name="description" content="Choose a Kroger store and compare its reported promotions, savings and available unit-price estimates.">
+    <meta name="description" content="Choose a Kroger store, browse reported prices and promotions, and make a shopping list for this visit.">
     <title>Houston I Love Kroger — find a good grocery deal</title>
     <link rel="stylesheet" href="./styles.css">
     <script type="module" src="./app.js"></script>
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to deal finder</a>
+    <a class="skip-link" href="#main">Skip to grocery finder</a>
     <header class="site-header shell">
       <a class="wordmark" href="./" aria-label="Houston I Love Kroger, start again">
         <span class="wordmark-mark" aria-hidden="true">h.</span>
@@ -26,7 +26,7 @@
         <div>
           <p class="eyebrow"><span class="little-star" aria-hidden="true">✳</span> Your store. Your grocery budget.</p>
           <h1 id="page-title">Good groceries.<br><em>Better deals.</em></h1>
-          <p class="intro-copy">Find reported promotions at your Kroger. Compare the price, check the savings, and make your next shop a little smarter.</p>
+          <p class="intro-copy">Browse prices and reported promotions at your Kroger. Compare the details, build a shopping list, and make your next shop a little smarter.</p>
         </div>
         <div class="intro-note">
           <span class="note-stamp" aria-hidden="true">A GOOD<br>PLACE<br>TO START</span>
@@ -35,15 +35,21 @@
         </div>
       </section>
 
-      <noscript><div class="notice notice-error">This deal finder needs JavaScript. Enable it and reload, or ask an agent to use this installation’s documented JSON API.</div></noscript>
+      <noscript><div class="notice notice-error">Turn on JavaScript and reload to search for stores and prices.</div></noscript>
 
       <div id="connection-notice" class="notice connection-notice" role="status">
         <div>
           <strong id="connection-title">Checking the store connection…</strong>
-          <p id="connection-message">Search will be available when this installation is ready.</p>
+          <p id="connection-message">Getting ready to find stores and prices.</p>
         </div>
         <button id="retry-connection" class="button button-secondary" type="button" hidden>Check again</button>
       </div>
+
+      <nav class="task-links" aria-label="Shopping tools">
+        <a href="#deals-panel">Browse groceries</a>
+        <a href="#shopping-list">Your shopping list <span id="list-count">(0)</span></a>
+        <a href="#past-prices">Past prices</a>
+      </nav>
 
       <div class="finder-layout">
         <section class="store-panel panel" aria-labelledby="store-title">
@@ -70,7 +76,7 @@
           </div>
           <div class="privacy-note">
             <span class="privacy-symbol" aria-hidden="true">↳</span>
-            <p>No customer sign-in. Your search goes through this installation to Kroger. Read the <a href="#privacy-notice">Privacy</a> and <a href="#use-notes">Use notes</a> before searching.</p>
+            <p>No Kroger sign-in needed to browse. Read our <a href="#privacy-notice">Privacy</a> and <a href="#use-notes">Use notes</a> before searching.</p>
           </div>
         </section>
 
@@ -80,7 +86,7 @@
           <div id="initial-state" class="initial-state">
             <div class="basket-drawing" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
             <h3>Your next good find<br>starts with your store.</h3>
-            <p>Choose a location to load a small promotion sample. Then search for the groceries that matter to you.</p>
+            <p>Choose a location to load a small grocery sample. Then search for the groceries that matter to you.</p>
             <ul class="comparison-points">
               <li><span aria-hidden="true">01 /</span> Today’s reported promo and regular prices</li>
               <li><span aria-hidden="true">02 /</span> Calculated savings in dollars and percent</li>
@@ -93,10 +99,15 @@
               <p class="eyebrow">Prices for this location</p>
               <h3 id="selected-store-name"></h3>
               <p id="selected-store-address"></p>
-              <p id="selected-store-id" class="store-id"></p>
             </div>
             <button id="change-store" class="text-button" type="button">Change store <span aria-hidden="true">↗</span></button>
           </div>
+
+          <details id="store-details" class="store-details" hidden>
+            <summary>Store hours, departments and contact details</summary>
+            <p id="selected-store-id" class="store-id"></p>
+            <div id="store-details-content"></div>
+          </details>
 
           <form id="deal-form" class="deal-form" autocomplete="off" hidden>
             <div class="search-field">
@@ -126,36 +137,90 @@
                 <select id="sort-order" name="sort">
                   <option value="savings">Biggest dollar savings</option>
                   <option value="percent">Highest percent off</option>
-                  <option value="price">Lowest promo price</option>
+                  <option value="price">Lowest reported price</option>
                 </select>
               </div>
             </div>
+            <div class="product-filters" aria-label="Filter returned groceries">
+              <div>
+                <label for="product-view">Products to show</label>
+                <select id="product-view"><option value="all">All priced products</option><option value="promotions">Promotions only</option></select>
+              </div>
+              <div id="snap-filter-field" hidden>
+                <label for="snap-filter">SNAP eligibility</label>
+                <select id="snap-filter"><option value="all">Any / unreported</option><option value="yes">Reported eligible</option><option value="no">Reported not eligible</option><option value="unknown">Not reported</option></select>
+              </div>
+              <div id="declaration-filter-field" hidden>
+                <label for="declaration-filter">Dietary labels</label>
+                <select id="declaration-filter"><option value="">Any declaration</option></select>
+              </div>
+            </div>
+            <p id="filter-note" class="field-hint">Labels come from Kroger and may be incomplete. Check the package for ingredients and allergens before buying or eating.</p>
             <div class="coverage-note">
               <span class="note-dot" aria-hidden="true"></span>
               <div><p id="sample-coverage"></p><p id="query-coverage"></p></div>
             </div>
             <div id="empty-results" class="empty-results" hidden>
-              <h3>No qualifying promotions in these results.</h3>
-              <p>This limited search can miss other offers. Try another grocery or brand, or leave the search blank for the starter sample.</p>
+              <h3 id="empty-results-title">No matching priced products in these results.</h3>
+              <p id="empty-results-message">Try another grocery or brand, or change the view and filters. This search covers a limited sample.</p>
             </div>
             <ol id="offers-list" class="offers-list"></ol>
             <p id="excluded-summary" class="field-hint excluded-summary"></p>
             <aside class="history-note" aria-labelledby="history-title">
               <span class="history-mark" aria-hidden="true">↶</span>
-              <div><h3 id="history-title">Historical comparison unavailable</h3><p id="history-message">No authorized historical promotion source is connected. Today’s regular price is not a previous promotion price.</p></div>
+              <div><h3 id="history-title">Price history is unavailable.</h3><p id="history-message">We can’t compare these prices with past sales yet.</p></div>
             </aside>
-            <p class="availability-note">Prices and stock can change. Confirm the price, product, purchase conditions and availability with your store before buying. This is a limited API product search; digital coupons and the full weekly ad are not included.</p>
+            <p class="availability-note">Check prices, stock and sale conditions with your store before buying. Results cover a limited selection; digital coupons and the full weekly ad are not included.</p>
           </div>
         </section>
       </div>
+
+      <section id="shopping-list" class="panel shopping-list" aria-labelledby="basket-title">
+        <div class="section-kicker"><span class="step-number">03</span><span>Plan this shop</span></div>
+        <div class="section-topline"><div><h2 id="basket-title" tabindex="-1">Your shopping list.</h2><p id="basket-store" class="section-copy">Choose a store, then add groceries from its results.</p></div><button id="clear-basket" class="text-button" type="button" hidden>Clear list</button></div>
+        <p class="field-hint">This list lasts for this page visit. Changing stores or leaving the page clears it. Adding to this list does not change a Kroger cart.</p>
+        <p id="basket-status" class="request-status" role="status"></p>
+        <p id="basket-empty" class="empty-list">A little planning starts here. Add a product above to choose quantities and see an estimate.</p>
+        <div id="basket-content" hidden>
+          <div class="basket-toolbar"><div><p class="eyebrow" id="basket-total-label">Estimated item subtotal</p><strong id="basket-total" class="basket-total"></strong><p id="basket-unresolved" class="field-hint"></p></div><label class="check-label"><input id="group-aisles" type="checkbox"> Group by reported aisle</label></div>
+          <p class="field-hint">Before tax and coupons. Items with unknown prices or variable weights are left out of the estimate. Aisle groups use locations supplied by Kroger.</p>
+          <div id="basket-lines"></div>
+        </div>
+        <details id="cart-panel" class="cart-panel">
+          <summary>Optional: add this list to a Kroger cart</summary>
+          <p class="field-hint">Sign-in happens at Kroger only when you choose it. Adding items changes your Kroger cart; review its store, fulfillment, prices and quantities at Kroger. This app does not place an order.</p>
+          <p id="cart-status" class="request-status" role="status">Checking whether cart access is available…</p>
+          <p id="cart-list-note" class="field-hint"></p>
+          <div class="action-row"><button id="connect-cart" class="button button-secondary" type="button" hidden>Connect a Kroger cart</button><a id="cart-signin" class="button button-secondary" target="_blank" rel="noopener noreferrer" hidden>Continue to Kroger sign-in ↗ <span class="sr-only">(opens a new tab)</span></a><button id="add-cart" class="button button-primary" type="button" hidden>Add listed quantities to Kroger cart</button><button id="refresh-cart" class="text-button" type="button">Check cart connection</button><button id="disconnect-cart" class="text-button" type="button" hidden>Disconnect cart</button></div>
+          <p id="cart-unknown" class="notice notice-error" hidden>The add request may have reached Kroger. Check your cart at Kroger before adding again. This app cannot read or undo that cart change. Disconnect and sign in again only after you have checked the outcome.</p>
+          <a class="external-link" href="https://www.kroger.com/cart" target="_blank" rel="noopener noreferrer">Review your cart at Kroger <span class="sr-only">(opens a new tab)</span> ↗</a>
+        </details>
+      </section>
+
+      <section id="past-prices" class="panel past-prices" aria-labelledby="past-prices-title">
+        <div class="section-kicker"><span class="step-number">04</span><span>A little context</span></div>
+        <h2 id="past-prices-title">Past prices.</h2>
+        <p id="history-store" class="section-copy">Choose a store above to look for past prices.</p>
+        <p class="field-hint">Past prices aren’t available for every item. Old sales may have ended; check today’s price before buying.</p>
+        <form id="history-form" class="history-form" autocomplete="off">
+          <div><label for="history-term">Grocery or brand (optional)</label><input id="history-term" type="search" maxlength="80" autocomplete="off" disabled></div>
+          <details><summary>Find a specific product by its reference</summary><label for="history-product-id">Product reference</label><input id="history-product-id" type="text" maxlength="100" autocomplete="off" spellcheck="false" disabled></details>
+          <button id="search-history" class="button button-secondary" type="submit" disabled>Find past prices</button>
+        </form>
+        <div class="request-row"><p id="history-search-status" class="request-status" role="status">Search your store’s past prices below.</p><button id="cancel-history" class="text-button" type="button" hidden>Cancel history search</button></div>
+        <p id="history-coverage" class="field-hint"></p>
+        <ul id="history-results" class="history-results"></ul>
+        <button id="more-history" class="button button-secondary" type="button" hidden>Show more past prices</button>
+        <article id="history-detail" class="history-detail" hidden aria-labelledby="history-detail-title"><h3 id="history-detail-title" tabindex="-1">Past price details</h3><div id="history-detail-content"></div></article>
+      </section>
 
       <section id="data-notes" class="data-notes" aria-labelledby="data-notes-title">
         <p class="eyebrow">A clearer view of value</p>
         <h2 id="data-notes-title">Know what you’re comparing.</h2>
         <div class="notes-grid">
-          <div><h3><span aria-hidden="true">↗</span> A snapshot, for one store</h3><p>Results come from Kroger’s API for your selected location and the displayed search topics. The sample and search each have a result limit. They do not cover every store promotion.</p></div>
+          <div><h3><span aria-hidden="true">↗</span> Prices for your store</h3><p>Results come from Kroger for the store you choose. Each search covers a limited selection, so there may be other products and promotions in store.</p></div>
           <div><h3><span aria-hidden="true">=</span> Prices and calculations</h3><p>Regular and promo prices are reported source values. Savings are calculated from that pair. Unit-price estimates need a known unit basis for a fair comparison; a missing basis is always marked.</p></div>
-          <div><h3><span aria-hidden="true">↶</span> History needs a source</h3><p>Historical comparisons need dated observations for the same store and item. Missing or incompatible history stays marked. Your searches do not populate the history database. Collection needs separate source permission.</p></div>
+          <div><h3><span aria-hidden="true">↶</span> Compare like with like</h3><p>A useful price comparison needs the same store, product and package. When past prices or units are missing, we’ll say so. Your searches don’t save price history.</p></div>
         </div>
       </section>
 
@@ -165,14 +230,16 @@
         <div class="notes-grid">
           <div>
             <h3>Privacy</h3>
-            <p>This page keeps your ZIP code, chosen store, search words and results in memory for this visit. Searches send the needed values in a request body to the operator of this installation, which queries Kroger. No customer account, cart or payment is involved. Read <a href="https://www.kroger.com/i/privacy-policy">Kroger’s privacy notice</a> for its separate handling.</p>
-            <p>The app does not keep a search or product archive, use searches to collect price history, or send them to advertising, email or AI services. A separate history source needs permission before collection.</p>
+            <p>This page keeps your ZIP code, chosen store, search words, results and shopping list in memory for this visit. This site sends the details needed for current-price searches to Kroger, or looks up past prices in its separate history service. Browsing needs no customer account. Optional cart access requires your separate Kroger sign-in and an explicit add action. No payment or checkout is handled here. Read <a href="https://www.kroger.com/i/privacy-policy">Kroger’s privacy notice</a> for its separate handling.</p>
+            <p>Product images load directly from Kroger. Your browser sends the image address, IP address and browser information to that host; browser settings may also allow existing Kroger cookies. This page sends no referring-page address for images. Product and cart links open Kroger under its own privacy notice.</p>
+            <p>Browsing does not save your searches, results or list, build price history, or send them to advertising, email or AI services. Any past prices shown come from a separate, permitted dataset.</p>
+            <p>If the operator enables Cart, this installation uses a secure visit cookie and keeps the connection token in server memory. Connection access expires within 30 minutes; expired sessions are removed during periodic cleanup or restart. Closing this page clears its list, but the server connection can remain until expiry. Disconnect removes this installation’s session; it does not undo cart changes or revoke permissions at Kroger.</p>
             <p>If you use an assistant, its provider has separate privacy terms. Using an assistant does not grant permission to send Kroger data to that provider.</p>
           </div>
           <div>
             <h3>Hosting and logs</h3>
             <p>At aipersonalized.io, aipersonalized operates this installation, with Cloudflare handling traffic before it reaches the server. Cloudflare, hosting services and error records can include your IP address, requested page, browser details, referrer, time and response status to run and troubleshoot the service.</p>
-            <p>For that installation, proxy access logs are disabled for this app’s address. Search values go in POST bodies; the app and default server log formats do not record those bodies. The proxy’s service logs are configured to rotate at 1 MB and keep up to two files. This size limit does not guarantee deletion after a set time or control Cloudflare’s retention. Hosting records are separate from the app’s visit memory.</p>
+            <p>For this app at aipersonalized.io, successful browsing requests aren’t logged by the site’s proxy. Failure diagnostics keep response status and timing, without search values, page addresses or sign-in codes. These service logs have a size limit rather than a guaranteed deletion date; that limit does not control Cloudflare’s retention. Hosting records are separate from this page’s temporary list.</p>
             <p>If you use another address, ask that installation’s operator about its hosting and logs.</p>
           </div>
           <div>

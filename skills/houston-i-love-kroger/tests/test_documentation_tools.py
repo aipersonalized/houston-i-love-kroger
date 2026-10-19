@@ -32,7 +32,7 @@ class DocumentationTests(unittest.TestCase):
         return docs.collect(self.root, self.skill / 'research' / 'official_docs', skill_root=self.skill)
 
     def test_exact_collection_and_repeated_refresh(self):
-        self.assertEqual(self.collect()['counts']['saved'], 5)
+        self.assertEqual(self.collect()['counts']['saved'], 6)
         self.assertEqual(self.collect()['counts']['failed'], 0)
         for name in docs.SOURCE_FILES:
             self.assertEqual((self.root / name).read_bytes(), (self.skill / 'research' / 'official_docs' / 'pages' / Path(name).name).read_bytes())
@@ -86,7 +86,7 @@ class DocumentationTests(unittest.TestCase):
     def test_padded_quoted_paths_and_empty_input(self):
         result = docs.collect('  "' + str(self.root) + '"  ',
                               '  "' + str(self.skill / 'research' / 'official_docs') + '"  ', skill_root=self.skill)
-        self.assertEqual(result['counts']['saved'], 5)
+        self.assertEqual(result['counts']['saved'], 6)
         with self.assertRaises(docs.DocsError) as caught:
             docs.repository_root('  ""  ', self.skill)
         self.assertEqual(caught.exception.code, 'invalid_arguments')
