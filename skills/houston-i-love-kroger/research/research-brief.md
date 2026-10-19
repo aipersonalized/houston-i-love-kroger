@@ -23,9 +23,9 @@ sources:
     title: "App installation and configuration"
     author: "Houston I Love Kroger project"
     published: null
-    accessed: "2026-10-19T18:46:51.066859+00:00"
+    accessed: "2026-10-19T18:50:33.811209+00:00"
     type: local-first-party-document
-    hash: "d96a434589e203eeea9a0f00ba2401668e052a2be937874114de3658c7076e5c"
+    hash: "c6de3456568898cadca2fd29ead9f7cce8b155a719dfda6d960ddf559d01a285"
   - id: history
     url: "repo:/docs/HISTORY.md"
     title: "History prerequisites and operator boundary"
@@ -70,13 +70,15 @@ snapshot identity. No commit, release or deployment is inferred. Local
 `fetch_docs.py` and `refresh_docs.py` have both run; five pages, zero failures and
 four reviewed exclusions reconciled. Current-source hash checking also passed.
 
-The selected snapshot was refreshed at 18:46 UTC on 2026-10-19. The self-hosting
+The selected snapshot was refreshed at 18:50 UTC on 2026-10-19. The self-hosting
 manual includes official portal instructions and optional container setup with
 blank credentials, a private database volume and explicit qualification limits.
-Its installation guidance distinguishes npm 12.1.0's automatic-build warning
-from an actual native-loading failure. The locked SQLite package supplies
-prebuilt bindings, sets `gypfile: false` and has no lifecycle install script;
-no script approval or compiler-toolchain step is required for qualified targets.
+Its installation guidance uses `npm ci --ignore-scripts` for the locked graph,
+which supplies prebuilt SQLite bindings and needs no install scripts. It
+distinguishes npm 10's implicit native build from npm 12's warning and an actual
+loading failure. Native tests remain required after install; dependency upgrades
+must requalify this choice instead of assuming package metadata controls every
+npm version's implicit behavior.
 The human guide distinguishes a qualified difference against one prior promo
 from a trend. Both changed manuals were read and reconciled with the procedures;
 their source hashes above match the current manifest and exact copies.

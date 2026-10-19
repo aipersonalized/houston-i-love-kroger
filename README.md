@@ -4,9 +4,8 @@ Compare reported Kroger promotions at the store you plan to visit. Enter a ZIP
 code, choose the exact store, then search a grocery or brand and order the
 returned offers by savings or promo price.
 
-This is an early development candidate for source publication. Original project
-code and companion instructions use the [MIT License](LICENSE). No public
-installation is deployed or verified. Live API credentials and permission to
+This is an early source release. Original project code and companion
+instructions use the [MIT License](LICENSE). Live API access and permission to
 collect and display historical prices remain unverified. Promotion searches
 cover a limited set of products, not a complete weekly ad or coupon feed.
 
@@ -21,17 +20,23 @@ and production hosting still need verification. No external AI service,
 AI subscription or Kroger shopper account is required. You supply your own
 permitted Kroger developer access; hosting and provider conditions are separate.
 
-1. Obtain this candidate's reviewed source folder. A public download or release
-   has not been established at this checkpoint. Follow the
+1. Open the [project repository](https://github.com/aipersonalized/houston-i-love-kroger),
+   select **Code**, then **Download ZIP**. Extract the downloaded archive to a
+   folder you control, or use a reviewed source checkout. Follow the
    [full installation guide](docs/SELF_HOSTING.md) for Node.js installation and
    common setup failures.
 2. Open PowerShell on Windows, or your system's terminal, in the folder containing
    `package.json`. Run these commands one at a time:
 
    ```text
-   npm ci
+   npm ci --ignore-scripts
+   npm test
    npm start
    ```
+
+   The locked dependencies supply prebuilt SQLite bindings. Installation skips
+   unnecessary native-build scripts; the tests check that the binding works
+   using synthetic fixtures and temporary databases.
 
 3. Open `http://localhost:4173/apps/houston-i-love-kroger/`. Without credentials,
    expect **This installation needs a Kroger connection**. This lets you check

@@ -6,7 +6,8 @@ ARG NODE_IMAGE=node:22.23.2-bookworm-slim
 FROM ${NODE_IMAGE} AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --no-audit --no-fund \
+RUN npm ci --ignore-scripts --omit=dev --no-audit --no-fund \
+    && node --input-type=module -e "import Database from 'better-sqlite3'; const db = new Database(':memory:'); if (db.prepare('SELECT 1 AS value').get().value !== 1) process.exit(1); db.close();" \
     && npm cache clean --force
 
 FROM ${NODE_IMAGE} AS runtime

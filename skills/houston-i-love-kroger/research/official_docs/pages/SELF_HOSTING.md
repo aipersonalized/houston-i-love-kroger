@@ -17,38 +17,46 @@ that an image was built or a host deployed.
 2. Open Terminal on macOS/Linux or PowerShell on Windows.
 3. Run `node --version` and `npm --version`. Both should print a version.
    If either command is missing, close and reopen the terminal after installation.
-4. Obtain a reviewed source checkout or archive from the project's distributor
-   and put it in a folder you control. If it is an archive, extract it first.
-   A public repository or downloadable release has not been verified at this
-   development checkpoint; this guide does not supply an unverified download URL.
+4. Open the [project repository](https://github.com/aipersonalized/houston-i-love-kroger),
+   select **Code**, then **Download ZIP**. Extract the archive to a folder you
+   control. You can also use a reviewed source checkout.
 5. In the terminal, change into the project folder. You should see `package.json`
    when opening that folder in your file manager.
-6. Run `npm ci`. Wait for it to finish. It installs the locked dependencies,
-   including the native SQLite adapter. The locked `better-sqlite3@13.0.3`
+6. Run `npm ci --ignore-scripts`. Wait for it to finish. It installs the locked
+   dependencies, including the native SQLite adapter. The locked `better-sqlite3@13.0.3`
    package includes prebuilt bindings and has no lifecycle install script.
-   It does not need install-script approval or a compiler toolchain on the
-   qualified platforms.
+   This locked dependency graph needs no install scripts. The flag skips npm's
+   automatic native-build behavior as well, so no script approval or compiler
+   toolchain is needed for the qualified targets. It applies to this command
+   only; it does not change global policy or prevent a later `npm start` or
+   `npm test`. Recheck this choice when upgrading dependencies.
    If the adapter is unavailable for your system, retain the error for diagnosis;
    do not disable dependency checks or substitute an unrelated database package.
 
-### If npm prints a native-build warning
+### Check the native database binding
 
-npm 12.1.0 can warn about a blocked automatic `node-gyp` build even when the
-package's prebuilt SQLite binding works. This warning alone does not establish
-a loading failure. The locked package sets `gypfile: false` and supplies no
-lifecycle install script; do not add script approvals in response to the warning.
-Check the installed app using its synthetic tests:
+Run the synthetic tests after installation to check the actual native binding:
 
 ```text
 npm test
 ```
 
-These tests exercise the native binding with temporary databases and synthetic
-fixtures, without live Kroger access or real history. If they pass, the warning
-did not prevent that checked database use. If an actual module-loading failure
-occurs, record the error, Node/npm versions, operating system and CPU architecture;
-check that `npm ci` installed the locked package completely and that its prebuilt
-binding supports that runtime/platform. Use the help and feedback guidance in
+These tests use temporary databases and synthetic fixtures, without live Kroger
+access or real history. The locked SQLite package ships prebuilt bindings and
+declares no lifecycle install script, but npm versions handle implicit native
+builds differently. Plain `npm ci` with npm 10.9.8 can still attempt `node-gyp`
+and fail looking for Python. Use the documented `npm ci --ignore-scripts`
+command instead of installing unnecessary compiler tools. npm 12.1.0 may warn
+about a blocked automatic build even when its prebuilt binding works; that
+warning alone does not establish a loading failure. The npm documentation
+describes [implicit native builds](https://docs.npmjs.com/cli/v10/using-npm/scripts/)
+and the [ignore-scripts option](https://docs.npmjs.com/cli/v10/commands/npm-ci/#ignore-scripts).
+
+If the tests pass, the binding supports that checked use. For an actual loading
+failure, record the error, Node/npm versions, operating system and CPU
+architecture. Check that `npm ci --ignore-scripts` installed the locked package
+completely and that its prebuilt binding supports that runtime/platform.
+Use the help and feedback guidance in
 the repository README. Do not broaden global or all-package script permissions
 or install arbitrary build tools as a guessed repair.
 
@@ -145,9 +153,11 @@ live API entitlement, completeness of promotions or source retention rights.
 
 ## 6. Prepare hosting
 
-Hosting is unfinished and the proposed public URL is not deployed. Before
-publishing, complete the exact-candidate licensing and legal-liability review,
-verify live access and test the actual host. MIT is selected for original project
+Before offering a public installation, complete the exact-candidate licensing
+and legal-liability review and test the actual host. A setup-only installation
+can serve the page with blank credentials; it does not establish live API access
+or historical-source permission. Verify those separately before enabling their
+dependent operations. MIT is selected for original project
 code and companion instructions; it does not authorize hosting supplier data.
 The source-release guide linked from the repository README defines the public
 source boundary.
@@ -217,7 +227,9 @@ No GPU, external AI service or Kroger credential is needed for the setup page.
    `NODE_IMAGE` in the private Compose build arguments to that immutable image
    reference. Rebuild and requalify for a new image or CPU architecture; never
    copy this computer's `node_modules` into a Linux image. The dependency stage
-   installs the locked package and its supplied prebuilt bindings. No compiler
+   uses `npm ci --ignore-scripts` to install the locked package and its supplied
+   prebuilt bindings without npm's automatic native build, then checks the
+   binding with an in-memory `SELECT 1`. No compiler
    toolchain is installed. The runtime runs as the image's unprivileged `node`
    user; qualify the actual target architecture and native loading after build.
 6. The named `history` volume mounts the complete private `/data` directory;
@@ -271,7 +283,7 @@ and rollback image before any public deployment. Rebuild after source changes.
    retention, expiry and revocation controls as the live database.
 3. Keep source-policy evidence outside public code and back it up privately.
 4. For an upgrade, retain the previous reviewed code and a stopped-state database
-   backup. Install dependencies with `npm ci` and run checks before restarting.
+   backup. Install dependencies with `npm ci --ignore-scripts` and run checks before restarting.
 5. The current schema is version 2; the verified version-1 schema upgrades in a
    transaction. Migration checksum checks reject unexpected or incompatible
    contents. Do not use an older app against a newer schema.
