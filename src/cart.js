@@ -82,8 +82,15 @@ export class CartSessions {
     return session;
   }
   #view(session) {
+    if (session?.pending && session.pending.expiresAt <= this.#now()) {
+      session.pending = null;
+      session.status = 'authorization_failed';
+    }
     if (session?.accessToken && session.tokenExpiresAt <= this.#now()) {
-      session.accessToken = ''; session.status = 'authorization_required';
+      session.accessToken = '';
+      // Token expiry says nothing about whether a previously sent add landed.
+      // Keep that outcome until this visit is explicitly disconnected or ends.
+      if (session.status !== 'write_outcome_unknown') session.status = 'authorization_required';
     }
     return { ...this.readiness(), connected: Boolean(session?.accessToken),
       ...(session ? { status: session.status, csrfToken: session.csrfToken } : {}) };

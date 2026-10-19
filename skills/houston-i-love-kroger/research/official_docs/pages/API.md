@@ -838,7 +838,10 @@ Cart status and callback are not generic credential inspection endpoints.
    are checked; code/state are single-use, with a ten-minute authorization
    window. The app exchanges the code privately and redirects with 303 to its
    fixed base page. It never reflects callback values. Return to the original
-   list tab and call cart status to check the connection.
+   list tab and call cart status to check the connection. Status retires an
+   expired pending authorization as `authorization_failed` while its session
+   remains. A fresh connect rotates state, PKCE and the visit; never reuse a
+   previous sign-in URL after denial, expiry or a changed visit.
 4. Only with explicit authorization to add these quantities, call
    `POST api/v1/cart/add` with exactly `items` and `csrfToken`. Each of 1–50
    items contains `upc` (exact 13-digit string), whole `quantity` 1–99 and optional
@@ -870,6 +873,11 @@ the server session. Multiple processes do not share it.
 There is no automatic add retry, token-refresh retry or idempotency key. A timeout,
 network failure, aborted response or unexpected upstream result after sending
 the write can be `cart_write_outcome_unknown`. The session blocks further adds.
+Token expiry removes token access but preserves `write_outcome_unknown` while
+that session survives. The browser also keeps an observed unknown-outcome warning
+for the rest of the page visit until an explicit disconnect, including across a
+status refresh after session expiry or server restart. This page-memory guard
+does not survive navigation and cannot reconcile the actual cart.
 Inspect the actual Kroger cart before disconnecting/reconnecting and deciding
 whether another write is needed. Client loss of an acknowledgement is also an
 uncertain outcome even if the server's status says connected. A known rejection

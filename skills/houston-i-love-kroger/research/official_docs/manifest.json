@@ -4,7 +4,7 @@
   "inventoryUrl": "repo:/",
   "appVersion": "0.2.0",
   "sourceRevision": "working-tree-snapshot",
-  "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+  "retrievedAt": "2026-10-19T22:26:04.379136+00:00",
   "inventorySha256": "870746c1f8b90c3ae955930ead90e5ba4f347e556899c454553db29368cd927b",
   "counts": {
     "indexed": 6,
@@ -19,9 +19,9 @@
       "title": "App HTTP API",
       "url": "repo:/docs/API.md",
       "status": "saved",
-      "sha256": "b9f7a58a0e0450a90e64a90e31f4968be91568eb67269d8f2f1cadfab8d7a42c",
-      "bytes": 54564,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "sha256": "b076082e9f43002609c399c57bb0dd92f71ec02ba76e34c91adb081c50680225",
+      "bytes": 55185,
+      "retrievedAt": "2026-10-19T22:26:04.379136+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -30,9 +30,9 @@
       "title": "Human shopping guide",
       "url": "repo:/docs/USER_GUIDE.md",
       "status": "saved",
-      "sha256": "fe2db438e9815d4527302098ce79b1d97df3eec412134fadf37d0f8fe2c9c15d",
-      "bytes": 18013,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "sha256": "6c860417867d4fa998a108d54f84a556ad6b5545d8e8a4201abc8523a8b26d06",
+      "bytes": 18981,
+      "retrievedAt": "2026-10-19T22:26:04.379136+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -41,9 +41,9 @@
       "title": "App installation and configuration",
       "url": "repo:/docs/SELF_HOSTING.md",
       "status": "saved",
-      "sha256": "7abc547002ae8343622ddbe7145ecc7f26c70360e418e3f2f421d52dd1e0d8d7",
-      "bytes": 23705,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "sha256": "eee7da024d3c2bc438a7502ad81b21d5ba4663eee8f883acf7e9724bbd64d789",
+      "bytes": 26757,
+      "retrievedAt": "2026-10-19T22:26:04.379136+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -54,7 +54,7 @@
       "status": "saved",
       "sha256": "09546b434f2075534afa67838567d842787a7c016fcabfac25d4c6afbdeed33a",
       "bytes": 18951,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "retrievedAt": "2026-10-19T22:26:04.379136+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -65,7 +65,7 @@
       "status": "saved",
       "sha256": "e3d8a4eb01117d1a1926109d01c560322136fc8073bbea7885c9db6237f16e92",
       "bytes": 19332,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "retrievedAt": "2026-10-19T22:26:04.379136+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -76,7 +76,7 @@
       "status": "saved",
       "sha256": "55644461f1384cf564404ed6ac2e8d0e0a54328f38b19c5c1030ee6d5aeac598",
       "bytes": 2423,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "retrievedAt": "2026-10-19T22:26:04.379136+00:00",
       "discovery": "reviewed first-party inventory"
     }
   ]

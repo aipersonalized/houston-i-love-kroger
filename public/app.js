@@ -794,8 +794,12 @@ async function checkCart() {
     const payload = await request('cart', './api/v1/cart/status', undefined, { credentials: 'same-origin' });
     if (!payload) return;
     if (!payload.cart || typeof payload.cart.status !== 'string') throw new SearchError('invalid_response');
+    const visitChanged = state.cart?.csrfToken !== payload.cart.csrfToken;
     state.cart = payload.cart;
-    if (state.cart.connected) {
+    // A later expiry/restart cannot establish the result of an earlier add.
+    // Retain the warning in this page until the shopper disconnects explicitly.
+    if (state.cart.status === 'write_outcome_unknown') state.cartUncertain = true;
+    if (visitChanged || state.cart.connected || state.cart.status !== 'authorization_required' || state.cartUncertain) {
       ui['cart-signin'].hidden = true;
       ui['cart-signin'].removeAttribute('href');
     }

@@ -201,6 +201,51 @@ For an authorized installation, verify all of the following before enabling:
    session expiry within 30 minutes, periodic cleanup, disconnect/restart limits, direct
    image requests and external Kroger destinations.
 
+Keep the access check separate from shopper sign-in. Privately open the existing
+application in Kroger's developer portal and confirm its actual production Cart
+assignment and registered callback. Do not create another application to work
+around a pending or uncertain result. The portal's private controls and this
+installation's real callback/grant have not been qualified by the local tests;
+use the portal's current instructions and reconcile the existing application's
+status before changing its configuration. Product-search access alone is not
+evidence of Cart access.
+
+When access and activation are authorized, make these checks in order:
+
+1. Keep both Cart flags `false` while arranging your HTTPS address and private
+   logging rules above. Set `PUBLIC_ORIGIN` to the address before the first `/`
+   after the host, and keep the full app folder in `APP_BASE_PATH`. For example,
+   the origin is `https://groceries.example` and the folder is
+   `/apps/houston-i-love-kroger/`; neither example establishes a real service.
+2. Join that origin, folder and `api/v1/cart/callback` without removing the
+   folder's trailing slash. Privately compare the resulting complete address
+   with the callback registered for the same production application. Every
+   character of the configured callback must match its registered address.
+3. Enter the credentials and settings privately in the installation's secret
+   configuration, following [step 3](#3-configure-current-price-access-privately). Do not paste
+   them into a shell command, an assistant, a support ticket or a screenshot.
+   Set both Cart flags `true` only after verifying actual access, then restart
+   the app using the normal start procedure.
+4. Open the hosted app yourself and expand its optional Cart panel. It should
+   offer **Connect a Kroger cart**. This proves only that local configuration
+   is complete. It does not prove Kroger has granted access.
+5. With separately authorized human testing, follow the
+   [shopper sign-in steps](USER_GUIDE.md#6-optional-add-the-list-to-a-kroger-cart).
+   Confirm that denying sign-in adds nothing, a fresh connection can be started,
+   and a permitted connection returns to this app. Return to the original tab
+   and check the connection; do not copy callback addresses or account details.
+   Sign-in itself never adds the shopping list.
+6. Qualifying an actual add requires a separate, explicit choice of items and
+   quantities. If authorized, send it once and check the actual cart at Kroger.
+   A successful sign-in is not permission for this test. If its outcome is
+   uncertain, follow the recovery guide below before any new add.
+
+To stop offering Cart, privately set `KROGER_CART_ENABLED=false` and restart the
+app. Leave `KROGER_CART_GRANTED=false` whenever actual assignment is absent or
+unverified. A restart discards local connections; it does not undo cart changes
+or revoke a shopper's Kroger permissions. Check the disabled state in the app
+and never use a restart as proof that a previous uncertain add did not succeed.
+
 The app uses state and PKCE and discards refresh tokens. Sign-in alone adds no
 items. Every write needs the explicit add action; no payment/order is handled.
 There is no cart readback, undo, idempotency key or automatic add retry. Follow

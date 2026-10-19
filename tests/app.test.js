@@ -340,3 +340,50 @@ test('Cart callback clears codes with a fixed redirect and tokens never reach HT
   }
   assert.match(status.headers['content-security-policy'], /img-src https:\/\/www\.kroger\.com/);
 });
+
+test('configured Cart HTTP routes require Origin and matching visit CSRF before an explicit write', async t => {
+  const configured = { ...config, publicOrigin: 'https://example.com', environment: 'production',
+    cartEnabled: true, cartGranted: true, clientId: 'fixture-client', clientSecret: 'fixture-secret',
+    cartRedirectUri: `https://example.com${base}api/v1/cart/callback` };
+  let exchanges = 0; let writes = 0;
+  const cart = new CartSessions({ config: configured, fetchImpl: async url => {
+    if (url.endsWith('/token')) { exchanges++; return tokenResponse(); }
+    writes++; return new Response(null, { status: 204 });
+  } }); t.after(() => cart.close());
+  const server = await createApp({ config: configured, client: fakeClient(), cartSessions: cart });
+  const connect = await invoke(server, { path: 'api/v1/cart/connect', body: {}, headers: { origin: configured.publicOrigin } });
+  const authorization = new URL(connect.body.authorizationUrl);
+  const cookie = connect.headers['set-cookie'].split(';')[0];
+  const csrfToken = connect.body.cart.csrfToken;
+  const callbackUrl = `${base}api/v1/cart/callback?code=fixture-code&state=${authorization.searchParams.get('state')}`;
+  await invoke(server, { method: 'GET', url: callbackUrl, headers: { cookie } });
+  const replay = await invoke(server, { method: 'GET', url: callbackUrl, headers: { cookie } });
+  assert.equal(replay.status, 303);
+  assert.equal(replay.headers.location, base);
+  assert.equal(exchanges, 1, 'A callback replay must not exchange its code twice.');
+  const input = { items: [{ upc: '0000000000001', quantity: 2 }], csrfToken };
+  for (const [operation, body] of [['connect', {}], ['add', input], ['disconnect', { csrfToken }]]) {
+    for (const origin of [undefined, 'https://attacker.example', 'null']) {
+      const headers = { cookie, ...(origin ? { origin } : {}) };
+      const rejected = await invoke(server, { path: `api/v1/cart/${operation}`, body, headers });
+      assert.equal(rejected.status, 403);
+      assert.equal(rejected.body.error.code, origin ? 'origin_not_allowed' : 'origin_required');
+    }
+  }
+  for (const headers of [{ origin: configured.publicOrigin }, { origin: configured.publicOrigin, cookie: `${cookie}; ${cookie}` },
+    { origin: configured.publicOrigin, cookie }]) {
+    const rejected = await invoke(server, { path: 'api/v1/cart/add', body: {
+      ...input, ...(headers.cookie === cookie ? { csrfToken: 'wrong-visit' } : {}),
+    }, headers });
+    assert.equal(rejected.status, 403);
+    assert.equal(rejected.body.error.code, 'cart_session_required');
+  }
+  const status = await invoke(server, { method: 'GET', path: 'api/v1/cart/status', headers: { cookie } });
+  assert.equal(status.body.cart.connected, true);
+  assert.equal(writes, 0, 'Connecting, callback, status and rejected requests must not write items.');
+  const addition = await invoke(server, { path: 'api/v1/cart/add', body: input,
+    headers: { origin: configured.publicOrigin, cookie } });
+  assert.equal(addition.status, 200);
+  assert.equal(addition.body.acknowledged, true);
+  assert.equal(writes, 1);
+});
