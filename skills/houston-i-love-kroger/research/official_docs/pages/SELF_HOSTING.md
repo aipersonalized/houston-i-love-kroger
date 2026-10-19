@@ -24,40 +24,33 @@ that an image was built or a host deployed.
 5. In the terminal, change into the project folder. You should see `package.json`
    when opening that folder in your file manager.
 6. Run `npm ci`. Wait for it to finish. It installs the locked dependencies,
-   including the native SQLite adapter. This checkout includes a project-only
-   install-script approval pinned to `better-sqlite3@13.0.3` for npm versions
-   that require approval. Its install script prepares the native database
-   binding; no global or all-package script approval is needed.
+   including the native SQLite adapter. The locked `better-sqlite3@13.0.3`
+   package includes prebuilt bindings and has no lifecycle install script.
+   It does not need install-script approval or a compiler toolchain on the
+   qualified platforms.
    If the adapter is unavailable for your system, retain the error for diagnosis;
    do not disable dependency checks or substitute an unrelated database package.
 
-### If npm blocks the SQLite install script
+### If npm prints a native-build warning
 
-With npm 12.1.0, a blocked native install can leave package files present while
-the SQLite binding is missing. In the project terminal, inspect approvals:
-
-```text
-npm install-scripts ls --json
-```
-
-Check that the locked dependency is exactly `better-sqlite3` version `13.0.3`
-and review that package's install script before approving it. If its pinned
-project approval is missing, these npm 12 commands approve only that locked
-dependency and rebuild its binding:
+npm 12.1.0 can warn about a blocked automatic `node-gyp` build even when the
+package's prebuilt SQLite binding works. This warning alone does not establish
+a loading failure. The locked package sets `gypfile: false` and supplies no
+lifecycle install script; do not add script approvals in response to the warning.
+Check the installed app using its synthetic tests:
 
 ```text
-npm install-scripts approve better-sqlite3 --json
-npm rebuild better-sqlite3 --no-audit --no-fund
+npm test
 ```
 
-The approval writes a version-pinned entry in this project's `package.json`.
-Do not use `--all`, disable pinning or weaken global script policy to recover.
-After a successful rebuild, `npm test` checks the native binding with synthetic
-fixtures and temporary databases, without live Kroger access or real history.
-If the rebuild fails, check the Node version/platform and keep the failure for
-diagnosis. Older npm versions may not provide `install-scripts`; a missing
-command is not itself a SQLite failure. Use the help and feedback guidance in
-the repository README before changing policy.
+These tests exercise the native binding with temporary databases and synthetic
+fixtures, without live Kroger access or real history. If they pass, the warning
+did not prevent that checked database use. If an actual module-loading failure
+occurs, record the error, Node/npm versions, operating system and CPU architecture;
+check that `npm ci` installed the locked package completely and that its prebuilt
+binding supports that runtime/platform. Use the help and feedback guidance in
+the repository README. Do not broaden global or all-package script permissions
+or install arbitrary build tools as a guessed repair.
 
 ## 2. Try the page before adding credentials
 
@@ -224,8 +217,9 @@ No GPU, external AI service or Kroger credential is needed for the setup page.
    `NODE_IMAGE` in the private Compose build arguments to that immutable image
    reference. Rebuild and requalify for a new image or CPU architecture; never
    copy this computer's `node_modules` into a Linux image. The dependency stage
-   supplies compiler tools for the native SQLite adapter; the runtime stage
-   omits them and runs as the image's unprivileged `node` user.
+   installs the locked package and its supplied prebuilt bindings. No compiler
+   toolchain is installed. The runtime runs as the image's unprivileged `node`
+   user; qualify the actual target architecture and native loading after build.
 6. The named `history` volume mounts the complete private `/data` directory;
    `HISTORY_DB_PATH=/data/history.sqlite`. SQLite also needs to write its WAL/SHM
    files there. A new empty volume takes the image directory's ownership; an
@@ -246,7 +240,7 @@ No GPU, external AI service or Kroger credential is needed for the setup page.
    docker compose -f compose.yaml ps
    ```
 
-   Building downloads the selected image, Debian build tools and locked npm
+   Building downloads the selected image and locked npm
    dependencies. Starting creates or opens the private empty database; it does
    not call Kroger or start collection. The health check calls only the local
    status route and accepts a reachable, unconfigured installation as healthy.

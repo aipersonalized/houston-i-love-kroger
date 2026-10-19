@@ -23,9 +23,9 @@ sources:
     title: "App installation and configuration"
     author: "Houston I Love Kroger project"
     published: null
-    accessed: "2026-10-19T18:38:11.787450+00:00"
+    accessed: "2026-10-19T18:46:51.066859+00:00"
     type: local-first-party-document
-    hash: "c699d7befab9a1b9a790151856c83922f083d6c1c4631943e2fa3ac36033f5aa"
+    hash: "d96a434589e203eeea9a0f00ba2401668e052a2be937874114de3658c7076e5c"
   - id: history
     url: "repo:/docs/HISTORY.md"
     title: "History prerequisites and operator boundary"
@@ -70,11 +70,13 @@ snapshot identity. No commit, release or deployment is inferred. Local
 `fetch_docs.py` and `refresh_docs.py` have both run; five pages, zero failures and
 four reviewed exclusions reconciled. Current-source hash checking also passed.
 
-The selected snapshot was refreshed at 18:38 UTC on 2026-10-19. The self-hosting
+The selected snapshot was refreshed at 18:46 UTC on 2026-10-19. The self-hosting
 manual includes official portal instructions and optional container setup with
 blank credentials, a private database volume and explicit qualification limits.
-Its npm 12.1.0 recovery instructions retain version-pinned, project-only native
-SQLite install approval and do not broaden script policy.
+Its installation guidance distinguishes npm 12.1.0's automatic-build warning
+from an actual native-loading failure. The locked SQLite package supplies
+prebuilt bindings, sets `gypfile: false` and has no lifecycle install script;
+no script approval or compiler-toolchain step is required for qualified targets.
 The human guide distinguishes a qualified difference against one prior promo
 from a trend. Both changed manuals were read and reconciled with the procedures;
 their source hashes above match the current manifest and exact copies.

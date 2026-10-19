@@ -4,7 +4,7 @@
   "inventoryUrl": "repo:/",
   "appVersion": "0.1.0",
   "sourceRevision": "working-tree-snapshot",
-  "retrievedAt": "2026-10-19T18:38:11.787450+00:00",
+  "retrievedAt": "2026-10-19T18:46:51.066859+00:00",
   "inventorySha256": "c8cea972d360996f6a95c8995281ac7e84df71de70e0c4b7a37ab29b0e2bc3bb",
   "counts": {
     "indexed": 5,
@@ -21,7 +21,7 @@
       "status": "saved",
       "sha256": "952fe1eb5bc032e013060ac915dbfea212b685456044233146678c0e1fb08677",
       "bytes": 21643,
-      "retrievedAt": "2026-10-19T18:38:11.787450+00:00",
+      "retrievedAt": "2026-10-19T18:46:51.066859+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -32,7 +32,7 @@
       "status": "saved",
       "sha256": "11d3f7ee212d56899f8d581bcd73b50cb670cf96ed72fa5138e28958439c026e",
       "bytes": 13513,
-      "retrievedAt": "2026-10-19T18:38:11.787450+00:00",
+      "retrievedAt": "2026-10-19T18:46:51.066859+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -41,9 +41,9 @@
       "title": "App installation and configuration",
       "url": "repo:/docs/SELF_HOSTING.md",
       "status": "saved",
-      "sha256": "c699d7befab9a1b9a790151856c83922f083d6c1c4631943e2fa3ac36033f5aa",
-      "bytes": 17253,
-      "retrievedAt": "2026-10-19T18:38:11.787450+00:00",
+      "sha256": "d96a434589e203eeea9a0f00ba2401668e052a2be937874114de3658c7076e5c",
+      "bytes": 17117,
+      "retrievedAt": "2026-10-19T18:46:51.066859+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -54,7 +54,7 @@
       "status": "saved",
       "sha256": "6288e7b43fa59da725c35d27962ae8165d3940f196b1710393adbad3e53030bd",
       "bytes": 11233,
-      "retrievedAt": "2026-10-19T18:38:11.787450+00:00",
+      "retrievedAt": "2026-10-19T18:46:51.066859+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -65,7 +65,7 @@
       "status": "saved",
       "sha256": "55644461f1384cf564404ed6ac2e8d0e0a54328f38b19c5c1030ee6d5aeac598",
       "bytes": 2423,
-      "retrievedAt": "2026-10-19T18:38:11.787450+00:00",
+      "retrievedAt": "2026-10-19T18:46:51.066859+00:00",
       "discovery": "reviewed first-party inventory"
     }
   ]
