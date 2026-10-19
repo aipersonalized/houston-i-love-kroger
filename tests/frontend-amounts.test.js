@@ -78,8 +78,26 @@ function renderedAmounts() {
       pastPrices: pastPrices.textContent,
       cart: JSON.stringify(cartItems(state.basket, state.selectedStore.locationId)),
     };
+    globalThis.renderCoverage = ({ scope, summary = {}, view = 'all', snap = 'all', empty = false }) => {
+      const regularProduct = { ...syntheticProduct,
+        source: { ...syntheticProduct.source, description: 'Synthetic regular item', snapEligible: true },
+        pricing: { status: 'regular_only', regularCents: 300, currentCents: 300 }, calculated: null };
+      state.results = { products: empty ? [] : [syntheticProduct, regularProduct], scope, summary };
+      ui['product-view'].value = view;
+      ui['snap-filter'].value = snap;
+      renderResults();
+      return {
+        count: ui['result-count'].textContent,
+        summary: ui['result-summary'].textContent,
+        coverage: ui['sample-coverage'].textContent,
+        selection: ui['query-coverage'].textContent,
+        empty: !ui['empty-results'].hidden,
+        emptyTitle: ui['empty-results-title'].textContent,
+        items: ui['offers-list'].children.length,
+      };
+    };
   `, context, { filename: 'public/app.js' });
-  return context.rendered;
+  return { ...context.rendered, coverage: context.renderCoverage };
 }
 
 test('currency-unreported prices, savings and comparisons render numeric amounts without assuming dollars', () => {
@@ -115,4 +133,70 @@ test('currency limits are explained at result and subtotal decisions while the s
   assert.match(subtotal, /unknown prices or variable weights are left out/u);
   assert.match(html, /<option value="savings">Largest price drop<\/option>/u);
   assert.doesNotMatch(html, /Biggest dollar savings|savings in dollars/iu);
+});
+
+test('starter coverage separates raw checked results, loaded prices, promotions and visible filtered items', () => {
+  const page = renderedAmounts();
+  const input = {
+    scope: { mode: 'sample', topics: ['milk', 'bread', 'eggs'], exhaustive: false,
+      queries: [{ term: 'milk', returnedProducts: 15 }, { term: 'bread', returnedProducts: 15 },
+        { term: 'eggs', returnedProducts: 15 }], perQueryLimit: 15, productLimit: 45 },
+    summary: { products: 45, usablePriced: 2, qualifyingPromotions: 1 },
+  };
+  const all = page.coverage(input);
+  assert.equal(all.count, '2 priced items shown');
+  assert.equal(all.summary, '45 product results checked (may include repeats). 2 priced items loaded; 1 qualifying promotion.');
+  assert.equal(all.coverage, 'This is a limited selection for this store. More promotions may be available.');
+  assert.match(all.selection, /up to 15 results each for milk, bread, eggs \(45 at most in total\)/u);
+  assert.match(all.selection, /Sorting and filters apply only to loaded items/u);
+  const promotions = page.coverage({ ...input, view: 'promotions' });
+  assert.equal(promotions.count, '1 qualifying promotion shown');
+  assert.equal(promotions.items, 1);
+  assert.equal(promotions.summary, all.summary);
+  const filtered = page.coverage({ ...input, view: 'promotions', snap: 'yes' });
+  assert.equal(filtered.count, '0 qualifying promotions shown');
+  assert.equal(filtered.items, 0);
+  assert.equal(filtered.empty, true);
+  assert.equal(filtered.emptyTitle, 'No qualifying promotions match this view.');
+  assert.equal(filtered.summary, all.summary);
+  assert.equal(filtered.coverage, all.coverage);
+  assert.equal(filtered.selection, all.selection);
+});
+
+test('a short explicit search remains limited to the first matching results and does not imply full coverage', () => {
+  const view = renderedAmounts().coverage({
+    scope: { mode: 'search', topics: ['synthetic'], exhaustive: false, productLimit: 50, perQueryLimit: 50,
+      queries: [{ term: 'synthetic', returnedProducts: 4 }] },
+    summary: { products: 4, usablePriced: 2, qualifyingPromotions: 1 },
+  });
+  assert.equal(view.summary, '4 product results checked. 2 priced items loaded; 1 qualifying promotion.');
+  assert.match(view.selection, /up to the first 50 matching results for synthetic/u);
+  assert.match(view.coverage, /limited selection for this store\. More promotions may be available/u);
+  assert.doesNotMatch(view.coverage + view.selection, /all promotions found|full coverage|load more/iu);
+});
+
+test('missing coverage counts stay unknown while an actual empty check keeps its reported zero', () => {
+  const page = renderedAmounts();
+  const scope = { mode: 'search', topics: ['synthetic'] };
+  const unknown = page.coverage({ scope });
+  assert.match(unknown.summary, /^Number of checked results unavailable\./u);
+  assert.match(unknown.coverage, /Coverage of all store promotions has not been verified/u);
+  assert.match(unknown.selection, /limited results for synthetic/u);
+  assert.doesNotMatch(unknown.selection, /50|45|15/u);
+  const empty = page.coverage({ scope: { ...scope, exhaustive: false }, summary: { products: 0 }, empty: true });
+  assert.equal(empty.summary, '0 product results checked. 0 priced items loaded; 0 qualifying promotions.');
+  assert.equal(empty.empty, true);
+  assert.equal(empty.count, '0 priced items shown');
+  assert.match(empty.coverage, /More promotions may be available/u);
+});
+
+test('coverage and loaded counts precede sorting and filters, with limits visible before searching', () => {
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const results = html.slice(html.indexOf('id="results-region"'), html.indexOf('id="empty-results"'));
+  assert.ok(results.indexOf('id="sample-coverage"') < results.indexOf('id="sort-order"'));
+  assert.ok(results.indexOf('id="result-summary"') < results.indexOf('id="product-view"'));
+  assert.equal(html.match(/id="sample-coverage"/gu).length, 1);
+  assert.equal(html.match(/id="result-summary"/gu).length, 1);
+  assert.match(html, /id="search-hint"[^>]*>[^<]*Search a limited selection for this store/u);
+  assert.match(html, /id="search-term"[^>]*aria-describedby="search-hint search-error"/u);
 });

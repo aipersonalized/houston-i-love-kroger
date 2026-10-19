@@ -10,7 +10,7 @@ const ui = Object.fromEntries([
   'initial-state', 'selected-store', 'selected-store-name', 'selected-store-address',
   'selected-store-id', 'change-store', 'deal-form', 'search-term', 'search-deals',
   'search-error', 'deal-status', 'cancel-deals', 'results-region', 'result-count',
-  'retrieved-at', 'sort-order', 'sample-coverage', 'query-coverage', 'empty-results',
+  'result-summary', 'retrieved-at', 'sort-order', 'sample-coverage', 'query-coverage', 'empty-results',
   'offers-list', 'excluded-summary', 'history-title', 'history-message',
   'store-details', 'store-details-content', 'product-view', 'snap-filter-field', 'snap-filter',
   'declaration-filter-field', 'declaration-filter', 'empty-results-title', 'empty-results-message',
@@ -233,7 +233,7 @@ function clearResults() {
   state.results = null;
   ui['results-region'].hidden = true;
   ui['offers-list'].replaceChildren();
-  for (const id of ['result-count', 'retrieved-at', 'sample-coverage', 'query-coverage', 'excluded-summary']) ui[id].textContent = '';
+  for (const id of ['result-count', 'result-summary', 'retrieved-at', 'sample-coverage', 'query-coverage', 'excluded-summary']) ui[id].textContent = '';
   ui['sort-order'].value = 'savings';
   ui['snap-filter'].value = 'all';
   ui['declaration-filter'].replaceChildren(element('option', '', 'Any declaration'));
@@ -614,14 +614,28 @@ function renderResults() {
   }), ui['sort-order'].value);
   const count = offers.length;
   const promoted = ui['product-view'].value === 'promotions';
-  ui['result-count'].textContent = `${count} ${promoted ? 'promotions' : 'products'}${count !== payload.products.length ? ` of ${payload.products.length} priced products` : ''}`;
+  const itemLabel = promoted ? count === 1 ? 'qualifying promotion' : 'qualifying promotions'
+    : count === 1 ? 'priced item' : 'priced items';
+  ui['result-count'].textContent = `${count} ${itemLabel} shown`;
+  const checked = payload.summary?.products;
+  const checkedText = Number.isInteger(checked) && checked >= 0
+    ? `${checked} product ${checked === 1 ? 'result' : 'results'} checked${payload.scope.topics.length > 1 ? ' (may include repeats)' : ''}.`
+    : 'Number of checked results unavailable.';
+  const promotionCount = payload.products.filter(product => product.pricing.status === 'promotion').length;
+  ui['result-summary'].textContent = `${checkedText} ${payload.products.length} priced ${payload.products.length === 1 ? 'item' : 'items'} loaded; ${promotionCount} qualifying ${promotionCount === 1 ? 'promotion' : 'promotions'}.`;
   const retrieved = readableDate(payload.retrievedAt);
   ui['retrieved-at'].textContent = retrieved ? `Checked ${retrieved}` : 'Price check time unavailable.';
   const sample = payload.scope.mode === 'sample';
   const topics = payload.scope.topics.join(', ');
-  const limit = Number.isInteger(payload.scope.productLimit) ? ` up to ${payload.scope.productLimit} products` : ' a limited selection';
-  ui['sample-coverage'].textContent = `${sample ? 'A starter selection of' : 'Results for'} ${topics}, covering${limit}.`;
-  ui['query-coverage'].textContent = 'Sorted within these results. Compare package sizes as well as prices.';
+  const limit = Number.isInteger(payload.scope.productLimit) && payload.scope.productLimit > 0 ? payload.scope.productLimit : null;
+  const perQueryLimit = Number.isInteger(payload.scope.perQueryLimit) && payload.scope.perQueryLimit > 0 ? payload.scope.perQueryLimit : null;
+  ui['sample-coverage'].textContent = payload.scope.exhaustive === false
+    ? 'This is a limited selection for this store. More promotions may be available.'
+    : 'This selection is for this store only. Coverage of all store promotions has not been verified.';
+  const selection = sample
+    ? `Starter selection: ${perQueryLimit ? `up to ${perQueryLimit} results each for` : 'limited results for'} ${topics}${limit ? ` (${limit} at most in total)` : ''}.`
+    : `Search selection: ${limit ? `up to the first ${limit} matching results for` : 'limited results for'} ${topics}.`;
+  ui['query-coverage'].textContent = `${selection} Sorting and filters apply only to loaded items. Compare package sizes as well as prices.`;
   ui['empty-results'].hidden = count !== 0;
   ui['empty-results-title'].textContent = promoted ? 'No qualifying promotions match this view.' : 'No priced products match this view.';
   ui['offers-list'].replaceChildren(...offers.map(renderOffer));
