@@ -1,0 +1,22 @@
+{
+  "name": "houston-i-love-kroger",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Find and compare reported Kroger promotions at a chosen store.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.21.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/kroger.js && node --check src/deals.js && node --check public/app.js",
+    "history:init": "node --env-file-if-exists=.env scripts/init-history.js",
+    "history:collect": "node --env-file-if-exists=.env scripts/collect-history.js",
+    "history:maintain": "node --env-file-if-exists=.env scripts/maintain-history.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.3"
+  }
+}

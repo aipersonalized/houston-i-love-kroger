@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta name="description" content="Choose a Kroger store and compare its reported promotions, savings and available unit-price estimates.">
+    <title>Houston I Love Kroger — find a good grocery deal</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to deal finder</a>
+    <header class="site-header shell">
+      <a class="wordmark" href="./" aria-label="Houston I Love Kroger, start again">
+        <span class="wordmark-mark" aria-hidden="true">h.</span>
+        <span>houston-i-love-kroger</span>
+      </a>
+      <span class="header-note">A little care for your grocery budget.</span>
+    </header>
+
+    <div id="data-banner" class="data-banner" role="status" hidden></div>
+
+    <main id="main" class="shell" tabindex="-1">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow"><span class="little-star" aria-hidden="true">✳</span> Your store. Your grocery budget.</p>
+          <h1 id="page-title">Good groceries.<br><em>Better deals.</em></h1>
+          <p class="intro-copy">Find reported promotions at your Kroger. Compare the price, check the savings, and make your next shop a little smarter.</p>
+        </div>
+        <div class="intro-note">
+          <span class="note-stamp" aria-hidden="true">A GOOD<br>PLACE<br>TO START</span>
+          <p>Good value starts<br>with <em>your store.</em></p>
+          <span>Prices belong to a specific location.<br>Let’s find the right one first.</span>
+        </div>
+      </section>
+
+      <noscript><div class="notice notice-error">This deal finder needs JavaScript. Enable it and reload, or ask an agent to use this installation’s documented JSON API.</div></noscript>
+
+      <div id="connection-notice" class="notice connection-notice" role="status">
+        <div>
+          <strong id="connection-title">Checking the store connection…</strong>
+          <p id="connection-message">Search will be available when this installation is ready.</p>
+        </div>
+        <button id="retry-connection" class="button button-secondary" type="button" hidden>Check again</button>
+      </div>
+
+      <div class="finder-layout">
+        <section class="store-panel panel" aria-labelledby="store-title">
+          <div class="section-kicker"><span class="step-number">01</span><span>Start nearby</span></div>
+          <h2 id="store-title">Find your store.</h2>
+          <p class="section-copy">Enter a US ZIP code, then choose the exact location you plan to visit.</p>
+          <form id="store-form" autocomplete="off">
+            <label for="zip-code">ZIP code</label>
+            <div class="zip-row">
+              <input id="zip-code" name="zipCode" type="text" inputmode="numeric" pattern="[0-9]{5}" minlength="5" maxlength="5" required autocomplete="off" spellcheck="false" aria-describedby="zip-hint zip-error" disabled>
+              <button id="find-stores" class="button button-primary" type="submit" disabled>Find stores <span aria-hidden="true">↗</span></button>
+            </div>
+            <p id="zip-hint" class="field-hint">Five digits. Used for this search only.</p>
+            <p id="zip-error" class="field-error" role="alert"></p>
+          </form>
+          <div class="request-row">
+            <p id="store-status" class="request-status" role="status"></p>
+            <button id="cancel-stores" class="text-button" type="button" hidden>Cancel search</button>
+          </div>
+          <div id="stores-region" hidden>
+            <h3 id="stores-heading" class="list-heading" tabindex="-1">Nearby stores</h3>
+            <p id="stores-coverage" class="field-hint"></p>
+            <ul id="stores-list" class="stores-list"></ul>
+          </div>
+          <div class="privacy-note">
+            <span class="privacy-symbol" aria-hidden="true">↳</span>
+            <p>No customer sign-in. This page keeps your search in memory for this visit; it sends it to this installation to query Kroger. See <a href="#data-notes">data notes</a>.</p>
+          </div>
+        </section>
+
+        <section id="deals-panel" class="deals-panel panel" aria-labelledby="deals-title">
+          <div class="section-kicker"><span class="step-number">02</span><span>Make a good comparison</span></div>
+          <h2 id="deals-title" tabindex="-1">What’s worth a look.</h2>
+          <div id="initial-state" class="initial-state">
+            <div class="basket-drawing" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
+            <h3>Your next good find<br>starts with your store.</h3>
+            <p>Choose a location to load a small promotion sample. Then search for the groceries that matter to you.</p>
+            <ul class="comparison-points">
+              <li><span aria-hidden="true">01 /</span> Today’s reported promo and regular prices</li>
+              <li><span aria-hidden="true">02 /</span> Calculated savings in dollars and percent</li>
+              <li><span aria-hidden="true">03 /</span> Unit estimates when Kroger supplies them</li>
+            </ul>
+          </div>
+
+          <div id="selected-store" class="selected-store" hidden>
+            <div>
+              <p class="eyebrow">Prices for this location</p>
+              <h3 id="selected-store-name"></h3>
+              <p id="selected-store-address"></p>
+              <p id="selected-store-id" class="store-id"></p>
+            </div>
+            <button id="change-store" class="text-button" type="button">Change store <span aria-hidden="true">↗</span></button>
+          </div>
+
+          <form id="deal-form" class="deal-form" autocomplete="off" hidden>
+            <div class="search-field">
+              <label for="search-term">Find a grocery or brand</label>
+              <div class="search-row">
+                <input id="search-term" name="term" type="search" minlength="3" maxlength="80" autocomplete="off" spellcheck="false" aria-describedby="search-hint search-error" placeholder="For example, coffee or apples">
+                <button id="search-deals" class="button button-primary" type="submit">Search <span aria-hidden="true">↗</span></button>
+              </div>
+              <p id="search-hint" class="field-hint">3–80 characters, up to 8 words. Leave blank for the starter sample.</p>
+              <p id="search-error" class="field-error" role="alert"></p>
+            </div>
+          </form>
+
+          <div class="request-row">
+            <p id="deal-status" class="request-status" role="status"></p>
+            <button id="cancel-deals" class="text-button" type="button" hidden>Cancel search</button>
+          </div>
+
+          <div id="results-region" hidden>
+            <div class="results-toolbar">
+              <div>
+                <h3 id="result-count" class="list-heading"></h3>
+                <p id="retrieved-at" class="field-hint"></p>
+              </div>
+              <div class="sort-field">
+                <label for="sort-order">Show first</label>
+                <select id="sort-order" name="sort">
+                  <option value="savings">Biggest dollar savings</option>
+                  <option value="percent">Highest percent off</option>
+                  <option value="price">Lowest promo price</option>
+                </select>
+              </div>
+            </div>
+            <div class="coverage-note">
+              <span class="note-dot" aria-hidden="true"></span>
+              <div><p id="sample-coverage"></p><p id="query-coverage"></p></div>
+            </div>
+            <div id="empty-results" class="empty-results" hidden>
+              <h3>No qualifying promotions in these results.</h3>
+              <p>This limited search can miss other offers. Try another grocery or brand, or leave the search blank for the starter sample.</p>
+            </div>
+            <ol id="offers-list" class="offers-list"></ol>
+            <p id="excluded-summary" class="field-hint excluded-summary"></p>
+            <aside class="history-note" aria-labelledby="history-title">
+              <span class="history-mark" aria-hidden="true">↶</span>
+              <div><h3 id="history-title">Historical comparison unavailable</h3><p id="history-message">No authorized historical promotion source is connected. Today’s regular price is not a previous promotion price.</p></div>
+            </aside>
+            <p class="availability-note">Prices and stock can change. Confirm the price, product, purchase conditions and availability with your store before buying. This is a limited API product search; digital coupons and the full weekly ad are not included.</p>
+          </div>
+        </section>
+      </div>
+
+      <section id="data-notes" class="data-notes" aria-labelledby="data-notes-title">
+        <p class="eyebrow">A clearer view of value</p>
+        <h2 id="data-notes-title">Know what you’re comparing.</h2>
+        <div class="notes-grid">
+          <div><h3><span aria-hidden="true">↗</span> A snapshot, for one store</h3><p>Results come from Kroger’s API for your selected location and the displayed search topics. The sample and search each have a result limit. They do not cover every store promotion.</p></div>
+          <div><h3><span aria-hidden="true">=</span> Prices and calculations</h3><p>Regular and promo prices are reported source values. Savings are calculated from that pair. Unit-price estimates need a known unit basis for a fair comparison; a missing basis is always marked.</p></div>
+          <div><h3><span aria-hidden="true">↶</span> History needs a source</h3><p>Historical comparisons need dated observations for the same store and item. Missing or incompatible history stays marked. Your searches do not populate the history database or go to an external AI service.</p></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer shell">
+      <p class="footer-name">houston-i-love-kroger<span aria-hidden="true"> ✳</span></p>
+      <p>An independent project in development. Not affiliated with, endorsed by, or sponsored by The Kroger Co. Kroger is a trademark of its owner.</p>
+      <a href="#main">Back to top <span aria-hidden="true">↑</span></a>
+    </footer>
+  </body>
+</html>

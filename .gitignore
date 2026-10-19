@@ -1,0 +1,35 @@
+# Private configuration and runtime data; keep only the blank example public.
+/.env
+/.env.*
+!.env.example
+/.runtime/
+/config/*
+!/config/collection-plan.example.json
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+
+# Installed dependencies, builds and disposable tool output.
+.venv/
+__pycache__/
+*.py[cod]
+node_modules/
+dist/
+coverage/
+.cache/
+.DS_Store
+
+# Local workspace instructions and development records are outside the source release.
+/AGENTS.md
+/skills/houston-i-love-kroger/references/project-record.md
+/skills/houston-i-love-kroger/evaluations/
+/skills/houston-i-love-kroger/research/recon/
+/skills/houston-i-love-kroger/research/sources/
+
+# This separate local skill includes third-party documentation not cleared for release.
+/skills/kroger-api/
+
+# The companion's research/official_docs pages are project-authored manuals and stay public.

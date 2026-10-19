@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "sourceId": "kroger-public",
+  "enabled": false,
+  "intervalMinutes": 1440,
+  "maxRuns": 1,
+  "limit": 20,
+  "targets": []
+}

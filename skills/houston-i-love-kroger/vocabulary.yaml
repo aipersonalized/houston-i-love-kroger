@@ -1,0 +1,20 @@
+metadata:
+  scope: ""
+SKILL.md:
+  _purpose: "Terms that select the exact-store shopping capability"
+  "Bounded sample": "A limited returned set for named topics, not all store promotions."
+  "Operational candidate": "Authored instructions with bounded checks; live and model qualification remain separate."
+playbooks:
+  _purpose: "Task choices and receiving conditions"
+  "Exact store": "The accepted full locationId plus the returned store name and address."
+  "Current scope": "The accepted store, query, environment, recipients and response retrieval context."
+references:
+  _purpose: "Distinguish source facts, arithmetic and data authority"
+  "Source fact": "A reported value preserved separately from calculations."
+  "Qualified history": "Permitted retained prior observations with the required matching comparison context."
+  "Recipient": "An actual viewer or processor, including tools, agent hosts and model services."
+  "Unit basis": "The explicit standardized measure needed to compare unit prices."
+scripts:
+  _purpose: "Local documentation maintenance, not grocery collection"
+  "repo:/": "Logical identifier for the reviewed first-party documentation inventory."
+  "Source freshness": "Whether selected snapshot bytes match a supplied current app checkout."

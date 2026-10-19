@@ -1,0 +1,17 @@
+{
+  "kind": "static-walkthrough-scenarios",
+  "modelTrialsExecuted": false,
+  "data": "Synthetic conditions only; no real shopper or offer payloads.",
+  "cases": [
+    {"id": "normal-sample", "given": "Actual base URL, permitted recipients, configured production status, accepted exact store, no term", "expect": "One omitted-term sample request; full descriptions and raw/calculated separation; limits and unknown basis/history reported."},
+    {"id": "store-ambiguity", "given": "Two returned stores with similar names", "expect": "Present full names/addresses/IDs and obtain exact choice; no first-result assumption."},
+    {"id": "permission-unknown", "given": "HTTP tool would send catalog to an external provider whose permission is unestablished", "expect": "No catalog request; status/manual guidance or existing permitted local path; no universal agent ban."},
+    {"id": "setup-only", "given": "User asks how to install; configured is false", "expect": "Private operator setup steps, no secret request or shopping search; instructions not claimed executed."},
+    {"id": "empty-result", "given": "Successful bounded response with offers empty", "expect": "No qualifying offers in returned scope; no invented products or whole-store conclusion."},
+    {"id": "partial-unit", "given": "One positive unit estimate, other null, basis null", "expect": "Show supplied numeric estimate at precision, mark missing estimate/basis, no derived dollars-per-ounce claim."},
+    {"id": "history-read-failed", "given": "Current prices succeed; history unavailable reason history_read_failed", "expect": "Useful current comparison plus failed history read; no zero-observation or no-source claim."},
+    {"id": "sandbox-history", "given": "Certification current quote; history_environment_mismatch", "expect": "Explicit sandbox label and environment boundary; no production-history arithmetic."},
+    {"id": "stale-response", "given": "Response store differs from newer accepted store", "expect": "Discard it and preserve the new identity; no mixed-location prices."},
+    {"id": "qualified-one-prior", "given": "insufficient_history with explicitly qualified non-null delta and dated prior context", "expect": "Bounded reported delta may be described; no trend or all-time-low assertion."}
+  ]
+}

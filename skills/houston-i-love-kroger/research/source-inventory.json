@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "publisher": "Houston I Love Kroger project",
+  "inventoryUrl": "repo:/",
+  "versionModel": "Working source snapshot; package version plus exact document hashes, not a release or deployment claim.",
+  "pages": [
+    {"source": "docs/API.md", "path": "pages/API.md", "title": "App HTTP API"},
+    {"source": "docs/USER_GUIDE.md", "path": "pages/USER_GUIDE.md", "title": "Human shopping guide"},
+    {"source": "docs/SELF_HOSTING.md", "path": "pages/SELF_HOSTING.md", "title": "App installation and configuration"},
+    {"source": "docs/HISTORY.md", "path": "pages/HISTORY.md", "title": "History prerequisites and operator boundary"},
+    {"source": "docs/KROGER_PERMISSION_REQUEST.md", "path": "pages/KROGER_PERMISSION_REQUEST.md", "title": "Source-permission questions, not a grant"}
+  ],
+  "exclusions": [
+    {"surface": "Private operator settings, account pages, policy evidence and live API responses", "reason": "No protected data is needed for skill authoring or documentation collection."},
+    {"surface": "Node.js, database-driver, browser and framework tutorials", "reason": "The skill consumes the first-party app contract; it does not implement those technologies."},
+    {"surface": "Execution of operator history-ingestion procedures", "reason": "The history manual is retained for the permission and interpretation boundary; collection and maintenance are separate operator work, outside the shopping skill."},
+    {"surface": "External links in the selected documents", "reason": "This local collector preserves the selected first-party documents only and performs no network requests."}
+  ]
+}
