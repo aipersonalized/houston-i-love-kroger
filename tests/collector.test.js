@@ -142,6 +142,8 @@ test('scope, expiry, revocation, disablement, invalid plan and dry run block sou
 
 test('bounded plans reject catalog crawl, ZIPs, extra fields and unsupported fulfillment', () => {
   for (const change of [{ limit: 200 }, { targets: Array(11).fill(PLAN.targets[0]) }, { intervalMinutes: 0 },
+    { maxRequestsPerDay: 3 }, { maxRequestsPerDay: 1001 }, { maxAttempts: 0 }, { maxAttempts: 4 },
+    { retryBaseSeconds: 0 }, { retryBaseSeconds: 61 },
     { maxRuns: 1000 }, { zipCode: '00000' }, { targets: [{ locationId: 'TEST0001', term: 'milk', fulfillment: 'DELIVERY' }] },
     { targets: [{ locationId: 'TEST0001', term: 'mi' }] }]) assert.throws(() => validateCollectionPlan({ ...PLAN, ...change }));
 });

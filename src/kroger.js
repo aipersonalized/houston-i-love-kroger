@@ -8,8 +8,19 @@ const ORIGINS = Object.freeze({
 const DAY_MS = 86_400_000;
 
 function cancelled() { return new AppError('request_cancelled', 'The search was cancelled.', 499); }
-function unavailable() { return new AppError('upstream_unavailable', 'Kroger did not respond in time. Try again shortly.', 502); }
+function unavailable(retryAfter) { return new AppError('upstream_unavailable', 'Kroger did not respond in time. Try again shortly.', 502, { retryAfter }); }
 function formatError() { return new AppError('upstream_format', 'Kroger returned an unsupported response. Try again later.', 502); }
+
+// RFC9110 section10.2.3: Retry-After is delay-seconds or an HTTP date. Keep
+// longer waits for the operator collector to persist, rather than retry early.
+function retryAfterSeconds(value, now) {
+  if (typeof value !== 'string' || value.length > 128) return undefined;
+  const ceiling = Date.UTC(9999, 11, 31, 23, 59, 59);
+  if (/^\d+$/u.test(value)) return Math.max(0, Math.ceil((Math.min(ceiling, now + Number(value) * 1000) - now) / 1000));
+  if (!/^[A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} GMT$/u.test(value)) return undefined;
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, Math.ceil((date - now) / 1000)) : undefined;
+}
 
 async function cancelBody(response) {
   try { await response.body?.cancel(); } catch { /* The response is already closed or failed. */ }
@@ -123,7 +134,7 @@ export class KrogerClient {
       });
       if (!response.ok) {
         await cancelBody(response);
-        return { status: response.status, data: null };
+        return { status: response.status, data: null, retryAfter: retryAfterSeconds(response.headers.get('retry-after'), this.#now()) };
       }
       return { status: response.status, data: await readJsonResponse(response, maxBytes, { signal: combined }) };
     } catch (error) {
@@ -148,13 +159,14 @@ export class KrogerClient {
   }
 
   async #newToken() {
-    const { status, data } = await this.#http('/v1/connect/oauth2/token', {
+    const { status, data, retryAfter } = await this.#http('/v1/connect/oauth2/token', {
       method: 'POST', headers: {
         Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded',
         Authorization: `Basic ${Buffer.from(`${this.#clientId}:${this.#clientSecret}`).toString('base64')}`,
       }, body: new URLSearchParams({ grant_type: 'client_credentials', scope: 'product.compact' }).toString(),
     }, undefined, 16_384);
-    if (status === 429) throw new AppError('provider_limit', 'Kroger has limited requests. Wait before searching again.', 429, { retryAfter: 60 });
+    if (status === 429) throw new AppError('provider_limit', 'Kroger has limited requests. Wait before searching again.', 429, { retryAfter: Math.max(60, retryAfter ?? 0) });
+    if (status >= 500) throw unavailable(retryAfter);
     if (status !== 200) {
       throw new AppError('connection_rejected', 'The Kroger connection was rejected. Its operator should check credentials, environment and product scope.', 503);
     }
@@ -172,7 +184,7 @@ export class KrogerClient {
   async #get(path, query, signal) {
     for (let attempt = 0; attempt < 2; attempt++) {
       const token = await this.#token(signal);
-      const { status, data } = await this.#http(`${path}?${new URLSearchParams(query)}`, {
+      const { status, data, retryAfter } = await this.#http(`${path}?${new URLSearchParams(query)}`, {
         headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
       }, signal);
       if (status === 401) {
@@ -180,11 +192,11 @@ export class KrogerClient {
         if (attempt === 0) continue; // One renewal and one retry, for a safe read.
       }
       if (status !== 200) {
-        if (status === 429) throw new AppError('provider_limit', 'Kroger has limited requests. Wait before searching again.', 429, { retryAfter: 60 });
+        if (status === 429) throw new AppError('provider_limit', 'Kroger has limited requests. Wait before searching again.', 429, { retryAfter: Math.max(60, retryAfter ?? 0) });
         if ([401, 403].includes(status)) throw new AppError('permission_denied', 'Kroger did not allow this search. The operator should check API permissions.', 503);
         if (status === 400) throw new AppError('upstream_rejected', 'Kroger did not accept this search. Check the store and search term.', 502);
         if (status === 404) throw new AppError('upstream_not_found', 'Kroger could not find this store or product context. Choose a store again.', 502);
-        throw unavailable();
+        throw unavailable(retryAfter);
       }
       return data;
     }

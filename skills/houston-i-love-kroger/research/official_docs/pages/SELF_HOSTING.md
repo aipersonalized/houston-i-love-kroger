@@ -372,9 +372,12 @@ volume access/free space; never use volume deletion as a restart or upgrade.
 4. Install the reviewed update with `npm ci --ignore-scripts`, or rebuild the
    container from the exact committed source. Run checks and evaluate actual
    supported interfaces before release.
-5. Schema version **4** preserves the description/brand and paging additions from
+5. Schema version **5** preserves the description/brand and paging additions from
    version 3 and adds completed-snapshot permission, retention, target and product
-   availability facts. Verified version 1/2/3 databases upgrade transactionally
+   availability facts introduced in version 4, then adds private collector lease,
+   rolling request reservations and backoff. Stop all collectors and services
+   before upgrading; do not run mixed-version collectors against one file.
+   Verified version 1/2/3/4 databases upgrade transactionally
    after checksum/schema checks. Legacy missing text or snapshot provenance is
    never guessed: latest-deal reads cannot use unqualified old snapshots, while
    dated reads still require valid row provenance and rights. Unknown or modified
@@ -382,7 +385,7 @@ volume access/free space; never use volume deletion as a restart or upgrade.
 6. Recheck listener status, exact-store products, list calculations and permitted
    history search/retrieval. Record the exact source/image, actual checks and
    untested paths. Liveness alone does not qualify the upgrade.
-7. An older version cannot open schema 4. For rollback, stop services and restore
+7. An older version cannot open schema 5. For rollback, stop services and restore
    a compatible, still-authorized backup with its matching version. There is no
    in-place schema downgrade. Account for new observations since the backup and
    reconcile expiry, scope and revocation before serving any restored data.

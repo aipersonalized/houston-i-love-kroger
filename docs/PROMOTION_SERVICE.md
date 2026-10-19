@@ -28,8 +28,10 @@ job contacts Kroger for stored data. It records exact store/topic, collection
 time, original source permission and bounded coverage. A completed job, including
 an empty sample, can replace that topic's previous snapshot. Partial/failed jobs
 cannot publish partial deals or refresh an old snapshot's date. Operator job
-identity makes a completed scheduled bucket idempotent; there is no automatic
-retry of a failed source request.
+identity makes a completed scheduled bucket idempotent. Collection retries are
+disabled by default; an operator can enable at most three attempts, governed by
+durable quota reservations, backoff and a source lease. See the
+[collection limits and recovery guide](HISTORY.md#limits-and-recovery).
 
 The companion's latest/price/estimate/status/history requests query our stored data only. They
 need neither a Kroger credential nor a database file. Empty, stale, unavailable
@@ -286,17 +288,21 @@ runtime values; do not embed secrets in a script or skill.
 
 1. Before a database upgrade, stop collection and service writes and take a
    consistent private backup using [the backup guidance](SELF_HOSTING.md#7-back-up-upgrade-and-recover).
-2. Start the new service against the authoritative file. Schema version 4 adds
+2. Stop all collectors and service processes before changing the authoritative
+   file. Start the new service against it. Schema version 4 adds
    snapshot authority/retention, target scope, availability and price qualification
    after version3's nullable description/brand and paging index.
-   Known version 1, 2 or 3 databases are verified before migration. Their old
-   prices and identifiers remain unchanged; missing descriptions stay missing.
+   Version 5 adds durable collector lease, request reservations and backoff;
+   it changes no supplier facts or grants. Known version 1, 2, 3 or 4 databases
+   are verified before migration. Their old prices and identifiers remain
+   unchanged; missing descriptions stay missing. Do not run mixed-version
+   collectors: an already-open older process cannot enforce the new lease.
    Old rows can still be found by exact IDs when their provenance and rights
    permit it. Text search does not invent old descriptions or topic labels.
 3. Recheck liveness, authenticated status and a permitted exact-store task.
    Stop if integrity or schema checks fail. Do not rename an unrelated file to
    make it look like this database.
-4. An older app version cannot open schema 4. For rollback, stop the new service
+4. An older app version cannot open schema 5. For rollback, stop the new service
    and restore a compatible, consistent private backup with its matching app
    version. There is no in-place schema downgrade. Account for data collected
    since the backup and its retention/revocation obligations.

@@ -185,7 +185,7 @@ test('exact known v2 schema upgrades additively without fabricating old descript
   // The synthetic v2 file must go through the production schema verifier.
   const upgraded = openHistoryStore({ filename });
   try {
-    assert.equal(upgraded.getSummary().schemaVersion, 4);
+    assert.equal(upgraded.getSummary().schemaVersion, 5);
     assert.equal(upgraded.getSummary().observations, 1);
     const row = search(upgraded).observations[0];
     assert.equal(row.description, null); assert.equal(row.brand, null);
@@ -198,6 +198,6 @@ test('exact known v2 schema upgrades additively without fabricating old descript
   try {
     const columns = checked.prepare('PRAGMA table_info(observations)').all().map(row => row.name);
     assert.ok(columns.includes('description')); assert.ok(columns.includes('brand'));
-    assert.equal(checked.prepare('SELECT count(*) AS n FROM schema_migrations').get().n, 4);
+    assert.equal(checked.prepare('SELECT count(*) AS n FROM schema_migrations').get().n, 5);
   } finally { checked.close(); }
 });

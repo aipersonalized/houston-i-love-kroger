@@ -275,13 +275,13 @@ test('known v1 files migrate atomically and reopen; unknown legacy topic provena
     .run(SOURCE, Date.parse(FIRST), Date.parse('2026-02-01T12:00:00.000Z'));
   legacy.close();
   const migrated = openHistoryStore({ filename });
-  assert.equal(migrated.getSummary().schemaVersion, 4);
+  assert.equal(migrated.getSummary().schemaVersion, 5);
   assert.equal(migrated.getSummary().observations, 1);
   assert.equal(history(migrated).status, 'no_observations');
   assert.equal(migrated.purgeExpired({ sourceId: SOURCE, now: AS_OF }).removedObservations, 1);
   migrated.close();
   const reopened = openHistoryStore({ filename });
-  try { assert.equal(reopened.getSummary().schemaVersion, 4); assert.equal(reopened.getSummary().observations, 0); }
+  try { assert.equal(reopened.getSummary().schemaVersion, 5); assert.equal(reopened.getSummary().observations, 0); }
   finally { reopened.close(); }
 });
 

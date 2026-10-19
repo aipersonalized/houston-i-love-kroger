@@ -5,6 +5,21 @@ import { NOW, STORE_ID, product, store, jsonResponse, tokenResponse } from './fi
 
 const credentials = { clientId: 'fixture-client', clientSecret: 'fixture-secret' };
 
+test('provider Retry-After seconds and dates survive token/product failures without early retry', async () => {
+  for (const [header, expected] of [['300', 300], [new Date(NOW + 300000).toUTCString(), 300], ['172800', 172800], ['invalid', 60]]) {
+    let calls = 0;
+    const client = new KrogerClient({ ...credentials, now: () => NOW, fetchImpl: async url => {
+      calls++;
+      return url.endsWith('/token') ? tokenResponse() : Response.json({}, { status: 429, headers: { 'Retry-After': header } });
+    } });
+    await assert.rejects(client.searchProducts(STORE_ID, 'milk'), { code: 'provider_limit', retryAfter: expected });
+    assert.equal(calls, 2);
+  }
+  const client = new KrogerClient({ ...credentials, now: () => NOW,
+    fetchImpl: async () => Response.json({}, { status: 503, headers: { 'Retry-After': '300' } }) });
+  await assert.rejects(client.searchProducts(STORE_ID, 'milk'), { code: 'upstream_unavailable', retryAfter: 300 });
+});
+
 test('client credentials stay on the server; fixed contextual upstream filters are encoded', async () => {
   const calls = [];
   const client = new KrogerClient({ ...credentials, fetchImpl: async (url, options) => {
