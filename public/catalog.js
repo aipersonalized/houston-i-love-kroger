@@ -102,22 +102,28 @@ export function reportedProductDetails(product) {
   }
   add('Allergen statement', source.allergensDescription);
   add('Warning', source.warnings);
-  const nutrition = source.nutritionInformation;
-  if (nutrition) {
-    add('Ingredients', nutrition.ingredientStatement);
-    add('Preparation state', nutrition.preparationState?.name || nutrition.preparationState?.code);
-    add('Servings per package', nutrition.servingsPerPackage?.description ||
+  const reportedNutrition = source.nutritionInformation;
+  const contexts = Array.isArray(reportedNutrition) ? reportedNutrition : reportedNutrition ? [reportedNutrition] : [];
+  const preparationNames = contexts.map(nutrition => nutrition.preparationState?.name?.trim() || '');
+  for (const [index, nutrition] of contexts.entries()) {
+    const name = preparationNames[index];
+    const uniqueName = name && preparationNames.filter(value => value === name).length === 1;
+    const prefix = contexts.length > 1 ? uniqueName ? name : `Nutrition information ${index + 1} of ${contexts.length}` : '';
+    const addNutrition = (label, value) => add(prefix ? `${prefix} · ${label}` : label, value);
+    addNutrition('Ingredients', nutrition.ingredientStatement);
+    addNutrition('Preparation state', nutrition.preparationState?.name || nutrition.preparationState?.code);
+    addNutrition('Servings per package', nutrition.servingsPerPackage?.description ||
       (Number.isFinite(nutrition.servingsPerPackage?.value) ? String(nutrition.servingsPerPackage.value) : null));
-    add('Serving size', nutrition.servingSize?.description || measure(nutrition.servingSize?.quantity, unit(nutrition.servingSize?.unitOfMeasure)));
+    addNutrition('Serving size', nutrition.servingSize?.description || measure(nutrition.servingSize?.quantity, unit(nutrition.servingSize?.unitOfMeasure)));
     for (const nutrient of nutrition.nutrients || []) {
       const name = nutrient.displayName || nutrient.description || nutrient.code;
       if (!name) continue;
       const amount = measure(nutrient.quantity, unit(nutrient.unitOfMeasure));
       const percent = Number.isFinite(nutrient.percentDailyIntake) ? `${String(nutrient.percentDailyIntake)}% reported daily intake` : null;
-      if (amount || percent) add(`Nutrient · ${name}`, [amount, percent].filter(Boolean).join(' · '));
+      if (amount || percent) addNutrition(`Nutrient · ${name}`, [amount, percent].filter(Boolean).join(' · '));
     }
-    add('Daily intake reference', nutrition.dailyValueIntakeReference);
-    add('Nutritional rating', nutrition.nutritionalRating);
+    addNutrition('Daily intake reference', nutrition.dailyValueIntakeReference);
+    addNutrition('Nutritional rating', nutrition.nutritionalRating);
   }
   return lines;
 }

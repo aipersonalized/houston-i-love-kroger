@@ -64,7 +64,7 @@ page cannot connect or API access is rejected, use the
 |---|---|
 | Choose a store | Up to ten nearby locations from the ZIP search; check the exact store before using its prices. |
 | Browse or search | A small starter sample, or up to50 products for a grocery/brand term. Browse priced items or filter reported promotions; a regular price without a reported promo is not a broken price. |
-| Order returned offers | Biggest dollar savings, highest percent off or lowest reported price; ordering does not find more products. |
+| Order returned offers | Largest price drop, highest percent off or lowest reported price; ordering does not find more products. |
 | Plan a shopping list | Visit-only quantities, an estimated total and aisle grouping for the selected store. Unknown/variable-weight prices stay unresolved; no checkout total is promised. |
 | Read product and store details | Original product photos, package information, supplied labels and store hours/departments where Kroger provides them. Missing fields stay unknown. |
 | Read unit estimates | Source-reported numeric estimates. Their measurement basis is unreported, so they are not verified prices per ounce, pound or item. |
@@ -75,6 +75,8 @@ page cannot connect or API access is rejected, use the
 Savings compare the current reported regular and promo prices. They do not
 compare today's price with a previous sale. Check item identity, package size,
 loyalty or purchase conditions, price and stock with your store before buying.
+Currency is not supplied with current prices. The page shows numeric amounts
+without assuming a currency symbol; list subtotals add only the resolved amounts.
 The app does not clip coupons or place orders. An optional Cart connection can
 add specifically requested items after shopper sign-in, when the installation
 has the required Kroger access and registered callback. It starts disabled.

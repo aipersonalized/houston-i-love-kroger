@@ -108,7 +108,7 @@ Use **Show first** to reorder the loaded results:
 
 | Option | Meaning |
 | --- | --- |
-| **Biggest dollar savings** | Largest calculated regular-minus-promo saving first; unqualified savings follow. |
+| **Largest price drop** | Largest calculated regular-minus-promo difference first; unqualified savings follow. |
 | **Highest percent off** | Largest calculated percentage reduction first; unqualified savings follow. |
 | **Lowest reported price** | Lowest usable displayed price first, including regular prices in the all-priced view. |
 
@@ -117,6 +117,10 @@ ounce, pound or item. Smaller packages can have lower selling prices. A new
 search resets ordering and source filters.
 
 ## 4. Read a product
+
+Currency is not supplied with current prices. Prices and list estimates show
+numbers without an assumed currency symbol. Confirm the currency and final cost
+at Kroger before buying.
 
 Start with the name, brand, package size and price. A photo and a high/low stock
 note appear when Kroger supplies them. Open **Price and product details** when
@@ -134,7 +138,8 @@ eligibility, unit estimates, sale dates or a past-price comparison.
 - **Stock reported** is advisory, even when high. Confirm availability.
 - Inside **Price and product details**, **More about this product** appears when
   extra facts are supplied, such as delivery options, ingredients, allergen
-  statements, warnings and nutrition facts.
+  statements, warnings and nutrition facts. When more than one nutrition context
+  is supplied, keep each preparation or serving context separate.
   Missing statements do not establish that an item is safe for a particular diet;
   check the package before buying or eating.
 - Reported effective/expiration times use your browser's timezone; a source

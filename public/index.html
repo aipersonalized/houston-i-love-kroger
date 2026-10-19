@@ -89,7 +89,7 @@
             <p>Choose a location to load a small grocery sample. Then search for the groceries that matter to you.</p>
             <ul class="comparison-points">
               <li><span aria-hidden="true">01 /</span> Today’s reported promo and regular prices</li>
-              <li><span aria-hidden="true">02 /</span> Calculated savings in dollars and percent</li>
+              <li><span aria-hidden="true">02 /</span> Calculated price drops and percent off</li>
               <li><span aria-hidden="true">03 /</span> Unit estimates when Kroger supplies them</li>
             </ul>
           </div>
@@ -135,12 +135,13 @@
               <div class="sort-field">
                 <label for="sort-order">Show first</label>
                 <select id="sort-order" name="sort">
-                  <option value="savings">Biggest dollar savings</option>
+                  <option value="savings">Largest price drop</option>
                   <option value="percent">Highest percent off</option>
                   <option value="price">Lowest reported price</option>
                 </select>
               </div>
             </div>
+            <p id="price-currency-note" class="field-hint">Currency not supplied. Confirm the currency and final price at Kroger.</p>
             <div class="product-filters" aria-label="Filter returned groceries">
               <div>
                 <label for="product-view">Products to show</label>
@@ -182,7 +183,7 @@
         <p id="basket-status" class="request-status" role="status"></p>
         <p id="basket-empty" class="empty-list">A little planning starts here. Add a product above to choose quantities and see an estimate.</p>
         <div id="basket-content" hidden>
-          <div class="basket-toolbar"><div><p class="eyebrow" id="basket-total-label">Estimated item subtotal</p><strong id="basket-total" class="basket-total"></strong><p id="basket-unresolved" class="field-hint"></p></div><label class="check-label"><input id="group-aisles" type="checkbox"> Group by reported aisle</label></div>
+          <div class="basket-toolbar"><div><p class="eyebrow" id="basket-total-label">Estimated item subtotal</p><strong id="basket-total" class="basket-total"></strong><p id="basket-currency-note" class="field-hint">Currency not supplied. This estimate adds reported amounts; confirm the currency and final cost at Kroger.</p><p id="basket-unresolved" class="field-hint"></p></div><label class="check-label"><input id="group-aisles" type="checkbox"> Group by reported aisle</label></div>
           <p class="field-hint">Before tax and coupons. Items with unknown prices or variable weights are left out of the estimate. Aisle groups use locations supplied by Kroger.</p>
           <div id="basket-lines"></div>
         </div>

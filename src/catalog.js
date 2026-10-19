@@ -63,8 +63,10 @@ export function productUrl(value) {
   } catch { return null; }
 }
 
-function nutrition(value) {
-  if (value == null) return null;
+const MAX_NUTRITION_CONTEXTS = 20;
+
+function nutritionContext(value) {
+  if (!object(value)) throw invalidCatalog();
   const result = fields(value, ['dailyValueIntakeReference', 'nutritionalRating']);
   if (value.ingredientStatement != null) result.ingredientStatement = sourceText(value.ingredientStatement, 8000);
   result.preparationState = fields(value.preparationState, ['code', 'name']);
@@ -79,6 +81,14 @@ function nutrition(value) {
     return nutrient;
   });
   return result;
+}
+
+function nutrition(value) {
+  if (value == null) return null;
+  // The mirrored Products 1.3.0 schema defines an object; qualified API
+  // responses also supply an array of preparation contexts. Preserve both
+  // shapes and apply the same field validation to every context.
+  return Array.isArray(value) ? list(value, MAX_NUTRITION_CONTEXTS, nutritionContext) : nutritionContext(value);
 }
 
 export function productDetails(product) {

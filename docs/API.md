@@ -229,11 +229,19 @@ nullable `productUrl`, `categories`, `aliasProductIds`, `aisleLocations`, `image
 Fields are bounded and type-checked. Missing facts remain null, absent or empty
 collections as appropriate; they are not completed from package text.
 
+`nutritionInformation` may be a single object or an array of up to20 validated
+nutrition contexts. The public Products schema describes an object, while
+controlled production checks also returned arrays. The app preserves the
+returned shape and validates every context; it does not keep only the first.
+Nested arrays, non-object contexts and oversized arrays are unsupported. The
+browser separates multiple contexts by a supplied preparation name or a numbered
+nutrition label, with their own ingredients, serving and nutrient information.
+
 The browser filters the returned sample by `pricing.status`, explicit
 `snapEligible` true/false/unknown and exact reported manufacturer/dietary claims.
 These are browser filters, not additional accepted HTTP request fields. Claims
 do not establish allergen safety or app-certified eligibility.
-When populated, the browser's **More reported product details** disclosure shows
+When populated, the browser's **More about this product** details show
 source-labelled categories, fulfillment, ingredients, allergens, warnings and
 nutrition. Missing data does not imply safety or a negative ingredient claim.
 
@@ -402,6 +410,13 @@ For a term search, `scope.mode` is `search`, `scope.term` is the normalized term
 duplicate removal and promotion qualification.
 
 ### Source values, calculations and missing information
+
+Current source prices do not supply a currency field. The human page formats
+numeric amounts without assuming USD or another currency symbol and labels that
+gap beside results and the shopping-list subtotal. Reported arithmetic is not a
+qualified monetary or payable checkout total. Fields named `regularCents`,
+`promoCents` or `savingsCents` express the application's integer hundredths of
+the reported numeric amount; their names do not establish a source currency.
 
 `source` preserves returned text and the relevant supplied price values.
 Optional product/item identifiers, brand, size, sold-by and stock fields can be `null`.
@@ -593,7 +608,7 @@ Each `deals` row uses the stored-observation fields below and adds:
 
 - `availability`: supplied `inStore`/`stockLevel`, plus status
   `reported_in_stock` or `unreported`. Missing stock remains unknown.
-- `calculated`: dollar savings in `savingsCents` and `percentOff`, calculated
+- `calculated`: the reported numeric price difference in `savingsCents` and `percentOff`, calculated
   only from a usable regular/promo pair.
 - `priceQualification`: distinguishes usable prices from unsupported source
   prices. Unsupported prices are never latest deals.

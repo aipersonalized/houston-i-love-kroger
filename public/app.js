@@ -32,7 +32,7 @@ const state = {
   requests: { connection: null, stores: null, deals: null, history: null, detail: null, cart: null },
   sequence: { connection: 0, stores: 0, deals: 0, history: 0, detail: 0, cart: 0 },
 };
-const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+const amount = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const percent = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat(undefined, {
   year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
@@ -428,7 +428,7 @@ function appendUnitComparison(target, offer) {
   if (unit?.status === 'reported_estimate' && (hasRegular || hasPromo)) {
     const line = element('p', 'unit-line');
     line.append(element('strong', '', 'Reported unit-price estimates: '),
-      document.createTextNode(`${hasPromo ? `$${String(promo)} promo` : 'Promo estimate not supplied'} · ${hasRegular ? `$${String(regular)} regular` : 'regular estimate not supplied'}.`));
+      document.createTextNode(`${hasPromo ? `${String(promo)} promo` : 'Promo estimate not supplied'} · ${hasRegular ? `${String(regular)} regular` : 'regular estimate not supplied'}.`));
     target.append(line, element('p', 'unit-line', 'Unit basis not supplied by Kroger. These are estimates; do not compare them as a known price per oz, lb, or item.'));
   } else {
     target.append(element('p', 'unit-line', 'Unit comparison unavailable — no usable unit-price estimate was supplied. A unit basis is not inferred from package size.'));
@@ -456,15 +456,15 @@ function appendHistory(target, history) {
     const prior = readableDate(history?.lastObservedAt);
     const lowDate = readableDate(history?.lowestObservedAt);
     if (Number.isFinite(history?.lastPromo) && history.lastPromo > 0 && prior) {
-      target.append(element('p', 'unit-line', `Most recent collected promo: ${money.format(history.lastPromo)} · ${prior}.`));
+      target.append(element('p', 'unit-line', `Most recent collected promo: ${amount.format(history.lastPromo)} · ${prior}.`));
     }
     if (Number.isFinite(history?.lowestPromo) && history.lowestPromo > 0 && lowDate) {
-      target.append(element('p', 'unit-line', `Lowest collected promo: ${money.format(history.lowestPromo)} · ${lowDate}. This covers retained prior observations, not an all-time low.`));
+      target.append(element('p', 'unit-line', `Lowest collected promo: ${amount.format(history.lowestPromo)} · ${lowDate}. This covers retained prior observations, not an all-time low.`));
     }
     if ((comparable || status === 'insufficient_history') && Number.isInteger(history?.deltaFromLastCents)) {
       const delta = history.deltaFromLastCents;
       target.append(element('p', 'unit-line', delta === 0 ? 'The current promo matches the most recent comparable collected promo.'
-        : `The current promo is ${money.format(Math.abs(delta) / 100)} ${delta < 0 ? 'lower' : 'higher'} than the most recent comparable collected promo.`));
+        : `The current promo is ${amount.format(Math.abs(delta) / 100)} ${delta < 0 ? 'lower' : 'higher'} than the most recent comparable collected promo.`));
     }
     if (Array.isArray(history?.sourceLabels) && history.sourceLabels.every(label => typeof label === 'string') && history.sourceLabels.length) {
       target.append(element('p', 'unit-line', `History sources: ${history.sourceLabels.join('; ')}.`));
@@ -505,10 +505,10 @@ function renderOffer(offer, index) {
   const prices = element('div', 'offer-price-block');
   const pair = element('div');
   pair.append(element('p', 'promo-label', promoted ? 'Promo price' : offer.pricing.regularCents === null ? 'Reported price' : 'Regular price'),
-    element('strong', 'promo-price', money.format(offer.pricing.currentCents / 100)));
-  if (promoted) pair.append(element('p', 'regular-price', `Regular ${money.format(offer.pricing.regularCents / 100)}`));
+    element('strong', 'promo-price', amount.format(offer.pricing.currentCents / 100)));
+  if (promoted) pair.append(element('p', 'regular-price', `Regular ${amount.format(offer.pricing.regularCents / 100)}`));
   prices.append(pair);
-  if (promoted) prices.append(element('span', 'savings-badge', `Save ${money.format(offer.calculated.savingsCents / 100)} · ${percent.format(offer.calculated.percentOff)}%`));
+  if (promoted) prices.append(element('span', 'savings-badge', `Save ${amount.format(offer.calculated.savingsCents / 100)} · ${percent.format(offer.calculated.percentOff)}%`));
   else prices.append(element('p', 'field-hint', {
     no_reported_promotion: 'No promotion reported.',
     unsupported_price: 'A reported promotion price could not be used; regular price shown.',
@@ -727,14 +727,14 @@ function renderBasketLine(line) {
 }
 
 function renderLineEstimate(target, line) {
-  target.replaceChildren(element('strong', '', line.estimateCents === null ? 'Amount unresolved' : money.format(line.estimateCents / 100)),
-    element('p', 'field-hint', line.reason ? listReasons[line.reason] : `${money.format(line.product.pricing.currentCents / 100)} × ${line.quantity}`));
+  target.replaceChildren(element('strong', '', line.estimateCents === null ? 'Amount unresolved' : amount.format(line.estimateCents / 100)),
+    element('p', 'field-hint', line.reason ? listReasons[line.reason] : `${amount.format(line.product.pricing.currentCents / 100)} × ${line.quantity}`));
 }
 
 function renderBasketTotals(estimate) {
   ui['list-count'].textContent = `(${state.basket.reduce((sum, line) => sum + line.quantity, 0)})`;
   ui['basket-total-label'].textContent = estimate.complete ? 'Estimated item subtotal' : 'Estimated subtotal of resolved lines';
-  ui['basket-total'].textContent = money.format(estimate.knownSubtotalCents / 100);
+  ui['basket-total'].textContent = amount.format(estimate.knownSubtotalCents / 100);
   ui['basket-unresolved'].textContent = estimate.unresolvedCount ? `${estimate.unresolvedCount} ${estimate.unresolvedCount === 1 ? 'line has' : 'lines have'} an unresolved amount and ${estimate.unresolvedCount === 1 ? 'is' : 'are'} excluded from this subtotal.` : 'All current list lines have a known unit-price estimate.';
 }
 
