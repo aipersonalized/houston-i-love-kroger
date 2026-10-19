@@ -24,9 +24,40 @@ that an image was built or a host deployed.
 5. In the terminal, change into the project folder. You should see `package.json`
    when opening that folder in your file manager.
 6. Run `npm ci`. Wait for it to finish. It installs the locked dependencies,
-   including the native SQLite adapter. If the adapter is unavailable for your
-   system, retain the error for diagnosis; do not disable dependency checks or
-   install an unrelated database package as a substitute.
+   including the native SQLite adapter. This checkout includes a project-only
+   install-script approval pinned to `better-sqlite3@13.0.3` for npm versions
+   that require approval. Its install script prepares the native database
+   binding; no global or all-package script approval is needed.
+   If the adapter is unavailable for your system, retain the error for diagnosis;
+   do not disable dependency checks or substitute an unrelated database package.
+
+### If npm blocks the SQLite install script
+
+With npm 12.1.0, a blocked native install can leave package files present while
+the SQLite binding is missing. In the project terminal, inspect approvals:
+
+```text
+npm install-scripts ls --json
+```
+
+Check that the locked dependency is exactly `better-sqlite3` version `13.0.3`
+and review that package's install script before approving it. If its pinned
+project approval is missing, these npm 12 commands approve only that locked
+dependency and rebuild its binding:
+
+```text
+npm install-scripts approve better-sqlite3 --json
+npm rebuild better-sqlite3 --no-audit --no-fund
+```
+
+The approval writes a version-pinned entry in this project's `package.json`.
+Do not use `--all`, disable pinning or weaken global script policy to recover.
+After a successful rebuild, `npm test` checks the native binding with synthetic
+fixtures and temporary databases, without live Kroger access or real history.
+If the rebuild fails, check the Node version/platform and keep the failure for
+diagnosis. Older npm versions may not provide `install-scripts`; a missing
+command is not itself a SQLite failure. Use the help and feedback guidance in
+the repository README before changing policy.
 
 ## 2. Try the page before adding credentials
 

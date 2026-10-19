@@ -23,9 +23,9 @@ sources:
     title: "App installation and configuration"
     author: "Houston I Love Kroger project"
     published: null
-    accessed: "2026-10-19T18:27:19.077492+00:00"
+    accessed: "2026-10-19T18:38:11.787450+00:00"
     type: local-first-party-document
-    hash: "12495e7d4d366954199e31bfae82d7fd030c2ec891512589b2f412131012bd6b"
+    hash: "c699d7befab9a1b9a790151856c83922f083d6c1c4631943e2fa3ac36033f5aa"
   - id: history
     url: "repo:/docs/HISTORY.md"
     title: "History prerequisites and operator boundary"
@@ -70,9 +70,11 @@ snapshot identity. No commit, release or deployment is inferred. Local
 `fetch_docs.py` and `refresh_docs.py` have both run; five pages, zero failures and
 four reviewed exclusions reconciled. Current-source hash checking also passed.
 
-The selected snapshot was refreshed at 18:27 UTC on 2026-10-19. The self-hosting
+The selected snapshot was refreshed at 18:38 UTC on 2026-10-19. The self-hosting
 manual includes official portal instructions and optional container setup with
 blank credentials, a private database volume and explicit qualification limits.
+Its npm 12.1.0 recovery instructions retain version-pinned, project-only native
+SQLite install approval and do not broaden script policy.
 The human guide distinguishes a qualified difference against one prior promo
 from a trend. Both changed manuals were read and reconciled with the procedures;
 their source hashes above match the current manifest and exact copies.
