@@ -11,6 +11,8 @@ The first source candidate includes:
 
 - Root `.env.example`, `.gitignore`, `LICENSE`, `README.md`,
   `THIRD_PARTY_NOTICES.md`, `package.json` and `package-lock.json`.
+- Portable `Dockerfile`, `.dockerignore` and `compose.example.yaml` for optional
+  container hosting; a private `compose.yaml` is not a release file.
 - Application code in `public/`, `src/`, `scripts/` and `migrations/`.
 - Synthetic tests in `tests/` and the disabled
   `config/collection-plan.example.json`.
@@ -30,7 +32,7 @@ The first source candidate excludes these local paths, as recorded in
 | `/skills/kroger-api/` | Separate local technology skill containing a third-party documentation mirror whose redistribution is not cleared. |
 | `/skills/houston-i-love-kroger/evaluations/` | Local evaluation reports, not proof of live qualification. |
 | `/skills/houston-i-love-kroger/research/recon/`, `/skills/houston-i-love-kroger/research/sources/` | Disposable research and source-tool captures. |
-| `/.env`, `/.env.*` except `.env.example` | Private runtime configuration. |
+| `/.env`, `/.env.*` except `.env.example`, `/compose.yaml`, `/compose.override.yaml` | Private runtime configuration. |
 | `/.runtime/`, SQLite/database patterns, `/config/*` except the public example | History, permission policies, collection plans and runtime storage. |
 | `node_modules/`, `.venv/`, `__pycache__/`, `*.py[cod]`, `.cache/`, `dist/`, `coverage/`, `.DS_Store` | Installed packages, caches, build output and local metadata. |
 
@@ -40,30 +42,39 @@ agreements, backups, credentials and operational records outside public source.
 An ignore rule does not remove files already tracked by Git and cannot screen
 arbitrary files or old commits for secrets.
 
-## 2. Check the candidate before staging
+## 2. Work in a separate development worktree
 
-Open a terminal in the project folder. Read the source changes, new files,
-dependency notices and public manuals. Confirm that instructions refer only to
-files included in the candidate. Do not publish a link that works only because
-an excluded developer file is present on the preparer's computer.
-
-Run the app's documented checks when behavior changes:
+Keep this project in its own Git repository with independent history. Its
+development and `main` worktrees share that history. Keep worktrees outside
+other projects' repositories. In the project terminal, inspect:
 
 ```text
-npm run check
-npm test
+git status --short --branch
+git worktree list
+git branch --show-current
 ```
 
-Reuse accepted passing checks for unchanged behavior. These tests use synthetic
-fixtures and temporary databases; they do not establish live API entitlement,
-retention rights, hosting readiness or observed agent performance. If manuals
-change, refresh and audit the companion's five-page first-party snapshot using
-its [documentation command contract](../skills/houston-i-love-kroger/schemas/command-rules.md).
-Do not add source caches or evaluation reports to make a candidate look complete.
+Use `main` for integration and release. Make source, documentation, skill and
+container changes in a separate worktree on `dev` or a descriptive `dev/` branch.
+Reuse an existing appropriate worktree. For a clean repository with an existing
+`main` commit, this example creates a sibling worktree and a new development
+branch; choose an unused path and branch name:
 
-## 3. Stage and identify the exact source tree
+```text
+git worktree add -b dev/next-change ../houston-i-love-kroger-dev main
+```
 
-Inspect the live state before staging:
+A new repository needs a reviewed initial commit before linked worktrees can be
+created. Select the intended public author identity locally and include only
+the reviewed source boundary. This bootstrap does not replace development
+checks, actual-use evaluation or the final publication review. Preserve dirty
+work; do not reset it or initialize another repository inside a worktree.
+
+## 3. Commit the scoped candidate on development
+
+Read source changes, new files, dependency notices and public manuals in the
+development worktree. Check links against the public inventory, including the
+companion's documentation copies. Inspect the live state before staging:
 
 ```text
 git status --short
@@ -75,7 +86,7 @@ the two source groups separate so that the app and companion remain visible in
 review:
 
 ```text
-git add -- .env.example .gitignore LICENSE README.md THIRD_PARTY_NOTICES.md package.json package-lock.json config/collection-plan.example.json docs migrations public scripts src tests
+git add -- .env.example .gitignore .dockerignore Dockerfile compose.example.yaml LICENSE README.md THIRD_PARTY_NOTICES.md package.json package-lock.json config/collection-plan.example.json docs migrations public scripts src tests
 git add -- skills/houston-i-love-kroger
 git diff --cached --name-only
 git diff --cached --check
@@ -89,29 +100,81 @@ the working file before continuing. An existing tracked excluded file or a
 commit containing private material requires a separate scoped review; ignoring
 it now does not make earlier history safe to publish.
 
-After the inventory and contents match the intended candidate, record its
-immutable Git tree identity:
+Commit the inspected candidate on the development branch, then record both its
+commit and source-tree identities:
 
 ```text
-git write-tree
+git commit -m "Prepare verified source candidate"
+git rev-parse HEAD
+git rev-parse "HEAD^{tree}"
 ```
 
-The printed object ID identifies exactly the staged contents. Supply that ID,
-the intended distribution surface and check results to the maintainer's
-licensing and legal-liability review. The maintainer's release process requires
-that review before a public source push, skill release, package, app or
-documentation publication. Resolve required findings and stage any corrections;
-a changed tree needs a matching review. A selected license or passing tests
-cannot replace this gate.
+The commit identifies source and public metadata. A staged-tree identity alone
+does not establish committed development, tested use or integration into `main`.
 
-## 4. Keep publication and live operation distinct
+## 4. Check and evaluate the committed development candidate
 
-Publish only the accepted candidate through an authorized destination, and
-verify its actual public contents afterward. Never upload the working folder
-as an archive: it may contain ignored local records. A Git tree review does not
-review every earlier commit; review all history that would be sent as well.
-Use a source archive derived from the accepted reviewed revision when an archive
-is needed, and inspect its final inventory before distributing it.
+Run applicable checks and bind the results to that commit:
+
+```text
+npm run check
+npm test
+```
+
+Reuse accepted passing evidence for unchanged behavior, with its matching
+source identified. These tests use synthetic fixtures and temporary databases;
+they do not establish live API entitlement, retention rights, hosted capacity
+or observed agent performance. If selected manuals change, refresh and audit
+the companion's first-party snapshot using its
+[documentation command contract](../skills/houston-i-love-kroger/schemas/command-rules.md).
+Do not include generated evaluation reports or source caches in the release.
+
+Then exercise the relevant real interface in a development preview. For browser
+changes, use the actual page and check the affected desktop/mobile, keyboard,
+success and failure states. Use clearly labeled synthetic data when supplier
+access or permission is unavailable; never fill a real history database with
+test products. For API/CLI changes, exercise their supported interface. For
+documentation-only changes, follow the affected instructions/scenarios and
+check links. Container changes require an actual image build and isolated
+startup/health/resource/persistence checks before deploying that image.
+
+Record what ran and its limits. A required missing check blocks merge. Fix
+failures on development, commit corrections and repeat affected checks; do not
+call a static walkthrough actual browser or model use.
+
+## 5. Merge passing development into main
+
+Reconcile any changes on `main` in development first and repeat affected checks.
+In the clean `main` worktree, merge the accepted development branch. For the
+example branch above:
+
+```text
+git status --short --branch
+git merge --ff-only dev/next-change
+git rev-parse HEAD
+git rev-parse "HEAD^{tree}"
+```
+
+If the merge cannot proceed, stop and resolve the branch relationship in
+development without discarding other work. Verify the resulting `main` commit
+and tree contain the accepted candidate. Copying development files into a
+release folder does not replace the merge.
+
+## 6. Review and publish committed main
+
+Supply the actual `main` commit/tree, author metadata, complete refs/history to
+be sent, intended destination and check evidence to the maintainer's licensing
+and legal-liability review. This process requires that review before a public
+source push, skill release, package, app or documentation publication. Resolve
+required findings on development, recheck and merge corrections before final
+review. A selected license or passing tests cannot replace the gate.
+
+Publish or deploy only the accepted committed `main` version, with no additional
+uncommitted source. Record the artifact/image identity, destination and rollback
+reference, then verify the actual public task and files. Keep source publishing
+and hosted-app deployment separate. Never archive the working folder: ignored
+records may remain there. Derive a source archive from the reviewed revision
+and inspect its final inventory. A tree review does not review earlier commits.
 
 MIT covers the original project materials identified by [LICENSE](../LICENSE).
 Dependency notices remain in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).

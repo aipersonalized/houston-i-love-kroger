@@ -2,6 +2,8 @@
 /.env
 /.env.*
 !.env.example
+/compose.yaml
+/compose.override.yaml
 /.runtime/
 /config/*
 !/config/collection-plan.example.json

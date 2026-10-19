@@ -165,7 +165,7 @@ Possible item states include:
 | --- | --- |
 | Historical comparison unavailable | A source or history-reading capability is not available. It does not establish that no past promotions occurred. |
 | No observations collected | No stored prior observations were found for this item and store. |
-| Not enough comparable observations | The collected data is not sufficient for a reliable comparison. A first observation is not a trend. |
+| One comparable prior promotion | A qualified price difference can be shown against that observation. One observation does not establish a trend. |
 | Historical prices cannot be compared reliably | Observations exist, but their item or price context does not match well enough. Any displayed past price stays qualified. |
 | Collected promotion history | Dated, suitable prior observations can be shown with their public source names. |
 
@@ -173,7 +173,8 @@ When available, the **most recent collected promo** is the latest retained prior
 observation for the matching context. A displayed dollar change compares today's
 reported promo with that prior observation: lower means today's promo is cheaper,
 and higher means it is more expensive. A missing comparison stays unavailable;
-the app does not assume equality.
+the app does not assume equality. A qualified difference can be shown with one
+prior observation while the page still warns that it does not establish a trend.
 
 The **lowest collected promo** covers only retained qualifying prior observations,
 not every historical promotion or an all-time low. Read its date and source.

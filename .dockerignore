@@ -1,0 +1,17 @@
+# Allow only the runtime source, dependency lock and required notices into the build.
+**
+!Dockerfile
+!.dockerignore
+!package.json
+!package-lock.json
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+!src/
+!src/*.js
+!public/
+!public/index.html
+!public/app.js
+!public/ordering.js
+!public/styles.css
+!migrations/
+!migrations/*.sql

@@ -15,17 +15,17 @@ sources:
     title: "Human shopping guide"
     author: "Houston I Love Kroger project"
     published: null
-    accessed: "2026-10-19T15:54:54.429208+00:00"
+    accessed: "2026-10-19T18:27:19.077492+00:00"
     type: local-first-party-document
-    hash: "84100de326315634d7708cfe93a93044f9b24e6fcfc7391ad3701c4603f4ec0d"
+    hash: "11d3f7ee212d56899f8d581bcd73b50cb670cf96ed72fa5138e28958439c026e"
   - id: self-hosting
     url: "repo:/docs/SELF_HOSTING.md"
     title: "App installation and configuration"
     author: "Houston I Love Kroger project"
     published: null
-    accessed: "2026-10-19T16:22:45.728551+00:00"
+    accessed: "2026-10-19T18:27:19.077492+00:00"
     type: local-first-party-document
-    hash: "d36159f8c35c1507e929c581815f733e31a08cd45c258b16bcc76a402f27fa44"
+    hash: "12495e7d4d366954199e31bfae82d7fd030c2ec891512589b2f412131012bd6b"
   - id: history
     url: "repo:/docs/HISTORY.md"
     title: "History prerequisites and operator boundary"
@@ -70,11 +70,12 @@ snapshot identity. No commit, release or deployment is inferred. Local
 `fetch_docs.py` and `refresh_docs.py` have both run; five pages, zero failures and
 four reviewed exclusions reconciled. Current-source hash checking also passed.
 
-Publication preparation refreshed the selected snapshot at 16:22 UTC on
-2026-10-19. The updated self-hosting manual replaces a local technology-skill
-dependency with official portal instructions and makes registration and live
-qualification limits explicit. It was read and reconciled with the setup
-procedure; the source hash above matches the current manifest and exact copy.
+The selected snapshot was refreshed at 18:27 UTC on 2026-10-19. The self-hosting
+manual includes official portal instructions and optional container setup with
+blank credentials, a private database volume and explicit qualification limits.
+The human guide distinguishes a qualified difference against one prior promo
+from a trend. Both changed manuals were read and reconciled with the procedures;
+their source hashes above match the current manifest and exact copies.
 
 The docs' original publisher/source context remains at the app's docs directory.
 External links and unselected source families are exclusions, not assumed-read

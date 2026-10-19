@@ -389,7 +389,7 @@ function appendHistory(target, history) {
   if (history?.reason === 'history_environment_mismatch') message = 'Historical promo comparison unavailable in the certification environment. These sandbox prices have no matching production-history comparison.';
   if (status === 'permission_required') message = 'Historical promo comparison unavailable — collection requires the operator’s data-source permission.';
   if (['no_observations', 'empty'].includes(status)) message = 'Historical promo comparison: no observations have been collected for this item and store.';
-  if (['one_observation', 'insufficient_history'].includes(status)) message = 'Historical promo comparison: not enough comparable observations have been collected yet.';
+  if (['one_observation', 'insufficient_history'].includes(status)) message = 'Historical promo comparison: one comparable prior promotion has been collected. One observation does not establish a trend.';
   if (status === 'incomparable') message = 'Historical prices were observed, but their item or price context cannot be compared reliably with this offer.';
   const comparable = status === 'comparable';
   const observations = Number.isInteger(history?.observationCount) && history.observationCount >= 0 ? history.observationCount : null;
@@ -404,7 +404,7 @@ function appendHistory(target, history) {
     if (Number.isFinite(history?.lowestPromo) && history.lowestPromo > 0 && lowDate) {
       target.append(element('p', 'unit-line', `Lowest collected promo: ${money.format(history.lowestPromo)} · ${lowDate}. This covers retained prior observations, not an all-time low.`));
     }
-    if (comparable && Number.isInteger(history?.deltaFromLastCents)) {
+    if ((comparable || status === 'insufficient_history') && Number.isInteger(history?.deltaFromLastCents)) {
       const delta = history.deltaFromLastCents;
       target.append(element('p', 'unit-line', delta === 0 ? 'The current promo matches the most recent comparable collected promo.'
         : `The current promo is ${money.format(Math.abs(delta) / 100)} ${delta < 0 ? 'lower' : 'higher'} than the most recent comparable collected promo.`));
@@ -472,8 +472,8 @@ function renderHistorySummary(history) {
     title = 'Price history is starting fresh';
     message = 'No observations have been collected yet. Historical comparisons will need dated, comparable observations for this same store and item.';
   } else if (['one_observation', 'insufficient_history'].includes(status)) {
-    title = 'More price observations are needed';
-    message = 'A first observation is not a price trend. There are not enough comparable historical promotions to make a comparison yet.';
+    title = 'One prior promotion is not a trend';
+    message = 'One prior observation can support a qualified price difference, but it does not establish a trend. Read each item’s history and limits above.';
   } else if (status === 'permission_required') {
     title = 'Historical collection needs source permission';
     message = 'The database starts empty. The operator needs permission to retain data from a source before collection can begin. Searches do not populate history.';

@@ -4,6 +4,11 @@ These instructions use no particular AI product or hosting company. Local
 operation has been checked on Windows with Node.js 22.23.2; other operating
 systems and production hosting have not yet been qualified.
 
+For an optional Linux container behind your own reverse proxy, use
+[the container instructions](#6a-optional-container-behind-a-reverse-proxy).
+Container files are supplied for qualification; their presence does not prove
+that an image was built or a host deployed.
+
 ## 1. Prepare your computer
 
 1. Download a supported Node.js LTS release from [Node.js](https://nodejs.org/).
@@ -137,6 +142,100 @@ verify supplier quota, edge rate limits, shared budgeting, traffic admission,
 availability, backup and deletion behavior. Keep access logs from recording
 search bodies, shopper IP histories or catalog payloads; inspect your proxy and
 host defaults. No analytics or external AI forwarding is built into the app.
+
+## 6a. Optional container behind a reverse proxy
+
+The source includes a `Dockerfile`, a strict build-context allowlist in
+`.dockerignore`, and `compose.example.yaml`. You need Docker Engine with modern
+Compose/BuildKit and permission to use an existing reverse-proxy network. This
+is a Linux container path, separate from the Windows/Node qualification above.
+No GPU, external AI service or Kroger credential is needed for the setup page.
+
+1. Install Docker using the [official installation instructions](https://docs.docker.com/engine/install/)
+   for your system if needed. Open a terminal in this source folder. Run
+   `docker version` and `docker compose version`; both must connect successfully.
+2. Copy `compose.example.yaml` to a private `compose.yaml` in this folder.
+   The local file is ignored by Git. Set its `PUBLIC_ORIGIN` to your actual HTTPS
+   origin, for example `https://groceries.example`, without a folder path. Replace
+   the example gateway network name with the existing network shared by your
+   reverse proxy. Do not attach unrelated networks or publish the container port.
+3. Keep `APP_BASE_PATH=/apps/houston-i-love-kroger/`. Configure the proxy to pass
+   that full path to `http://kroger:4173`, retaining the public `Host` header.
+   With NGINX, a `proxy_pass` URL without a URI suffix preserves the path:
+
+   ```nginx
+   location = /apps/houston-i-love-kroger {
+       return 308 /apps/houston-i-love-kroger/;
+   }
+   location ^~ /apps/houston-i-love-kroger/ {
+       proxy_pass http://kroger:4173;
+       proxy_set_header Host $host;
+       proxy_cache off;
+       proxy_buffering off;
+       proxy_read_timeout 40s;
+       proxy_next_upstream off;
+   }
+   ```
+
+   Use this inside the appropriate existing HTTPS server configuration after
+   reviewing its actual policy. The service name must resolve on the shared
+   network. Do not strip the prefix with the default app configuration: requests
+   outside `APP_BASE_PATH` are rejected. Assets and API calls use relative URLs.
+   NGINX documents this distinction in its
+   [proxy_pass reference](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass).
+4. Keep both credential fields blank for the initial setup-only installation.
+   Do not pass your local `.env` into the image or enable collection. The build
+   context admits only runtime source, dependency metadata and required notices;
+   it excludes local skills, settings, databases, tests, Git data and caches.
+   The image starts `node src/server.js`, without automatically loading `.env`.
+5. The default base image is the specific `node:22.23.2-bookworm-slim` tag.
+   For a release, select and record the qualified resolved image digest and set
+   `NODE_IMAGE` in the private Compose build arguments to that immutable image
+   reference. Rebuild and requalify for a new image or CPU architecture; never
+   copy this computer's `node_modules` into a Linux image. The dependency stage
+   supplies compiler tools for the native SQLite adapter; the runtime stage
+   omits them and runs as the image's unprivileged `node` user.
+6. The named `history` volume mounts the complete private `/data` directory;
+   `HISTORY_DB_PATH=/data/history.sqlite`. SQLite also needs to write its WAL/SHM
+   files there. A new empty volume takes the image directory's ownership; an
+   existing volume must already permit the runtime user to write. The source
+   filesystem is read-only. This web image contains no collector command or
+   scheduled collection service.
+7. Review the example's CPU, memory and process limits: 0.5 CPU, `256m` memory and 64
+   processes by default. They are configurable starting limits, not measured
+   production capacity. It uses one process, no host port mapping, dropped Linux
+   capabilities and bounded local logs. Keep the proxy from caching responses
+   or logging request bodies/catalog data. Shared-network access is not user
+   authentication; the edge owns public traffic controls.
+8. After the release checks, build and start your reviewed configuration:
+
+   ```text
+   docker compose -f compose.yaml build
+   docker compose -f compose.yaml up -d
+   docker compose -f compose.yaml ps
+   ```
+
+   Building downloads the selected image, Debian build tools and locked npm
+   dependencies. Starting creates or opens the private empty database; it does
+   not call Kroger or start collection. The health check calls only the local
+   status route and accepts a reachable, unconfigured installation as healthy.
+9. Open your actual HTTPS origin followed by `/apps/houston-i-love-kroger/`.
+   Confirm the page, CSS and scripts load, the setup notice is visible, searches
+   are disabled and no shopping offers appear. The public status endpoint should
+   report `configured: false`; a valid direct search receives `setup_required`
+   with HTTP 503. This verifies setup-state hosting, not live supplier access.
+10. For a 502 response, check service/network naming, the preserved path and
+    proxy `Host` header before changing firewall exposure. For a database failure,
+    check volume ownership and free space; do not delete retained data. Use
+    `docker compose -f compose.yaml stop` to stop the service while preserving
+    its volume. Back up and restore only under the rules below; do not use a
+    volume-removal option as a routine restart or upgrade.
+
+Enabling real searches later requires private runtime credential configuration,
+actual access/recipient permission and a fresh operation review. Historical
+collection and display remain separately gated by [HISTORY.md](HISTORY.md).
+Record the committed source, resolved image ID/digest, limits, actual host checks
+and rollback image before any public deployment. Rebuild after source changes.
 
 ## 7. Back up, upgrade and recover
 
