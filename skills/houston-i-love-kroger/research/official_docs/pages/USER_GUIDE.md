@@ -24,6 +24,15 @@ You need an internet connection and a browser with JavaScript enabled. The app
 does not ask for your Kroger customer account, loyalty number, payment details,
 or an AI-provider account.
 
+Before searching, open **Privacy** and **Use notes** beside the ZIP form or in
+the footer. These links explain who runs that installation, where searches go
+and what hosting logs may contain. Use the app for your own store and product
+searches, following the linked Kroger Terms and Acceptable Use rules. Do not
+bulk-collect, archive, alter or resell API content, track customers' searches or
+locations, or compare Kroger prices with other retailers. If an assistant helps
+you, its provider has separate privacy terms; do not send Kroger data there
+without permission.
+
 Wait for the connection check near the top of the page:
 
 - If the ZIP code field becomes available, continue below. Having connection

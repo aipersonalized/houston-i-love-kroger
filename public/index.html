@@ -70,7 +70,7 @@
           </div>
           <div class="privacy-note">
             <span class="privacy-symbol" aria-hidden="true">↳</span>
-            <p>No customer sign-in. This page keeps your search in memory for this visit; it sends it to this installation to query Kroger. See <a href="#data-notes">data notes</a>.</p>
+            <p>No customer sign-in. Your search goes through this installation to Kroger. Read the <a href="#privacy-notice">Privacy</a> and <a href="#use-notes">Use notes</a> before searching.</p>
           </div>
         </section>
 
@@ -155,14 +155,39 @@
         <div class="notes-grid">
           <div><h3><span aria-hidden="true">↗</span> A snapshot, for one store</h3><p>Results come from Kroger’s API for your selected location and the displayed search topics. The sample and search each have a result limit. They do not cover every store promotion.</p></div>
           <div><h3><span aria-hidden="true">=</span> Prices and calculations</h3><p>Regular and promo prices are reported source values. Savings are calculated from that pair. Unit-price estimates need a known unit basis for a fair comparison; a missing basis is always marked.</p></div>
-          <div><h3><span aria-hidden="true">↶</span> History needs a source</h3><p>Historical comparisons need dated observations for the same store and item. Missing or incompatible history stays marked. Your searches do not populate the history database or go to an external AI service.</p></div>
+          <div><h3><span aria-hidden="true">↶</span> History needs a source</h3><p>Historical comparisons need dated observations for the same store and item. Missing or incompatible history stays marked. Your searches do not populate the history database. Collection needs separate source permission.</p></div>
+        </div>
+      </section>
+
+      <section id="privacy-notice" class="data-notes" aria-labelledby="privacy-title" tabindex="-1">
+        <p class="eyebrow">Before you search</p>
+        <h2 id="privacy-title">Privacy and use notes.</h2>
+        <div class="notes-grid">
+          <div>
+            <h3>Privacy</h3>
+            <p>This page keeps your ZIP code, chosen store, search words and results in memory for this visit. Searches send the needed values in a request body to the operator of this installation, which queries Kroger. No customer account, cart or payment is involved. Read <a href="https://www.kroger.com/i/privacy-policy">Kroger’s privacy notice</a> for its separate handling.</p>
+            <p>The app does not keep a search or product archive, use searches to collect price history, or send them to advertising, email or AI services. A separate history source needs permission before collection.</p>
+            <p>If you use an assistant, its provider has separate privacy terms. Using an assistant does not grant permission to send Kroger data to that provider.</p>
+          </div>
+          <div>
+            <h3>Hosting and logs</h3>
+            <p>At aipersonalized.io, aipersonalized operates this installation, with Cloudflare handling traffic before it reaches the server. Cloudflare, hosting services and error records can include your IP address, requested page, browser details, referrer, time and response status to run and troubleshoot the service.</p>
+            <p>For that installation, proxy access logs are disabled for this app’s address. Search values go in POST bodies; the app and default server log formats do not record those bodies. The proxy’s service logs are configured to rotate at 1 MB and keep up to two files. This size limit does not guarantee deletion after a set time or control Cloudflare’s retention. Hosting records are separate from the app’s visit memory.</p>
+            <p>If you use another address, ask that installation’s operator about its hosting and logs.</p>
+          </div>
+          <div>
+            <h3 id="use-notes" tabindex="-1">Use notes</h3>
+            <p>Use this app for your own store and product searches. Follow applicable law and Kroger’s <a href="https://developer.kroger.com/terms">API Terms</a> and <a href="https://developer.kroger.com/documentation/public/getting-started/acceptable-use">Acceptable Use rules</a>.</p>
+            <p>Do not bulk-collect, archive, alter or resell API content, track customer searches or locations, or compare Kroger prices with other retailers.</p>
+            <p>This is a free browsing tool. Confirm prices, stock and offer conditions with the store before buying.</p>
+          </div>
         </div>
       </section>
     </main>
 
     <footer class="site-footer shell">
       <p class="footer-name">houston-i-love-kroger<span aria-hidden="true"> ✳</span></p>
-      <p>An independent project in development. Not affiliated with, endorsed by, or sponsored by The Kroger Co. Kroger is a trademark of its owner.</p>
+      <p>An independent project in development. Not affiliated with, endorsed by, or sponsored by The Kroger Co. Kroger is a trademark of its owner. <a href="#privacy-notice">Privacy</a> · <a href="#use-notes">Use notes</a></p>
       <a href="#main">Back to top <span aria-hidden="true">↑</span></a>
     </footer>
   </body>

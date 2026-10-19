@@ -11,6 +11,15 @@ data to an assistant provider. The installation's source permissions,
 [Kroger Acceptable Use](https://developer.kroger.com/documentation/public/getting-started/acceptable-use)
 and [Kroger Terms](https://developer.kroger.com/terms) still apply.
 
+Before using a live installation, read its **Privacy** and **Use notes** links
+on the app page. They are available without running a search, at the configured
+base page followed by `#privacy-notice` and `#use-notes`. They explain the
+operator, search handling and hosting logs. Use the API for ordinary store and
+product browsing. Do not bulk-collect, archive, alter or resell API content,
+track customer searches or locations, or compare Kroger prices with other
+retailers. An assistant's ability to call this API does not grant permission
+to forward its results to that assistant's provider.
+
 ## Address and request rules
 
 The default local app address is

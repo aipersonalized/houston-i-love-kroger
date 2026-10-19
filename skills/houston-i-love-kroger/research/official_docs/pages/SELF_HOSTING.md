@@ -174,8 +174,37 @@ This prototype's request limits and API budget are local to one process and
 reset on restart. Multiple replicas do not share them. Before a public launch,
 verify supplier quota, edge rate limits, shared budgeting, traffic admission,
 availability, backup and deletion behavior. Keep access logs from recording
-search bodies, shopper IP histories or catalog payloads; inspect your proxy and
-host defaults. No analytics or external AI forwarding is built into the app.
+search bodies or catalog payloads, and do not use them to track shoppers;
+inspect your proxy and host defaults. No analytics or external AI forwarding
+is built into the app. Hosting providers can add their own logging or page
+features, so check the delivered page as well as the application source.
+
+Before anyone uses your installation with live API access:
+
+1. Open `public/index.html` in a local text editor. Find **Privacy and use notes**.
+2. Replace the paragraph explicitly scoped to the `aipersonalized.io` installation
+   with your operator name and actual hosting providers. That paragraph describes
+   one deployment; it does not make aipersonalized the operator of your copy.
+3. Disable proxy access logs for this app's routes before live searches. With
+   Nginx, add `access_log off;` inside the app's path, bare-path redirect and
+   dedicated error locations. Keep unrelated site routes under their existing
+   logging policy. Do not log search bodies or build records of customer activity.
+4. Verify and update what you collect, why, who receives it, and how long you
+   retain it. Describe operational records such as IP addresses, request
+   addresses, browser details and timestamps if your host or proxy keeps them.
+   Replace the app-route access-log and 1 MB/two-file rotation statements with
+   your real settings. Error and hosting records may still exist; size
+   rotation does not promise deletion after a fixed time. Include an actual
+   private contact method if you offer one; never invent contact details or
+   send private requests to a public issue or an AI chat by default.
+5. Keep the **Privacy** and **Use notes** links visible before searching and in
+   the footer. Keep the official Kroger Terms and Acceptable Use links, lawful-use
+   notice and source-use limits. Do not remove them when you change branding.
+6. Check the deployed notices against your real behavior, then complete the
+   exact-candidate review and live-access checks. Update the notices before
+   changing collection, retention, advertising or sharing. Price-history
+   collection and forwarding data to an assistant provider need their own
+   source permission; live API credentials do not grant it.
 
 ## 6a. Optional container behind a reverse proxy
 

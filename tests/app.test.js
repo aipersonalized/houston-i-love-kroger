@@ -210,7 +210,7 @@ test('four concurrent searches are admitted and the fifth is rejected without an
   assert.ok((await Promise.all(running)).every(result => result.status === 200));
 });
 
-test('only fixed frontend assets are served at the configured base path', async () => {
+test('fixed frontend assets include linked privacy and use notes without requiring a search', async () => {
   const server = await createApp({ config, client: fakeClient() });
   const redirect = await invoke(server, { method: 'GET', url: '/' });
   assert.equal(redirect.status, 308);
@@ -218,6 +218,19 @@ test('only fixed frontend assets are served at the configured base path', async 
   const page = await invoke(server, { method: 'GET', path: '' });
   assert.equal(page.status, 200);
   assert.match(page.headers['content-security-policy'], /frame-ancestors 'none'/);
+  assert.equal(page.headers['referrer-policy'], 'no-referrer');
+  assert.match(page.bytes, /href="#privacy-notice"/);
+  assert.match(page.bytes, /href="#use-notes"/);
+  const notice = page.bytes.match(/<section id="privacy-notice"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(notice, 'privacy and use notes are in the delivered HTML');
+  assert.match(notice, /in memory for this visit/);
+  assert.match(notice, /request body[\s\S]*queries Kroger/);
+  assert.match(notice, /At aipersonalized\.io, aipersonalized operates this installation/);
+  assert.match(notice, /does not guarantee deletion after a set time/);
+  assert.match(notice, /href="https:\/\/www\.kroger\.com\/i\/privacy-policy"/);
+  assert.match(notice, /href="https:\/\/developer\.kroger\.com\/terms"/);
+  assert.match(notice, /href="https:\/\/developer\.kroger\.com\/documentation\/public\/getting-started\/acceptable-use"/);
+  assert.match(notice, /Do not bulk-collect[\s\S]*other retailers/);
   assert.equal((await invoke(server, { method: 'GET', path: '.env' })).status, 404);
   assert.equal((await invoke(server, { method: 'GET', path: '../src/server.js' })).status, 404);
 });
