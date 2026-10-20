@@ -64,6 +64,10 @@ export function productUrl(value) {
 }
 
 const MAX_NUTRITION_CONTEXTS = 20;
+// Products 1.3.0 gives alias arrays no maxItems. The supplier JSON reader caps
+// bodies at 2,000,000 bytes; even an empty string plus its separator costs at
+// least three serialized bytes. Keep the element guard without a guessed count.
+const MAX_ALIAS_PRODUCT_IDS = Math.floor(2_000_000 / 3);
 
 function nutritionContext(value) {
   if (!object(value)) throw invalidCatalog();
@@ -96,7 +100,7 @@ export function productDetails(product) {
   return {
     upc: sourceText(product.upc, 64), productPageURI: sourceText(product.productPageURI, 2048),
     productUrl: productUrl(product.productPageURI),
-    categories: strings(product.categories), aliasProductIds: strings(product.aliasProductIds, 50, 64),
+    categories: strings(product.categories), aliasProductIds: strings(product.aliasProductIds, MAX_ALIAS_PRODUCT_IDS, 64),
     aisleLocations: list(product.aisleLocations, 30, value => {
       const result = fields(value, ['bayNumber', 'description', 'number', 'numberOfFacings', 'sequenceNumber', 'side', 'shelfNumber', 'shelfPositionInBay']);
       if (!result) throw invalidCatalog();

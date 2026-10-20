@@ -4,7 +4,7 @@
   "inventoryUrl": "repo:/",
   "appVersion": "0.2.0",
   "sourceRevision": "working-tree-snapshot",
-  "retrievedAt": "2026-10-20T16:26:48.404251+00:00",
+  "retrievedAt": "2026-10-20T19:03:26.847091+00:00",
   "inventorySha256": "870746c1f8b90c3ae955930ead90e5ba4f347e556899c454553db29368cd927b",
   "counts": {
     "indexed": 6,
@@ -19,9 +19,9 @@
       "title": "App HTTP API",
       "url": "repo:/docs/API.md",
       "status": "saved",
-      "sha256": "9ab57a3b3e74dc0b84ccdd902ff4f27a0f6e1c785e58811e3853f536e532668d",
-      "bytes": 78345,
-      "retrievedAt": "2026-10-20T16:26:48.404251+00:00",
+      "sha256": "dfb92ac45b0eebd91095d785bcdb2436be75070df17c343ccbd0560be12ee0ab",
+      "bytes": 79290,
+      "retrievedAt": "2026-10-20T19:03:26.847091+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -30,9 +30,9 @@
       "title": "Human shopping guide",
       "url": "repo:/docs/USER_GUIDE.md",
       "status": "saved",
-      "sha256": "85aea0f8a7cf809203caf28b4de4f0fa1c3024bdef95164a18c31adb81e66136",
-      "bytes": 28680,
-      "retrievedAt": "2026-10-20T16:26:48.404251+00:00",
+      "sha256": "8e356aee4cdd0db329f597205e70ad3f4260826b3349aab418cea3666072a692",
+      "bytes": 29169,
+      "retrievedAt": "2026-10-20T19:03:26.847091+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -43,7 +43,7 @@
       "status": "saved",
       "sha256": "8670b51a4a8a66f5f9781e8c7fc0c4f01c3a7d03ded2d513d32f6416cb364e7d",
       "bytes": 33836,
-      "retrievedAt": "2026-10-20T16:26:48.404251+00:00",
+      "retrievedAt": "2026-10-20T19:03:26.847091+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -54,7 +54,7 @@
       "status": "saved",
       "sha256": "3cc7c143842292944af92c03d52f60d234f6e6dc1776cb68b8990c8383d3595c",
       "bytes": 30760,
-      "retrievedAt": "2026-10-20T16:26:48.404251+00:00",
+      "retrievedAt": "2026-10-20T19:03:26.847091+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -65,7 +65,7 @@
       "status": "saved",
       "sha256": "8147c84f53509e1e9972438f86b4b03925674114e36fb74bfe9dcf36161882e8",
       "bytes": 23429,
-      "retrievedAt": "2026-10-20T16:26:48.404251+00:00",
+      "retrievedAt": "2026-10-20T19:03:26.847091+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -76,7 +76,7 @@
       "status": "saved",
       "sha256": "6657343bb25fc30e56cbf1187b1f3c4225f759b96ec6c41640d91efa51e686d6",
       "bytes": 13607,
-      "retrievedAt": "2026-10-20T16:26:48.404251+00:00",
+      "retrievedAt": "2026-10-20T19:03:26.847091+00:00",
       "discovery": "reviewed first-party inventory"
     }
   ]

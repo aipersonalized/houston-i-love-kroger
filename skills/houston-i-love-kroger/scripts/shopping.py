@@ -24,6 +24,9 @@ from promotions import ToolError, NoRedirect, base_url as stored_base_url
 
 EXIT_OK, EXIT_FAILED, EXIT_INPUT, EXIT_UNAVAILABLE = 0, 1, 2, 3
 MAX_RESPONSE, SAFE_INTEGER = 8_000_000, 9_007_199_254_740_991
+# Alias arrays have no source maxItems. Each serialized string element needs
+# at least three bytes; the existing whole-response cap supplies a finite bound.
+MAX_ALIAS_PRODUCT_IDS = MAX_RESPONSE // 3
 PATHS = {'status': 'api/v1/status', 'stores': 'api/v1/stores/search',
          'products': 'api/v1/products/search', 'deals': 'api/v1/deals/search',
          'product': 'api/v1/products/retrieve', 'estimate': 'api/v1/basket/estimate'}
@@ -199,7 +202,7 @@ NUTRITION = {'?dailyValueIntakeReference': TEXT, '?nutritionalRating': TEXT,
 SOURCE = {'productId': S(64), 'itemId': S(64), 'description': S(512), 'brand': S(200),
           'size': S(100), 'soldBy': S(40), 'price': PRICE, 'stockLevel': S(80),
           '?upc': S(64), '?productPageURI': S(2048), '?productUrl': S(2048),
-          '?categories': L(S(200), 50), '?aliasProductIds': L(S(64), 50),
+          '?categories': L(S(200), 50), '?aliasProductIds': L(S(64), MAX_ALIAS_PRODUCT_IDS),
           '?aisleLocations': L({'?' + k: TEXT for k in ('bayNumber', 'description', 'number', 'numberOfFacings', 'sequenceNumber', 'side', 'shelfNumber', 'shelfPositionInBay')}, 30),
           '?images': L({'?id': TEXT, '?perspective': TEXT, '?default': BOOLEAN,
                         'sizes': L({'?id': TEXT, '?size': TEXT, 'url': S(2048)}, 10)}, 20),

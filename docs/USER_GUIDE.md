@@ -71,11 +71,18 @@ To search for something else:
 
 1. Keep the correct store selected.
 2. In **Find a grocery or brand**, enter 3–80 characters and at most eight words,
-   such as `whole milk` or `coffee`.
+   such as `apples`, `chicken breast` or `paper towels`.
 3. Select **Search**, or press Enter. A term search requests up to 50 products
    in one page. Kroger's approximate search may return related descriptions.
 4. Read the selection covered by the search and the **Checked** time. Check
    descriptions and package sizes.
+
+For a quick start, choose **Apples**, **Bananas**, **Chicken breast**, **Salmon**,
+**Milk**, **Eggs**, **Rice** or **Paper towels** under **Try a grocery**. Each
+button fills the search field and searches that grocery at your selected store.
+These are search suggestions, not complete departments or guarantees that an
+item is available or on sale. The buttons pause while a search is loading; you
+can use them again after it finishes or you select **Cancel search**.
 
 Clear the field and select **Search** for the starter sample. Editing text clears
 the old results; it does not search on every keystroke. Your existing list stays

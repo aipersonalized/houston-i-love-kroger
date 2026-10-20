@@ -8,7 +8,7 @@ const ui = Object.fromEntries([
   'store-form', 'zip-code', 'find-stores', 'zip-error', 'store-status', 'cancel-stores',
   'stores-region', 'stores-heading', 'stores-coverage', 'stores-list', 'deals-title',
   'initial-state', 'selected-store', 'selected-store-name', 'selected-store-address',
-  'selected-store-id', 'change-store', 'deal-form', 'search-term', 'search-deals',
+  'selected-store-id', 'change-store', 'deal-form', 'search-term', 'search-deals', 'grocery-shortcuts',
   'search-error', 'deal-status', 'cancel-deals', 'results-region', 'result-count',
   'result-summary', 'retrieved-at', 'sort-order', 'sample-coverage', 'query-coverage', 'empty-results',
   'offers-list', 'excluded-summary', 'history-title', 'history-message',
@@ -124,6 +124,7 @@ function updateControls() {
   ui['cancel-stores'].hidden = !state.requests.stores;
   ui['search-term'].disabled = !ready || !state.selectedStore;
   ui['search-deals'].disabled = !ready || !state.selectedStore || Boolean(state.requests.deals);
+  for (const shortcut of ui['grocery-shortcuts'].children) shortcut.disabled = ui['search-deals'].disabled;
   ui['cancel-deals'].hidden = !state.requests.deals;
   ui['next-products'].hidden = !hasNextProductPage();
   ui['next-products'].disabled = !ready || Boolean(state.requests.deals);
@@ -1162,7 +1163,15 @@ ui['zip-code'].addEventListener('input', () => {
   setStatus('store');
   updateControls();
 });
-ui['deal-form'].addEventListener('submit', event => { event.preventDefault(); void loadDeals(); });
+ui['deal-form'].addEventListener('submit', event => {
+  event.preventDefault();
+  const shortcutTerm = event.submitter?.dataset.groceryTerm;
+  if (shortcutTerm) {
+    if (!state.alive || !state.configured || state.connection !== 'ready' || !state.selectedStore || state.requests.deals) return;
+    ui['search-term'].value = shortcutTerm;
+  }
+  void loadDeals();
+});
 ui['next-products'].addEventListener('click', () => { void loadDeals({ next: true }); });
 ui['search-term'].addEventListener('input', () => {
   const hadResults = Boolean(state.results || state.requests.deals);

@@ -238,6 +238,20 @@ nullable `productUrl`, `categories`, `aliasProductIds`, `aisleLocations`, `image
 Fields are bounded and type-checked. Missing facts remain null, absent or empty
 collections as appropriate; they are not completed from package text.
 
+`aliasProductIds` preserves every accepted string, including leading zeros,
+order and duplicates. The Public Products schema defines an array of strings
+without an item-count maximum. This app retains its 64-character element guard;
+its count guard is conservatively derived from the 2,000,000-byte upstream JSON
+budget divided by three, the minimum serialized bytes per string element. The
+companion derives its count guard from its 8,000,000-byte response budget in the
+same way. Neither uses a fixed 50-alias ceiling. Aliases remain metadata and do
+not replace the exact product/item IDs used for selections or estimates.
+
+The whole-response byte limits still apply. Repeated metadata in item rows can
+make an app response larger than the supplier response; accepting an alias array
+does not guarantee that every possible combined response fits a client's byte
+budget. Oversized responses fail rather than silently dropping aliases or rows.
+
 `nutritionInformation` may be a single object or an array of up to20 validated
 nutrition contexts. The public Products schema describes an object, while
 controlled production checks also returned arrays. The app preserves the

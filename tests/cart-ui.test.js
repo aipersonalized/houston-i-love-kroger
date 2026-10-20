@@ -25,7 +25,7 @@ function cartPage(t, { now, fetchImpl = async () => {
   const calls = [];
   const nodes = new Map();
   const getNode = id => {
-    if (!nodes.has(id)) nodes.set(id, { hidden: false, disabled: false, value: '', textContent: '',
+    if (!nodes.has(id)) nodes.set(id, { hidden: false, disabled: false, value: '', textContent: '', children: [],
       setAttribute(name, value) { this[name] = value; }, removeAttribute(name) { delete this[name]; },
       focus() {}, classList: { toggle() {} } });
     return nodes.get(id);

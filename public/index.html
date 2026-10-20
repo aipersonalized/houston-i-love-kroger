@@ -113,11 +113,24 @@
             <div class="search-field">
               <label for="search-term">Find a grocery or brand</label>
               <div class="search-row">
-                <input id="search-term" name="term" type="search" minlength="3" maxlength="80" autocomplete="off" spellcheck="false" aria-describedby="search-hint search-error" placeholder="For example, coffee or apples">
+                <input id="search-term" name="term" type="search" minlength="3" maxlength="80" autocomplete="off" spellcheck="false" aria-describedby="search-hint search-error" placeholder="For example, apples or chicken breast">
                 <button id="search-deals" class="button button-primary" type="submit">Search <span aria-hidden="true">↗</span></button>
               </div>
               <p id="search-hint" class="field-hint">3–80 characters, up to 8 words. Search a limited selection for this store, or leave blank for the starter selection.</p>
               <p id="search-error" class="field-error" role="alert"></p>
+            </div>
+            <div class="grocery-suggestions" role="group" aria-labelledby="grocery-shortcuts-title">
+              <p id="grocery-shortcuts-title" class="field-hint">Try a grocery</p>
+              <div id="grocery-shortcuts" class="grocery-shortcuts">
+                <button class="button button-secondary grocery-shortcut" type="submit" formnovalidate data-grocery-term="apples" disabled>Apples</button>
+                <button class="button button-secondary grocery-shortcut" type="submit" formnovalidate data-grocery-term="bananas" disabled>Bananas</button>
+                <button class="button button-secondary grocery-shortcut" type="submit" formnovalidate data-grocery-term="chicken breast" disabled>Chicken breast</button>
+                <button class="button button-secondary grocery-shortcut" type="submit" formnovalidate data-grocery-term="salmon" disabled>Salmon</button>
+                <button class="button button-secondary grocery-shortcut" type="submit" formnovalidate data-grocery-term="milk" disabled>Milk</button>
+                <button class="button button-secondary grocery-shortcut" type="submit" formnovalidate data-grocery-term="eggs" disabled>Eggs</button>
+                <button class="button button-secondary grocery-shortcut" type="submit" formnovalidate data-grocery-term="rice" disabled>Rice</button>
+                <button class="button button-secondary grocery-shortcut" type="submit" formnovalidate data-grocery-term="paper towels" disabled>Paper towels</button>
+              </div>
             </div>
           </form>
 
