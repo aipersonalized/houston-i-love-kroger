@@ -23,10 +23,14 @@ your installation. A submitted request is not an access or retention grant.
 
 This collector therefore starts disabled, with the `kroger-public` source marked
 pending. API credentials, the user's request to build the app, a successful test
-or a hand-written policy file cannot grant Kroger's permission. Obtain and review
-the actual agreement first. The common human/agent endpoint requires historical
-collection, human display and automated-client access to be covered together.
-Forwarding data to an external model service needs its own applicable permission.
+or a hand-written policy file cannot grant Kroger's permission. Establish an
+authorized exception or applicable source terms covering this database collection
+and its intended reuse first; Partner enrollment alone does not do that. Review
+the actual scope for human display, local agents and any external model recipient.
+These are the app's policy purposes, not a rule that every agent needs a separate
+agreement. Public live lookups and separately labelled current-price calculations
+do not depend on this collector. The [permission guide](KROGER_PERMISSION_REQUEST.md#start-with-public-apis-and-identify-the-actual-restriction)
+explains the database restriction and the independent full-coverage requirement.
 
 ## 2. Initialize private storage
 
