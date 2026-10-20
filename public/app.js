@@ -1,6 +1,6 @@
 import { orderProducts } from './ordering.js';
 import { addBasketItem, setBasketQuantity, estimateBasket, groupBasketByAisle, productKey, reportedAisles, cartItems } from './basket.js';
-import { currentCents, filterProducts, otherReportedSales, validSourceEvidence, declarationsFor, productDeclarations, validKrogerLink, productImage, exclusionText, historicalPrice, reportedProductDetails } from './catalog.js';
+import { currentCents, validProductPage, filterProducts, otherReportedSales, validSourceEvidence, declarationsFor, productDeclarations, validKrogerLink, productImage, exclusionText, historicalPrice, reportedProductDetails } from './catalog.js';
 
 const byId = id => document.getElementById(id);
 const ui = Object.fromEntries([
@@ -13,6 +13,8 @@ const ui = Object.fromEntries([
   'result-summary', 'retrieved-at', 'sort-order', 'sample-coverage', 'query-coverage', 'empty-results',
   'offers-list', 'excluded-summary', 'history-title', 'history-message',
   'reported-sales', 'reported-sales-title', 'reported-sales-count', 'reported-sales-list', 'source-accounting',
+  'next-products', 'product-page-context', 'product-page-status',
+  'product-paging',
   'store-details', 'store-details-content', 'product-view', 'snap-filter-field', 'snap-filter',
   'declaration-filter-field', 'declaration-filter', 'empty-results-title', 'empty-results-message',
   'list-count', 'basket-store', 'clear-basket', 'basket-status', 'basket-empty', 'basket-content',
@@ -60,6 +62,7 @@ const errorMessages = {
   upstream_format: 'Kroger returned an unexpected result. Try again later.',
   upstream_size: 'The result was too large. Try a more specific grocery or brand.',
   upstream_unavailable: 'Kroger could not complete this search. Try again shortly.',
+  pagination_unavailable: 'This installation cannot load another results page. Try a more specific search.',
   request_cancelled: 'The search was cancelled. You can search again.',
   origin_not_allowed: 'Open this app directly at its configured address, then try again.',
   invalid_host: 'Open this installation at its configured address.',
@@ -122,6 +125,8 @@ function updateControls() {
   ui['search-term'].disabled = !ready || !state.selectedStore;
   ui['search-deals'].disabled = !ready || !state.selectedStore || Boolean(state.requests.deals);
   ui['cancel-deals'].hidden = !state.requests.deals;
+  ui['next-products'].hidden = !hasNextProductPage();
+  ui['next-products'].disabled = !ready || Boolean(state.requests.deals);
   ui['sort-order'].disabled = !state.results || state.results.products.length < 2;
   ui['history-term'].disabled = !state.alive || !state.selectedStore;
   ui['history-product-id'].disabled = !state.alive || !state.selectedStore;
@@ -240,6 +245,10 @@ function clearResults() {
   ui['reported-sales-list'].replaceChildren();
   ui['reported-sales-count'].textContent = '';
   ui['source-accounting'].textContent = '';
+  ui['next-products'].hidden = true;
+  ui['product-paging'].hidden = true;
+  ui['product-page-context'].textContent = '';
+  ui['product-page-status'].textContent = '';
   for (const id of ['result-count', 'result-summary', 'retrieved-at', 'sample-coverage', 'query-coverage', 'excluded-summary']) ui[id].textContent = '';
   ui['sort-order'].value = 'savings';
   ui['snap-filter'].value = 'all';
@@ -365,8 +374,10 @@ async function searchStores(event) {
   }
 }
 
-function validProducts(payload) {
+function validProducts(payload, requestContext) {
   return payload.scope?.locationId === state.selectedStore?.locationId &&
+    (payload.sourceEvidence === undefined || payload.summary?.products === payload.sourceEvidence?.summary?.returnedProducts) &&
+    validProductPage(payload.page, payload.scope, payload.summary?.products, requestContext) &&
     (payload.sourceEvidence === undefined || typeof payload.retrievedAt === 'string' &&
       validSourceEvidence(payload.sourceEvidence, payload.offers, payload.retrievedAt)) &&
     ['sample', 'search'].includes(payload.scope?.mode) &&
@@ -378,39 +389,56 @@ function validProducts(payload) {
         (Number.isFinite(product.calculated?.savingsCents) && Number.isFinite(product.calculated?.percentOff))));
 }
 
-async function loadDeals() {
+function hasNextProductPage() {
+  const result = state.results;
+  return result?.scope?.mode === 'search' && result.scope.locationId === state.selectedStore?.locationId &&
+    result.scope.term === ui['search-term'].value.trim().replace(/\s+/gu, ' ') &&
+    result.page?.continuation?.status === 'available';
+}
+
+async function loadDeals({ next = false } = {}) {
   if (!state.selectedStore || state.connection !== 'ready') return;
-  const term = ui['search-term'].value.trim().replace(/\s+/gu, ' ');
+  if (next && (!hasNextProductPage() || state.requests.deals)) return;
+  const confirmedPage = next ? state.results : null;
+  const term = confirmedPage ? confirmedPage.scope.term : ui['search-term'].value.trim().replace(/\s+/gu, ' ');
   if (term && (term.length < 3 || term.length > 80 || term.split(' ').length > 8 || /[\p{Cc}\p{Cf}]/u.test(term))) {
     ui['search-error'].textContent = errorMessages.invalid_search;
     ui['search-term'].setAttribute('aria-invalid', 'true');
     ui['search-term'].focus();
     return;
   }
+  const start = confirmedPage ? confirmedPage.page.continuation.nextStart : undefined;
+  const requestContext = { locationId: confirmedPage?.scope.locationId ?? state.selectedStore.locationId, term: term || null,
+    ...(start === undefined ? {} : { start }) };
   abortRequest('deals');
-  clearResults();
+  if (!next) clearResults();
   ui['search-error'].textContent = '';
   ui['search-term'].removeAttribute('aria-invalid');
-  setStatus('deal', term ? 'Looking for reported grocery prices for this search…' : 'Loading a starter grocery sample for this store…');
-  const locationId = state.selectedStore.locationId;
+  setStatus('deal', next ? 'Loading the next results page. Your current page and shopping list stay here while you wait…'
+    : term ? 'Looking for reported grocery prices for this search…' : 'Loading a starter grocery sample for this store…');
   try {
-    const payload = await request('deals', './api/v1/products/search', { locationId, includeAll: true, ...(term ? { term } : {}) });
+    const { term: selectedTerm, ...context } = requestContext;
+    const payload = await request('deals', './api/v1/products/search', { ...context, includeAll: true, ...(selectedTerm ? { term: selectedTerm } : {}) });
     if (!payload) return;
-    if (!validProducts(payload)) throw new SearchError('invalid_response');
+    if (!validProducts(payload, requestContext)) throw new SearchError('invalid_response');
+    const selectedDeclaration = next ? ui['declaration-filter'].value : '';
     state.results = payload;
     const filterSources = [...payload.products, ...(payload.sourceEvidence?.records ?? [])];
     const declarations = declarationsFor(filterSources);
     ui['declaration-filter'].replaceChildren(...['', ...declarations].map(value => {
       const option = element('option', '', value || 'Any declaration'); option.value = value; return option;
     }));
+    ui['declaration-filter'].value = declarations.includes(selectedDeclaration) ? selectedDeclaration : '';
     ui['declaration-filter-field'].hidden = declarations.length === 0;
     ui['snap-filter-field'].hidden = !filterSources.some(product => typeof product.source.snapEligible === 'boolean');
+    if (ui['snap-filter-field'].hidden) ui['snap-filter'].value = 'all';
     setDataBanner(payload.dataSource);
     ui['results-region'].hidden = false;
     renderResults();
-    setStatus('deal', `${payload.products.length} priced ${payload.products.length === 1 ? 'product' : 'products'} loaded for the selected store.`);
+    if (next) ui['result-count'].focus();
+    setStatus('deal', `${next ? 'Results page replaced. ' : ''}${payload.products.length} priced ${payload.products.length === 1 ? 'product' : 'products'} loaded for the selected store.`);
   } catch (error) {
-    setStatus('deal', describeError(error), true);
+    setStatus('deal', `${next ? 'The next results page could not load. Your current page and shopping list are unchanged. ' : ''}${describeError(error)}`, true);
   }
   updateControls();
 }
@@ -670,9 +698,29 @@ function renderSourceEvidence(payload) {
   ui['reported-sales-title'].textContent = `Other reported sale prices (${records.length})`;
   ui['reported-sales-count'].textContent = `${records.length} returned ${records.length === 1 ? 'result matches' : 'results match'} these filters, in source order. Repeated or differing results remain separate.`;
   ui['source-accounting'].textContent = evidence
-    ? `Kroger returned ${evidence.summary.returnedProducts} product ${evidence.summary.returnedProducts === 1 ? 'result' : 'results'}. ${evidence.summary.reportedPromotions} returned ${evidence.summary.reportedPromotions === 1 ? 'price shows' : 'prices show'} a sale amount before your filters, including repeated results.${evidence.summary.missingItemLists ? ` ${evidence.summary.missingItemLists} product results have no item details, so their sale status is unknown.` : ''} This is not a count of all store promotions.`
+    ? `Kroger returned ${evidence.summary.returnedProducts} product ${evidence.summary.returnedProducts === 1 ? 'result' : 'results'}. ${evidence.summary.reportedPromotions} returned ${evidence.summary.reportedPromotions === 1 ? 'price shows' : 'prices show'} a sale amount before your filters, including repeated results.${evidence.summary.missingItemLists ? ` ${evidence.summary.missingItemLists} product ${evidence.summary.missingItemLists === 1 ? 'result has' : 'results have'} no item details, so their sale status is unknown.` : ''} This is not a count of all store promotions.`
     : '';
   return records.length;
+}
+
+function renderProductPage(payload) {
+  const page = payload.scope.mode === 'search' ? payload.page : null;
+  ui['product-paging'].hidden = !page;
+  if (!page) return;
+  const reported = page.reported;
+  const returnedCount = payload.summary.products;
+  const rangeEnd = reported.start + returnedCount;
+  const hasRange = Number.isSafeInteger(reported.start) && reported.start >= 0
+    && Number.isSafeInteger(returnedCount) && returnedCount > 0
+    && Number.isSafeInteger(reported.start + 1) && Number.isSafeInteger(rangeEnd);
+  const range = hasRange ? ` Product results ${reported.start + 1}–${rangeEnd}.` : '';
+  ui['product-page-context'].textContent = `Results for “${payload.scope.term}”.${range} This page returned ${returnedCount} product results before filters and price checks. ${reported.total === null ? 'The matching-product total is not reported here.' : `Kroger reports ${reported.total} matching products for this search.`} These are product counts, not promotion totals.`;
+  ui['product-page-status'].textContent = {
+    available: 'Next replaces this results page and keeps your shopping list. Search order can change; products may repeat or be skipped between pages.',
+    reported_end: 'Kroger reports the end of the matching products for this search. This does not establish every store promotion.',
+    source_limit: 'This search cannot go further through the available pages. Try a more specific grocery or brand.',
+    unknown: 'Another page cannot be confirmed from the information returned here. Try a more specific search.',
+  }[page.continuation.status];
 }
 
 function renderResults() {
@@ -703,7 +751,7 @@ function renderResults() {
     : 'This selection is for this store only. Coverage of all store promotions has not been verified.';
   const selection = sample
     ? `Starter selection: ${perQueryLimit ? `up to ${perQueryLimit} results each for` : 'limited results for'} ${topics}${limit ? ` (${limit} at most in total)` : ''}.`
-    : `Search selection: ${limit ? `up to the first ${limit} matching results for` : 'limited results for'} ${topics}.`;
+    : `Search selection: ${limit ? `up to ${limit} matching results for` : 'limited results for'} ${topics} on this page.`;
   ui['query-coverage'].textContent = `${selection} Sorting and filters apply only to loaded items. Compare package sizes as well as prices.`;
   ui['empty-results'].hidden = count !== 0;
   ui['empty-results-title'].textContent = promoted ? 'No qualifying promotions match this view.' : 'No priced products match this view.';
@@ -713,6 +761,7 @@ function renderResults() {
     ? 'Other reported sale prices below match these filters, but cannot be included in this list. This search covers a limited selection.'
     : 'Try another grocery or brand, or change the view and filters. This search covers a limited selection; an empty list does not establish that your store has no sales.';
   ui['excluded-summary'].textContent = exclusionText(payload.summary);
+  renderProductPage(payload);
   renderHistorySummary(payload.history);
   updateControls();
 }
@@ -1114,6 +1163,7 @@ ui['zip-code'].addEventListener('input', () => {
   updateControls();
 });
 ui['deal-form'].addEventListener('submit', event => { event.preventDefault(); void loadDeals(); });
+ui['next-products'].addEventListener('click', () => { void loadDeals({ next: true }); });
 ui['search-term'].addEventListener('input', () => {
   const hadResults = Boolean(state.results || state.requests.deals);
   abortRequest('deals');
@@ -1131,9 +1181,9 @@ ui['cancel-stores'].addEventListener('click', () => {
 });
 ui['cancel-deals'].addEventListener('click', () => {
   abortRequest('deals');
-  setStatus('deal', 'Grocery search cancelled. You can search again.');
+  setStatus('deal', state.results ? 'Next-page search cancelled. Your current page and shopping list remain. You can retry the next page.' : 'Grocery search cancelled. You can search again.');
   updateControls();
-  ui['search-deals'].focus();
+  ui[hasNextProductPage() ? 'next-products' : 'search-deals'].focus();
 });
 ui['change-store'].addEventListener('click', () => {
   clearSelection();

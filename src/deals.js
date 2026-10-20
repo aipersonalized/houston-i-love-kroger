@@ -16,7 +16,7 @@ export function validateStoreSearch(value) {
 }
 
 export function validateDealSearch(value) {
-  exactObject(value, ['locationId'], ['term', 'sort']);
+  exactObject(value, ['locationId'], ['term', 'sort', 'start']);
   if (typeof value.locationId !== 'string' || !/^[a-zA-Z0-9]{8}$/.test(value.locationId)) {
     throw new AppError('invalid_store', 'Choose a store before searching for deals.');
   }
@@ -34,11 +34,15 @@ export function validateDealSearch(value) {
   if (!['savings', 'percent', 'price'].includes(sort)) {
     throw new AppError('invalid_sort', 'Choose savings, percent or price for sorting.');
   }
-  return { locationId: value.locationId, term, sort };
+  if (Object.hasOwn(value, 'start') && (term === null || !Number.isInteger(value.start) || value.start < 1 || value.start > 250)) {
+    throw new AppError('invalid_search', 'Use an explicit search term and a page start from 1 to 250.');
+  }
+  return { locationId: value.locationId, term, sort,
+    ...(Object.hasOwn(value, 'start') ? { start: value.start } : {}) };
 }
 
 export function validateProductSearch(value) {
-  exactObject(value, ['locationId'], ['term', 'sort', 'includeAll']);
+  exactObject(value, ['locationId'], ['term', 'sort', 'includeAll', 'start']);
   const { includeAll = true, ...search } = value;
   if (typeof includeAll !== 'boolean') throw new AppError('invalid_request', 'includeAll must be true or false.');
   return { ...validateDealSearch(search), includeAll };

@@ -10,6 +10,70 @@ import { NOW, STORE_ID, product, store, tokenResponse } from './fixtures.js';
 const config = { port: 4173, basePath: '/apps/houston-i-love-kroger/', publicOrigin: '' };
 const base = config.basePath;
 
+test('explicit HTTP term paging makes one bounded page request and preserves source metadata and evidence', async () => {
+  const calls = [];
+  const server = await createApp({ config, now: () => NOW, client: fakeClient({
+    searchProducts: async () => { throw new Error('Term pages must use the page interface.'); },
+    searchProductPage: async (locationId, term, options) => {
+      calls.push({ locationId, term, options });
+      return { products: [product({ productId: 'fractional', promo: 1.555 }),
+        product({ productId: 'out', item: { inventory: { stockLevel: 'TEMPORARILY_OUT_OF_STOCK' } } })],
+      pagination: { start: options.start ?? 0, limit: 50, total: 1000 } };
+    },
+  }) });
+  try {
+    for (const path of ['api/v1/products/search', 'api/v1/deals/search']) {
+      const first = await invoke(server, { path, body: { locationId: STORE_ID, term: ' milk   bread ' } });
+      assert.equal(first.status, 200);
+      assert.deepEqual(first.body.page, { requestedStart: null, reported: { start: 0, limit: 50, total: 1000 },
+        continuation: { status: 'available', nextStart: 2 } });
+      assert.equal(first.body.scope.term, 'milk bread');
+      assert.equal(Object.hasOwn(calls.at(-1).options, 'start'), false);
+      const next = await invoke(server, { path, body: { locationId: STORE_ID, term: 'milk bread', start: 50 } });
+      assert.equal(next.status, 200);
+      assert.equal(next.body.summary.products, 2, 'A page is never accumulated with earlier pages.');
+      assert.equal(next.body.sourceEvidence.records.length, 2);
+      assert.equal(next.body.sourceEvidence.summary.reportedPromotions, 2);
+      assert.equal(next.body.page.requestedStart, 50);
+      assert.deepEqual(next.body.page.continuation, { status: 'available', nextStart: 52 });
+      assert.equal(next.body.scope.exhaustive, false);
+      assert.equal(calls.at(-1).options.limit, 50);
+      assert.equal(calls.at(-1).locationId, STORE_ID);
+    }
+    assert.equal(calls.length, 4);
+  } finally { server.emit('close'); }
+});
+
+test('HTTP paging preserves unknown facts, refuses contradictory offsets and never invents legacy continuation', async () => {
+  for (const pagination of [{ start: null, limit: null, total: null },
+    { start: 250, limit: 50, total: 1000 }, { start: 250, limit: 50, total: 251 }]) {
+    const server = await createApp({ config, now: () => NOW, client: fakeClient({ searchProductPage: async () => ({ products: [product()], pagination }) }) });
+    try {
+      const result = await invoke(server, { body: { locationId: STORE_ID, term: 'milk', start: 250 } });
+      assert.equal(result.status, 200);
+      assert.deepEqual(result.body.page.reported, pagination);
+      assert.equal(result.body.page.continuation.status, pagination.start === null ? 'unknown' : pagination.total === 251 ? 'reported_end' : 'source_limit');
+      assert.equal(result.body.page.continuation.nextStart, null);
+    } finally { server.emit('close'); }
+  }
+  for (const pagination of [{ start: 0, limit: 50, total: 1000 }, { start: '50', limit: 50, total: 1000 }]) {
+    const server = await createApp({ config, client: fakeClient({ searchProductPage: async () => ({ products: [product()], pagination }) }) });
+    try { assert.equal((await invoke(server, { body: { locationId: STORE_ID, term: 'milk', start: 50 } })).status, 502); }
+    finally { server.emit('close'); }
+  }
+  const legacy = await createApp({ config, client: fakeClient() });
+  try {
+    const first = await invoke(legacy, { body: { locationId: STORE_ID, term: 'milk' } });
+    assert.equal(first.status, 200);
+    assert.deepEqual(first.body.page.reported, { start: null, limit: null, total: null });
+    assert.equal(first.body.page.continuation.status, 'unknown');
+    assert.equal((await invoke(legacy, { body: { locationId: STORE_ID, term: 'milk', start: 1 } })).status, 503);
+    const sample = await invoke(legacy);
+    assert.equal(sample.body.page, null);
+    assert.equal((await invoke(legacy, { body: { locationId: STORE_ID, start: 1 } })).status, 400);
+  } finally { legacy.emit('close'); }
+});
+
 test('HTTP qualification, history context and response time agree at a millisecond expiry boundary', async () => {
   for (const path of ['api/v1/deals/search', 'api/v1/products/search']) {
     for (const [expiresAt, expectedOffers] of [[NOW + 1, 1], [NOW, 0]]) {

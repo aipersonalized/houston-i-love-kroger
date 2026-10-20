@@ -133,7 +133,7 @@
             </div>
             <div class="results-toolbar">
               <div>
-                <h3 id="result-count" class="list-heading"></h3>
+                <h3 id="result-count" class="list-heading" tabindex="-1"></h3>
                 <p id="result-summary" class="field-hint"></p>
                 <p id="retrieved-at" class="field-hint"></p>
               </div>
@@ -174,6 +174,13 @@
               <ol id="reported-sales-list" class="reported-sales-list"></ol>
             </details>
             <p id="source-accounting" class="field-hint"></p>
+            <div id="product-paging" class="coverage-note" hidden>
+              <div>
+                <p id="product-page-context"></p>
+                <p id="product-page-status" class="field-hint"></p>
+                <button id="next-products" class="button button-secondary" type="button" hidden>Next results page</button>
+              </div>
+            </div>
             <p id="excluded-summary" class="field-hint excluded-summary"></p>
             <aside class="history-note" aria-labelledby="history-title">
               <span class="history-mark" aria-hidden="true">↶</span>
