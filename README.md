@@ -4,6 +4,11 @@ Plan your Kroger trip with prices for the store you actually visit. Enter a ZIP
 code, choose your store, browse regular prices and reported promotions, then
 build a shopping list with an estimated total and items grouped by aisle.
 
+AI helped write the code, documentation and assistant skills in this project.
+Changes go through automated tests and agent reviews. The maintainer is
+responsible for published releases; these checks do not guarantee correct
+prices, complete promotion coverage or permission to reuse Kroger data.
+
 Original project code and companion instructions use the [MIT License](LICENSE).
 Searches cover a limited set of products, not a complete weekly ad or coupon
 feed. Historical collection still requires actual source permission; the
