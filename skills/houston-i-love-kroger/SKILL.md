@@ -1,14 +1,17 @@
 ---
 name: houston-i-love-kroger
-description: "Use Houston I Love Kroger's stored-data service to find stores from a ZIP, confirm the person's exact store, discover collected topics, find useful deals, check item prices, estimate requested quantities, or read dated history. Explain freshness, coverage, partial costs and permission gaps; never query Kroger directly."
+description: "Use Houston I Love Kroger's app API to turn a grocery request into exact-store product choices, current price checks and quantity estimates, or explicitly read stored deals and dated history. Confirm the person's store, match package/preferences and disclose bounded coverage, unknown currency and data gaps. No direct supplier access or Cart."
 ---
 
 # Houston I Love Kroger
 
-Return a store-specific result from this project's stored-data service, with
-collection dates, freshness and coverage, or a precise permission/data gap.
+Help a person plan groceries using this project's app API: understand their list,
+find and confirm their exact store, match returned packages, check current prices
+and estimate requested quantities. Preserve a separate stored-only workflow for
+collected deals and dated history, with collection dates and freshness.
 Help a person install the companion and app without choosing an AI provider or
-assuming a public host. Agent reads never contact Kroger or start collection.
+assuming a public host. Explicit live-shopping requests can make the app contact
+Kroger; stored reads never refresh the source. Neither starts collection or Cart.
 
 **Readiness:** API-version-1 operational candidate. Deterministic CLI checks,
 documentation integrity, actual installation availability and observed agent
@@ -17,8 +20,9 @@ entitlement, source/recipient rights or deployment of a proposed public URL.
 
 ## Core Principles
 
-- Bind every price to the exact accepted store, collected topic, snapshot and
-  observation time. A bounded collected sample is not every store promotion.
+- Bind every price to the exact accepted store and source retrieval time, or
+  collected topic/snapshot/observation time in stored mode. No bounded search is
+  every store promotion. Full promotion coverage remains an unmet requirement.
 - Keep source descriptions and prices separate from calculated savings. Current
   regular price is never a substitute for a prior promotional price.
 - Price checks preserve the selected item/package and source currency. Cost
@@ -34,17 +38,23 @@ entitlement, source/recipient rights or deployment of a proposed public URL.
 
 This skill requires:
 - The installation's actual app base URL, ending in `/`, and Python 3.12+ or an
-  equivalent permitted client for the documented stored-read API.
-- A five-digit US ZIP for stored store discovery, or an already accepted complete
-  eight-character store ID. Use the stored directory and ask which exact
+  equivalent permitted client for the documented app API.
+- A five-digit US ZIP for the chosen live or stored store-discovery mode, or an already accepted complete
+  eight-character store ID. Show returned choices and ask which exact
   name/address the person wants; never choose the first result for them.
 - Source permission and user authorization covering the actual agent, provider,
   transport, display and retention involved; reuse valid established authority.
 - For latest deals/prices, a topic returned by stored completed-topic discovery
   or an already verified collection scope. For dated history, optional literal
   term, product/item IDs and UTC time bounds.
+- For live shopping, requested groceries, quantities and any supplied budget,
+  brands, package preferences and acceptable substitutions. Ask about material
+  ambiguity; do not invent quantities, a budget or permission to substitute.
 
 This skill produces:
+- A useful current shopping list: named source-backed packages, requested
+  quantities, supported numeric line/subtotals, unresolved items and source
+  times/coverage. Missing currency prevents a verified monetary budget fit.
 - Stored store choices with name/address, collection dates and limited search
   coverage, followed by the person's exact choice and completed-topic states.
 - Latest collected deals or dated historical observations with full source facts,
@@ -64,12 +74,13 @@ Match the first applicable situation. Read the named playbook in full.
 
 | User situation | Purpose | Workflow | Expected result |
 |---|---|---|---|
-| Need store choices from a ZIP, an exact store choice, or available collection topics | Find stored store choices and completed topic scopes | read `playbooks/choose-store-and-topic.md` in full | Exact person-selected store and relevant fresh topic, or precise directory/data gap |
-| Check a known grocery/package price, estimate quantities or assess a grocery budget | Use stored prices and source-verified estimate arithmetic | read `playbooks/price-check-and-estimate.md` in full | Dated price facts and qualified full/partial estimate, or exact input/data gap |
+| Find nearby stores/current ZIP choices, plan groceries, find current products/promotions, check a current package price or estimate a current list | Use the same app API as the human shopping flow | read `playbooks/live-shopping.md` in full | Current bounded store choices, or person-confirmed exact store with matched packages and qualified estimate; precise input/access gap when needed |
+| Explicitly request saved ZIP/store choices, a stored directory, or completed collection topics | Find stored store choices and completed topic scopes | read `playbooks/choose-store-and-topic.md` in full | Exact person-selected store and relevant fresh topic, or precise directory/data gap |
+| Explicitly check collected prices or estimate from saved observations | Use stored prices and source-verified estimate arithmetic | read `playbooks/price-check-and-estimate.md` in full | Dated price facts and qualified full/partial estimate, or exact input/data gap |
 | Find or compare the latest collected deals for an accepted store and topic | Read the service's latest completed collection | read `playbooks/main-procedure.md` in full | Fresh dated deals, fresh empty result, stale/no-data result or a permission gap |
 | Search or retrieve dated past observations | Read retained history separately from latest deals | read `playbooks/stored-promotions.md` in full | Dated source observations or an explicit permission/availability gap |
 | Install the skill/app, check setup, or recover a failed connection | Establish a usable permitted installation | read `playbooks/setup-and-recovery.md` in full | Working prerequisite checks or a bounded setup gap |
-| Use the human page or ask about Cart/collection | Explain the human/operator boundary | read `references/user-guide.md` in full | Human steps or the appropriate operator dependency; no agent live-source request |
+| Use the human page or ask about Cart/collection | Explain the human/operator boundary | read `references/user-guide.md` in full | Human steps or the appropriate operator dependency; no companion Cart/collection operation |
 
 ## Scenario Workflows
 
@@ -77,6 +88,7 @@ Match the first applicable situation. Read the named playbook in full.
 
 | Stage / owner | Prerequisite and output | Receiving check | Next / return / stop |
 |---|---|---|---|
+| Live shopping, `playbooks/live-shopping.md` | Actual app/recipients and shopping request → live ZIP choices → person's exact store → bounded product searches → matching packages → fresh selected-product estimate | Check store/term/source/date/page bindings, quantities, package preferences, arithmetic, unknown currency/basis and unresolved lines | Finish requested list; optional available dated history is separate; a failed stored read never enters this route automatically |
 | Setup, `playbooks/setup-and-recovery.md` | Actual app URL and client/privacy context → service status or exact dependency | Read procedure accepts usable connection and current recipient permission | Enter a requested read only; setup-only stops |
 | Store/topic choice, `playbooks/choose-store-and-topic.md` | ZIP or accepted store and permitted recipients → stored directory → person's exact choice → completed topics | Check directory date/coverage, confirmed store and each topic's freshness/state | Continue the requested deal/price/estimate task; dated history needs the accepted store only |
 | Latest deals, `playbooks/main-procedure.md` | Accepted store/topic/recipient → latest completed snapshot → bounded report | Caller checks snapshot age, scope, source facts and result state | Complete, or return connection to setup and missing store/topic to its owner |
@@ -84,7 +96,7 @@ Match the first applicable situation. Read the named playbook in full.
 | Dated history, `playbooks/stored-promotions.md` | Accepted store/recipient and history scope → bounded search or selected record | Caller checks observation dates and query/store binding | Complete; no automatic fallback between history and latest |
 
 Direct read entry accepts current equivalent inputs; do not repeat setup, store
-choice or authority already established. Missing store/topic enters the stored
+choice or authority already established. In stored mode, missing store/topic enters the stored
 discovery procedure before the requested read. Changed store, topic, query,
 recipient or installation invalidates dependent results. Read procedures are
 alternatives; stale/empty data never triggers a live search, collector or hidden
@@ -93,10 +105,10 @@ stored directory and topics provide the needed facts.
 
 ## Completion Criteria
 
-- The requested stored-data or setup result exists and follows
+- The requested live-shopping, stored-data or setup result exists and follows
   `schemas/output-contract.md`; no response from an old store/query is reused.
-- Every price is traceable to its accepted store, scope and observation/snapshot
-  time, with raw facts and calculations distinguishable.
+- Every price is traceable to its accepted store, source and retrieval or observation/snapshot
+  time, with source facts and calculations distinguishable.
 - Fresh empty, stale, no completed collection, unknown history, missing unit
   basis, test data and permission gaps remain visible. Stop at the bounded result.
 
@@ -113,15 +125,18 @@ stored directory and topics provide the needed facts.
 - Before the promotion CLI, read `schemas/command-rules.md` section
   "Stored promotion CLI" in full. It needs no Kroger credential or direct
   database access; source and recipient permissions still apply.
+- Before the current-shopping CLI, read `schemas/command-rules.md` section
+  "Current-shopping CLI" in full. `shopping.py` uses only fixed app routes;
+  its store/product/estimate operations can cause bounded supplier reads.
 - Before revising this skill, read `skill-ci/README.md`,
   `skill-ci/skill-design.md` and `research/research-brief.md` in full. The
   development project record has a separate writer and is not a shopping input.
 
 ## Critical Constraints
 
-- Use only this project's documented stored-read API through the selected app
-  installation. Never call Kroger directly or the app's live store/product/deal
-  searches, collector or Cart as part of this companion's agent procedure.
+- Use only this project's documented app API through the selected installation.
+  Live source reads require the explicit live-shopping procedure. Never call
+  Kroger directly, a collector, Cart, sign-in or checkout through this companion.
 - Missing or stale data is an operator/data gap, not permission to refresh the
   source. No database mount, SQL, supplier credentials or model SDK is required.
 - Do not infer third-party forwarding rights from API availability or the user's

@@ -472,7 +472,7 @@ covers the directory. Agent access alone does not require Partner enrollment.
    disabled example; private live plans/policies must be supplied privately,
    like the existing history operator task. Do not initialize a separate web
    database and assume the service sees it.
-6. Ask the companion for `stores --zip ZIP`, using the actual app address and
+6. Ask the stored-only companion client for `promotions.py stores --zip ZIP`, using the actual app address and
    established recipient authority. It returns stored name/address/ID facts,
    observation time and fixed ten-mile/first-ten query limits. Choose the exact
    store, then use `topics --store STORE_ID` to discover readable completed scope.
@@ -492,3 +492,54 @@ Schema 6 is required. Follow the stop-all-processes/consistent-backup procedure
 above before upgrading. An older file's topic hashes remain unknown until new
 permitted completed collections retain labels; no backfill or private-plan
 guessing occurs. Separate rights still gate real collection and public output.
+
+## 9. Install the parallel shopping companion
+
+Current agent shopping uses the same app server as human browsing. It does not
+need the optional private history service or directory database. Keep Cart
+disabled unless a separate explicitly authorized workflow requires it; the
+companion has no Cart commands.
+
+1. Obtain the reviewed app/skill version containing `skills/houston-i-love-kroger`.
+   Keep the entire skill folder, including both Python clients and manuals.
+   This guide describes a development candidate until its release is verified.
+2. On the assistant's execution host, install Python 3.12+ if needed. In a terminal
+   run `python --version` (or `python3` on hosts that use that name). There are no
+   Python packages or model SDKs to install. Local checks used Python 3.14;
+   other hosts need their own execution checks.
+3. Follow that assistant's actual import/local-folder instructions. This project
+   provides no automatic hosted connector. A remote assistant cannot reach
+   another computer's localhost merely because the folder was copied there.
+4. Supply only the app base URL ending `/`, through `--base-url` or optional
+   `HOUSTON_APP_URL`. HTTPS is required except loopback HTTP. Do not give the
+   companion Kroger credentials, private service tokens or database access.
+5. From the complete skill folder run:
+
+   ```text
+   python scripts/shopping.py --help
+   python scripts/shopping.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+   python scripts/shopping.py products --store TEST0001 --term milk --summary-only --dry-run --json --no-input
+   ```
+
+   Replace the status address with the actual installation URL. The final
+   command is a synthetic preview, making no network request or price claim.
+   Configured status is not proof of valid access; history permission is
+   separate from current shopping. A missing new route means check the base
+   path and deployed app version, not configure a database to repair it.
+6. Review the chosen assistant/tool/provider's actual retention and secondary-use
+   controls against source terms and user privacy. Use the
+   [recipient guide](../skills/houston-i-love-kroger/references/source-permissions.md).
+   Full records require a valid existing review; `--data-use-approved` only
+   acknowledges it. Unknown controls leave a record-output gap; fixed summaries
+   are available for authorized diagnostics. No persistent search/catalog logs,
+   cache, model training or independent/onward reuse belongs to the task path.
+7. Follow [assistant shopping](USER_GUIDE.md#9-ask-an-assistant-through-the-app):
+   understand the list, find ZIP choices, wait for exact-store confirmation,
+   search requested groceries, match packages and freshly estimate selected
+   quantities. Check full/partial results, unknown currency/basis and finite
+   coverage. The client does not save a list or start a collector.
+
+Use `promotions.py` separately for explicit saved directory/topic/deal/price and
+dated-history reads. Its missing/stale results never automatically become live
+shopping. Remove the imported skill folder using your host's normal mechanism
+to stop companion discovery; this does not stop your app server or erase history.

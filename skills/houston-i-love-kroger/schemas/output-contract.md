@@ -1,8 +1,8 @@
-# Stored-deal, history and setup result contract
+# Shopping, stored-deal, history and setup result contract
 
 ## When to read this
 
-Read this file in full before returning a stored-deal, history or setup result.
+Read this file in full before returning a current-shopping, stored-deal, history or setup result.
 Use concise prose or a table; no output file or saved catalog copy is required.
 
 ### Human shopping answer
@@ -42,11 +42,27 @@ retailers. Unknown currency, unit basis, stock and checkout conditions stay clea
 
 ### Evidence carried into the answer
 
+For current shopping, preserve requested groceries/quantities and any supplied
+budget, brands, packages and substitution preferences. Match actual source
+packages and name no-match/unresolved groceries instead of dropping them.
+Reuse valid store confirmation. Source lookup times (`retrievedAt`) and final
+estimate time (`evaluatedAt`) are distinct from stored observation dates.
+Certification and synthetic results remain test data.
+
+Current products can have regular-only prices, qualified promotions or promo-only
+prices with no regular-price savings. Per-unit numbers keep source precision
+and unknown measure basis. The supported current model reports no currency:
+no symbol, verified monetary subtotal or verified budget fit follows. Complete
+means requested-line arithmetic; partial leaves unresolved requested lines.
+Show unresolved reasons beside amounts. No resolved lines gives null, never
+zero. Date/stock/context gaps stay visible. Selected-product rechecks establish
+no full promotion coverage, stable ordering or atomic supplier snapshot.
+
 ## Inputs and outputs
 
 | Required meaning | Evidence or explicit unavailable value |
 |---|---|
-| State | Fresh deals, fresh empty, no completed collection, stale, permission required, unavailable, not found or known request failure. |
+| State | Successful current bounded read/empty result, complete/partial arithmetic, or stored fresh deals/fresh empty/no completed collection/stale/permission/unavailable/not found/failure. |
 | Store and query | Exact person-accepted ID; directory name/address and date when returned, never invented; exact completed topic for latest/prices or history filters. |
 | Store discovery | Matching ZIP, dated stored directory snapshot, freshness/state, bounded radius/cap and explicit person choice; an empty saved search is not proof there are no nearby stores. |
 | Topic discovery | Completed readable topic labels, each snapshot/state/date and returned count; fresh empty, all-stale, missing/unnamed collection and permission gaps remain distinct. No complete-catalog claim. |
@@ -91,5 +107,6 @@ last completed snapshot. Missing unit basis remains unknown.
 
 Report fixed HTTP/tool code and useful recovery without raw server errors or
 private configuration. Stop dependent work on missing identity, authority or
-compatibility. No failure triggers a live Kroger call or collector. These are
+compatibility. No stored failure triggers a live search or collector. Deliberate
+current reads use only the app; no direct supplier call occurs. These are
 manual report checks rather than an invented automated output validator.

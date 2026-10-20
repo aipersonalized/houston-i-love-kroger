@@ -40,11 +40,13 @@ disabled by default; an operator can enable at most three attempts, governed by
 durable quota reservations, backoff and a source lease. See the
 [collection limits and recovery guide](HISTORY.md#limits-and-recovery).
 
-The companion's stores/topics/latest/price/estimate/status/history requests query our stored data only. They
+The companion's `promotions.py` stores/topics/latest/price/estimate/status/history
+requests query our stored data only. They
 need neither a Kroger credential nor a database file. Empty, stale, unavailable
 and permission-blocked results remain explicit and never trigger a live source
-fetch. The human page's current-price search is separate; ordinary shopping
-does not collect history. The database remains empty/pending until real source
+fetch. The human page and the companion's explicit current-shopping tools have
+a separate live-price path; ordinary shopping does not collect history.
+The database remains empty/pending until real source
 permission and a deliberate operator collection are configured.
 
 An agent can recommend useful discounts or lower whole-package outlays among

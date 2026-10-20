@@ -80,7 +80,7 @@ page cannot connect or API access is rejected, use the
 | Read product and store details | Original product photos, package information, supplied labels and store hours/departments where Kroger provides them. Missing fields stay unknown. |
 | Read unit estimates | Source-reported numeric estimates. Their measurement basis is unreported, so they are not verified prices per ounce, pound or item. |
 | Compare collected history | Only suitable earlier observations for the exact store and item, after source permission is established. A new database is empty. |
-| Ask an assistant about deals | The companion skill reads our database service for fresh collected deals, regular prices and quantity estimates. It does not call Kroger or collect data. Source permission, freshness and exact-store checks apply. |
+| Plan groceries with an assistant | The companion uses this app's API alongside the human page: confirm a store, match requested packages, check current prices and estimate quantities. Separate stored-only commands preserve collected deals and dated history. Recipient/source rights and bounded coverage still apply; no Cart or collection. |
 | Read past prices | Search and retrieve permitted dated observations separately from current deal recommendations. A past sale is not automatically a current offer. |
 
 Savings compare the current reported regular and promo prices. They do not
@@ -94,7 +94,8 @@ has the required Kroger access and registered callback. It starts disabled.
 
 The browser sends searches to the installation's Node.js server, which queries
 Kroger. The [JSON API](docs/API.md) provides live browsing for the human page and
-separate database-only operations for the companion skill. The app sends no data
+the companion's explicit current-shopping workflow plus separate database-only
+reads. The app sends no data
 to an external AI service. An optional
 agent or hosting service has its own data handling and permission requirements;
 running the app locally does not establish permission to forward catalog data.
@@ -113,7 +114,7 @@ must be established before enabling that source. See
 For the separate database service, follow
 [promotion service setup](docs/PROMOTION_SERVICE.md). The web app talks to its
 private authenticated HTTP API; agents use the public app proxy, not the database
-file or a supplier secret. Deal lookup, price checks, estimates and history reads
+file or a supplier secret. Stored deal lookup, price checks, estimates and history reads
 never trigger collection or fall back to Kroger. Empty or stale collected data
 stays unavailable until the operator has a permitted, completed collection.
 
@@ -129,8 +130,10 @@ Historical comparisons describe retained observations, not every past sale.
 - [Configure the history database and collector](docs/HISTORY.md)
 - [Run the promotion database microservice](docs/PROMOTION_SERVICE.md)
 - [Companion assistant skill](skills/houston-i-love-kroger/SKILL.md): authored
-  instructions and a provider-neutral Python CLI for collected deals, price checks,
-  shopping-list estimates and dated history. Actual recipient/source permission
+  instructions and portable Python clients for current shopping, collected
+  deals, price checks, quantity estimates and dated history. Follow the
+  [step-by-step assistant guide](docs/USER_GUIDE.md#9-ask-an-assistant-through-the-app).
+  Actual recipient/source permission
   remains installation-specific.
 - [Prepare a source release](docs/RELEASING.md): publication scope and operator checks.
 - [Dependency notices](THIRD_PARTY_NOTICES.md)

@@ -4,11 +4,13 @@
 
 ### 1. Choose human use or assistant use
 
-This companion lets an assistant read the project's database service. It does
-not ask Kroger for live products, collect prices or manage a cart. The human web
-app has its own store selection, live browsing and optional Cart controls; read
+This companion lets an assistant use the app API alongside the human web page:
+find stores, match requested products/packages, recheck prices and estimate
+quantities. Its explicit current-shopping commands can make the app contact
+Kroger. Separate stored-only commands read collected deals and dated history;
+neither starts collection or manages Cart. For the human page, read
 `research/official_docs/pages/USER_GUIDE.md` in full to use those yourself.
-Human live browsing is separate from the assistant's stored-data reads.
+No browser or supplier credentials are needed by the companion.
 
 Original project materials use the repository's MIT LICENSE. Get the complete
 project or companion folder from its actual supplied source. A folder copy does
@@ -28,12 +30,12 @@ of chat. The assistant only needs the app's public base URL.
 3. If the host reads local files but has no importer, explicitly ask it to read
    this folder's `SKILL.md`. That is manual use, not verified automatic discovery.
 4. Refresh the session only as that host requires. Ask it to describe the skill.
-Expect stored ZIP/store choices, completed topics, latest deals, item price
-checks, qualified quantity estimates and dated history, an actual
+   Expect current shopping plus separate stored ZIP choices, completed topics,
+   collected prices/deals and dated history, an actual
    app URL and permitted data recipients.
-5. Check whether it supports Python execution or a suitable stored-read client.
+5. Check whether it supports Python execution or a suitable app API client.
    This bundle does not install a remote connector. If unavailable, follow the
-   human app guide yourself; the agent must not use live browsing as a fallback.
+   human app guide yourself; an installed folder does not create a connector.
 
 No provider API key, model SDK, `agents/openai.yaml` or particular model is
 required. Discovery/import across assistant hosts has not been universally tested.
@@ -48,10 +50,11 @@ required. Discovery/import across assistant hosts has not been universally teste
    model provider that receives results. Read `references/source-permissions.md`
    in full. Asking for help or passing an acknowledgement flag does not grant
    source/recipient rights. Underlying agreements remain private.
-3. Give the assistant a five-digit ZIP to find stored store choices, or a complete
+3. Give the assistant a five-digit ZIP through your permitted privacy channel to
+   find current choices, or explicitly request saved choices; reuse a complete
    store ID you have already confirmed. It will ask which exact returned
-   name/address you want before checking the store's collected topics. You do
-   not need a separate visit to the human page when stored data is usable.
+   name/address you want before checking products. No separate browser visit is
+   required. Collected topics matter only for stored price/deal requests.
 4. Directory metadata and product/history data have separate permissions. A
    permitted store directory does not establish price access. Use the actual
    operation's result; a promotion-status gap does not by itself block the directory.
@@ -67,23 +70,69 @@ still explain installation and fixed status without loading disallowed records.
    Close/reopen the terminal after installation if the command is missing.
 2. Open a terminal in the complete companion folder containing `SKILL.md`.
    There are no Python packages or AI SDKs to install.
-3. Run `python scripts/promotions.py --help` to inspect supported operations.
+3. Run `python scripts/shopping.py --help` for current shopping and
+   `python scripts/promotions.py --help` for stored-only operations.
 4. Check your installation:
 
    ```text
-   python scripts/promotions.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+   python scripts/shopping.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
    ```
 
-   Replace the address with your actual app URL. `available` exits 0;
-   `permission_required` or `unavailable` exits 3 for that product/history
-   capability. Directory access is checked separately by its stored lookup.
-   Missing permission is different from an empty completed collection.
+   Replace the address with your actual app URL. `configured: true` exits 0 but
+   does not prove live source access; false exits 3. Check environment/test-data
+   labels. History can remain permission-required while current browsing works.
+   `promotions.py status` separately checks stored service availability.
 
 The app must run before this client can connect. The tool makes no private file
 or database reads, follows no redirects, uses no ambient proxy/cookies, retries
 nothing automatically and saves no results. Machine mode prints one JSON object
 and never prompts. Python 3.14 was used for local deterministic qualification;
 other platforms/runtime versions need their own execution checks.
+
+### Try current shopping through your assistant
+
+1. Check actual recipient retention/secondary-use controls using
+   `references/source-permissions.md`. Do not send private agreements or keys to
+   chat. Reuse a valid existing review. Unknown controls mean fixed summary
+   diagnostics until the record-output gap is resolved.
+2. Ask: "Find Kroger choices for my ZIP, let me choose the store, then help with
+   two packages of whole milk and coffee. Prefer my stated brands and ask before
+   substituting." Supply quantities/package preferences/budget only when wanted.
+3. The assistant runs `shopping.py stores --zip ZIP` at your actual base URL,
+   shows bounded returned names/addresses, and waits for your exact choice.
+   A previous valid store choice is reused. A store-only request finishes here.
+4. It uses `shopping.py products --store STORE_ID --term TERM` for requested
+   groceries, or `deals` for promotion questions. Full records add
+   `--data-use-approved --json --no-input` after actual recipient rights exist.
+   Use `--summary-only` for fixed counts without products/IDs/prices/ZIP.
+5. Review matched brand, package size and variant. Unknown matches and unwanted
+   substitutions stay unresolved. Searches are fuzzy, at most fifty products
+   per page; reported per-unit estimates have no known measure basis.
+6. A direct package check uses `shopping.py product --store STORE_ID
+   --product-id PRODUCT_ID`. Use actual returned thirteen-digit IDs, preserving
+   zeros. Known valid selections do not require repeated store discovery.
+7. For accepted quantities, use `shopping.py estimate --store STORE_ID --item
+   PRODUCT_ID ITEM_ID QUANTITY`, repeating --item for 1–10 distinct selections,
+   whole quantity 1–99. Add the same base URL and output-permission flags.
+   The app freshly rechecks products and calculates; you send no prices.
+8. Read every unresolved line beside the numeric subtotal. The supported live
+   model reports no currency, so the amount is unqualified arithmetic without
+   a currency symbol or verified budget fit. Tax, fees, coupons and checkout
+   changes are excluded. No resolved line means unknown, never free.
+9. Ask separately for past prices when useful. Missing history is a data/rights
+   gap, not permission to start collection. No companion command calls Cart.
+
+From this folder, a synthetic preview you can copy is:
+
+```text
+python scripts/shopping.py estimate --store TEST0001 --item 0000000000001 00001 2 --summary-only --dry-run --json --no-input
+```
+
+Expect preview/network false/writes false, with no real price or checked time.
+Replace all synthetic identifiers with actual confirmed selections before a
+real request. For an unavailable new route, check the complete base URL and ask
+the operator to update the app; a newer local tool does not update a hosted site.
+For 429/busy, wait; the client never automatically retries or changes modes.
 
 ### 5. Choose your store and available collected topics
 
@@ -292,8 +341,10 @@ collection, cart changes or source inquiries.
 |---|---|
 | Assistant reads latest collected deals | Stored latest route with accepted store/topic. |
 | Assistant examines past observations | Separate history search/retrieve route. |
-| Check item prices or requested quantities | Stored prices and source-backed estimate route; preserve qualifications/partial amounts. |
-| Choose a store/topics for an assistant | Stored ZIP snapshot, exact person choice and completed-topic discovery. |
+| Check current item prices or requested quantities | Current-shopping product/recheck/estimate route; source-backed arithmetic, unknown currency and partial lines preserved. |
+| Explicitly use saved prices/quantities | Stored prices and source-backed estimate route; preserve freshness/qualifications/partial amounts. |
+| Find current nearby stores | Current ZIP lookup, bounded returned choices and exact person choice before products. |
+| Explicitly choose saved stores/collected topics | Stored ZIP snapshot, exact person choice and completed-topic discovery. |
 | Shop directly in the browser | Separate human page and collected human guide. |
 | Run your own app/service | Collected self-hosting/private-service manuals. |
 | Missing source authority or client | Setup/status explanation and human instructions without raw model exposure. |
@@ -307,6 +358,7 @@ LICENSE covers original project material; supplier data rights are separate.
 
 ## Common Patterns
 
-Use service status when access is uncertain. Reuse an accepted exact store/topic
-and current authority. Read only the requested bounded stored scope; finish with
-dates, freshness, coverage and remaining gaps.
+Use the requested mode's status when access is uncertain. Reuse a valid accepted
+store and current authority, plus topic for stored prices. Read only the
+requested bounded current or saved scope; finish with source dates, relevant
+freshness, coverage and remaining gaps. No failure silently changes modes.

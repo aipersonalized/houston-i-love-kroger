@@ -1,6 +1,6 @@
 ---
 type: research
-title: "Research: stored-service shopping companion"
+title: "Research: parallel app shopping companion"
 source_manifest: "official_docs/manifest.json"
 source_inventory: "source-inventory.json"
 sources:
@@ -15,15 +15,18 @@ provenance:
   generated_by: agent
   method: "Retained first-party corpus, accepted backend contract, current source inspection and synthetic CLI checks. Exact manual hashes/dates/version remain at source_manifest."
 trust_tier: source
-summary: "Agents read our latest collected deals and dated history; useful shopping judgments use only fresh returned facts and explicit scope."
+summary: "Agents use the app API for explicit current shopping or separate stored deals/history, with actual returned facts and explicit scope."
 ---
-# Stored-service companion research brief
+# Parallel app shopping companion research brief
 
 ## Task and resolved scope
 
-The user wants a person to ask an assistant what looks good, inexpensive or on
-deal, and have this skill get the facts from our microservice instead of Kroger's
-API. The task also includes stored ZIP choices and exact store acceptance, completed
+The user wants the companion to operate in parallel with the human app:
+understand requested groceries/quantities/budget/preferences, find current ZIP
+choices, wait for exact store acceptance, search products/promotions, match
+packages and freshly estimate selected quantities. It uses our app API only;
+the server owns source access and arithmetic. The preserved stored mode
+also supports saved ZIP choices and exact store acceptance, completed
 topic discovery, item price checks, requested-quantity costs, budget
 fit and relevant comparisons within actual data coverage. The assistant's useful
 deliverable is a concise, supported shopping choice:
@@ -32,10 +35,32 @@ supplied preferences. Good discount and low package outlay are separate reasons.
 A raw DTO dump is not that result. All rankings cover only fresh returned
 qualifying deals and must disclose finite coverage.
 
-The human web app retains its independent store-selection/live product/cart
-features. They do not become companion agent routes. Agent reads use only
-`api/v1/promotions/status|stores|topics|latest|prices|estimate|search|retrieve`; they never contact Kroger,
-fetch live products, collect data, change policy or access a private database.
+Current commands use `api/v1/status`, `stores/search`, `products/search`,
+`deals/search`, `products/retrieve`, `basket/estimate`. All reads are explicit
+and bounded; a stored failure never enters current shopping automatically.
+Stored commands still use only `api/v1/promotions/status|stores|topics|latest|
+prices|estimate|search|retrieve`. Neither mode directly contacts Kroger, starts
+collection, changes Cart/policy or reads a private database.
+
+### Current-shopping source contract
+
+The current implementation and first-party API manual define term pages,
+source evidence, exact product rechecks and fresh selected-quantity estimates.
+Thirteen-digit product IDs and unchanged item IDs come from returned facts.
+Live estimates take at most ten distinct pairs/whole quantities 1–99, recheck
+each product once and calculate without caller prices. Unknown currency,
+price basis, eligibility and modality prevent qualified monetary totals.
+Source per-unit estimates retain precision and unknown basis. Promo-only
+amounts support unqualified numeric multiplication without regular savings.
+
+`shopping.py` implements source/store/term/page/time checks, source/pricing/
+evidence validation and line/subtotal arithmetic. It shares unchanged transport
+primitives with `promotions.py`; both files ship together. Recipient reviews
+check actual retention/training/secondary use/onward disclosure for the bounded
+same-shopper task. Ordinary browsing does not inherit database-history rights
+as a prerequisite; no blanket Partner or cloud-agent ban follows. Full promotion
+coverage remains unmet. Integration refreshes the selected manuals from the
+accepted joined candidate before final acceptance.
 
 ## Collected source scope and freshness
 
@@ -92,7 +117,7 @@ rights remain separate.
    confirms their exact location. Completed-topic discovery lists only readable
    named collections and their freshness/counts, never private uncollected plans
    or guessed legacy hash labels. Directory permission is separate from
-   product/history permission. No agent live ZIP lookup or first-result choice
+   product/history permission. In stored mode no live ZIP lookup or first-result choice
    occurs; missing/stale data remains an operator gap.
 
 5. **Pages belong to a snapshot and query.** Latest uses bounded keyset pages,

@@ -3,7 +3,7 @@
 Choose your Kroger store, browse reported prices and promotions, and make a
 shopping list for this page visit. You can also look for past prices when they
 are available on the site you use.
-For assistant use, follow [Ask an assistant using stored data](#9-ask-an-assistant-using-stored-data).
+For assistant use, follow [Ask an assistant through the app](#9-ask-an-assistant-through-the-app).
 
 This independent project is in development. It is not affiliated with, endorsed
 by, or sponsored by The Kroger Co. Kroger is a trademark of its owner. The
@@ -366,13 +366,75 @@ Operators should read [self-hosting](SELF_HOSTING.md), [history operations](HIST
 and the [private service guide](PROMOTION_SERVICE.md). Assistant clients should
 use [the shared API contract](API.md).
 
-## 9. Ask an assistant using stored data
+## 9. Ask an assistant through the app
 
-The companion assistant reads this project's database service. It can find saved
+The companion is a parallel way to use this app. You explain the shopping task;
+the assistant matches groceries and packages, and tools retrieve facts and
+calculate requested quantities. It calls only this app's API. You need no
+supplier credentials or browser automation, and no AI-provider account is built
+into the project. It never signs in, uses Cart, collects prices or checks out.
+
+1. Make the complete [companion folder](../skills/houston-i-love-kroger/SKILL.md)
+   available through your assistant's actual local-skill/import mechanism. Follow
+   the [installation guide](../skills/houston-i-love-kroger/references/user-guide.md).
+   The assistant needs Python 3.12+ or an equivalent supported app client and
+   the actual app base URL ending `/`. Copying a skill does not install a server
+   or a remote connector.
+2. Check the chosen assistant/tool/provider's actual retention and secondary-use
+   controls or agreement. The shopping path must not retain/train on/independently
+   reuse or onward disclose these records beyond your actual task. Read the
+   [recipient guide](../skills/houston-i-love-kroger/references/source-permissions.md).
+   You do not paste private agreements or credentials into chat. Reuse a valid
+   established review; the acknowledgement flag creates no rights.
+3. Explain your groceries, quantities, preferred brands/package sizes, budget
+   if relevant and which substitutions are acceptable. Unknowns stay unknown;
+   the assistant asks when a missing choice affects the result.
+4. Supply a ZIP through a channel permitted by your privacy rules, or reuse an
+   already confirmed store. The assistant shows actual returned names/addresses
+   and waits for your exact choice. Store lookup returns up to ten locations
+   within ten miles, not every nearby store or exact distances. A store-only
+   request finishes with these choices.
+5. For current shopping it runs `shopping.py products`/`deals` for the requested
+   terms through this installation. Each is one fuzzy-search page, at most fifty
+   raw products. Review package/brand/size matches; unrelated or missing items
+   remain unresolved. No all-promotions or cheapest-storewide claim follows.
+6. For a specific item it can recheck the exact product through `shopping.py
+   product`. For selected quantities it runs `shopping.py estimate`, which
+   freshly checks each unique product at that store and calculates. The input
+   is only source product/item IDs and quantities, never caller prices. Each
+   estimate allows 1–10 distinct selections and whole quantities 1–99. Bigger
+   lists remain visible and need explicit batches or prioritization.
+7. Read the named packages, requested quantities, check times, numeric line
+   amounts and unresolved items. Currency and purchase conditions are unreported
+   by the supported live source model: no currency symbol or verified monetary
+   budget fit follows. A partial numeric subtotal covers only resolved lines;
+   tax, fees, coupons, eligibility and checkout changes are excluded. Confirm
+   actual prices, stock and conditions before buying.
+8. Ask for dated past prices when useful. They require a separately available,
+   permitted history source; missing history does not prevent current browsing.
+
+From the complete skill folder, check installation status with:
+
+```text
+python scripts/shopping.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+```
+
+Replace the address with your operator's actual base URL. `configured: true`
+does not prove valid source access; certification/synthetic results stay test
+data. `--summary-only` on a requested operation returns fixed status/counts
+without records, IDs, prices or ZIP. Full mode uses `--data-use-approved` only
+after the actual recipient/source review; the flag grants none. `--dry-run`
+validates without network or a price/check-time claim. If the new product or
+estimate route is unavailable, check the complete URL and ask the operator to
+update the app; installing a new skill does not update a hosted service.
+
+### Explicitly use saved deals and history
+
+For a stored-only request, the companion reads this project's database service. It can find saved
 store choices for a ZIP, check collected topics, explain deals, check a package
 price, estimate requested quantities or look for dated past prices. It does not
-call Kroger, refresh prices, collect data or change a cart. Browser browsing above
-is a separate live-source workflow.
+call Kroger, refresh prices, collect data or change a cart. This stored-only
+workflow is independent of explicit current shopping above.
 
 1. Make the complete [companion skill folder](../skills/houston-i-love-kroger/SKILL.md)
    available through your assistant's supported import or local-folder mechanism.

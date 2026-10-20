@@ -8,6 +8,87 @@ folder. The collected API manual owns the exact server DTOs.
 
 ## Inputs and outputs
 
+### Current-shopping CLI
+
+`scripts/shopping.py` is a Python 3.12+ standard-library client for deliberate
+current-shopping requests through this app. Keep sibling `promotions.py` in the
+same scripts folder for shared transport primitives. Its independent stored-only
+behavior remains unchanged. No model SDK, browser, supplier key or database access.
+
+From the complete skill folder, synthetic safe previews are:
+
+```text
+python scripts/shopping.py --help
+python scripts/shopping.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+python scripts/shopping.py stores --zip 00000 --summary-only --dry-run --json --no-input
+python scripts/shopping.py products --store TEST0001 --term milk --summary-only --dry-run --json --no-input
+python scripts/shopping.py deals --store TEST0001 --term coffee --sort savings --summary-only --dry-run --json --no-input
+python scripts/shopping.py product --store TEST0001 --product-id 0000000000001 --summary-only --dry-run --json --no-input
+python scripts/shopping.py estimate --store TEST0001 --item 0000000000001 00001 2 --summary-only --dry-run --json --no-input
+```
+
+All example ZIPs and IDs are synthetic. Actual searches use the real app URL
+(`--base-url` or `HOUSTON_APP_URL`), confirmed store and returned source IDs.
+`status` GETs `api/v1/status` without a body. It checks configuration/environment
+and implemented capabilities, not valid source access. Stores/products/deals/
+product/estimate POST to `api/v1/stores/search`, `api/v1/products/search`,
+`api/v1/deals/search`, `api/v1/products/retrieve`, `api/v1/basket/estimate`.
+These explicit operations can cause live source reads. Stored reads never fall
+back to them; no command starts collection or touches Cart.
+
+Stores takes only `--zip` with five digits. Products/deals require `--store`
+(eight-character exact ID) and explicit `--term` (3–80 characters, up to eight
+words; valid whitespace canonicalized). Optional `--sort` is `savings`, `percent`
+or `price`. Optional `--start` is 1–250 from that store/term response's matching
+continuation, never a guessed offset or automatic paging. Products defaults to
+`--include-all` including regular prices; `--no-include-all` restricts to qualified
+promotions. No starter sample is requested. Each search is at most fifty raw
+products/500 item evidence rows, always nonexhaustive. Source evidence, qualified
+products/offers and source page metadata have distinct meanings.
+
+Product takes `--store` and `--product-id` with exactly thirteen source digits.
+Estimate takes `--store` and repeated `--item PRODUCT_ID ITEM_ID QUANTITY` for
+1–10 distinct pairs. Item ID: unchanged source string, 1–64 characters, no
+controls/format characters/surrounding spaces. Quantities: whole 1–99. Requests
+are at most 4 KB and accept no caller prices. Server rechecks each unique product
+at that store and calculates selected amounts. Client checks identity/quantity,
+source pricing, multiplication/subtotal, dates, evidence, gaps and coverage.
+No resolved lines give null totals, never fake zero. Complete means arithmetic
+coverage; missing currency/basis/purchase conditions prevent verified monetary
+budget fit. Per-unit estimates preserve precision and unknown measure basis.
+
+Full records require actual rights and `--data-use-approved`, which acknowledges
+an existing recipient/source review and grants none. Read
+`references/source-permissions.md` in full for practical recipient controls.
+`--summary-only` projects fixed status/counts, source label, retrieval/evaluation
+times and nonexhaustive/continuation state, with no rows/IDs/names/prices/totals/
+ZIP/term. It still makes the selected server read and creates no rights.
+
+HTTPS except loopback HTTP; base URL ends `/` with no credentials/query/fragment.
+No redirects, ambient proxy, cookies, auth state, `.env`, automatic retry, cache,
+persistent log or output file. Responses: at most 8 MB, JSON, no duplicate keys
+or nonfinite values. Timeout: 1–35 seconds, default 15. Hosting/provider logging
+and the selected assistant's retention need separate checks. Errors print no
+raw body/exception, URL or supplied values.
+
+`--json`, `--no-input`, pipes and `--quiet` emit one JSON object including input
+errors, with no prompt/banner/color. `--help` prints usage, exit 0. Human TTY
+mode gives orientation/labeled status on stderr; NO_COLOR/`--no-color` suppress
+color. This stateless run-and-exit reader has direct commands; the web app is
+the visual human flow. `--dry-run` validates without network, writes, input
+values or a false checked time. `--verbose` keeps errors bounded.
+
+Exits: 0 bounded success/fresh empty/complete/partial/preview; 1 request/format/
+connection failure; 2 input; 3 permission/capability gap (including unconfigured
+status or HTTP 401/403/404/503). HTTP 429/502 are request failures. Error JSON:
+`{ok:false,error:{code,message,recovery}}`. Discard invalid results; no failure
+switches mode. Synthetic source labels stay test data; status must establish
+production environment before `kroger-api` results become live-shopping evidence.
+
+From repository root, run `python -B -m unittest discover -s
+skills/houston-i-love-kroger/tests -p test_shopping.py`. Synthetic tests establish
+neither source rights, live access, cross-platform support nor model performance.
+
 ### Stored promotion CLI
 
 `scripts/promotions.py` is a portable Python 3.12+ standard-library HTTP client.

@@ -1,12 +1,14 @@
 metadata:
-  scope: "Database-only companion for the project's stored deals and history"
+  scope: "Parallel app API shopping companion with separate stored deals and history"
 SKILL.md:
-  _purpose: "Terms that select a stored read or setup task"
+  _purpose: "Terms that select current shopping, stored reads or setup"
   "Latest collected deals": "Qualifying dated prices from the latest completed exact-store/topic snapshot within the operator freshness policy."
   "Operational candidate": "Authored instructions and bounded checks; actual installation and model qualification remain separate."
 playbooks:
   _purpose: "Accepted task identity and finish conditions"
-  "Accepted store": "The complete eight-character locationId explicitly chosen from stored name/address choices, or supplied as an already verified choice."
+  "Accepted store": "The complete eight-character locationId explicitly chosen from current or saved name/address choices, or supplied as an already verified choice."
+  "Current shopping": "An explicit app API workflow for current ZIP choices, requested product searches, exact rechecks and selected-quantity estimates; never an automatic fallback."
+  "Selected live estimate": "Fresh app rechecks of actual selected source product/item IDs, max10 pairs with whole quantities1–99; numeric arithmetic preserves unknown currency and unresolved lines."
   "Stored directory": "A dated bounded ZIP search snapshot; reads never call live Locations or start collection."
   "Completed topics": "Readable named collection jobs for the accepted store, with freshness and counts; not private uncollected plans or guessed legacy labels."
   "Collection topic": "The exact operator-approved topic label, distinct from a historical description filter."
@@ -25,7 +27,7 @@ references:
   "Qualified subtotal": "A same-currency estimate with no unresolved line or required source-context gap, still excluding checkout conditions."
   "Unreported currency": "Missing source currency; no inferred currency symbol or qualified monetary total."
 scripts:
-  _purpose: "Stored-read client and local public documentation maintenance"
+  _purpose: "Current-shopping and stored-read clients plus local public documentation maintenance"
   "repo:/": "Logical identifier for the reviewed first-party manual inventory."
   "Source freshness": "Whether documentation snapshot bytes match a supplied current app checkout."
   "Snapshot freshness": "Age of a completed collection under an operator threshold, not a supplier validity guarantee."
