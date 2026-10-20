@@ -109,7 +109,7 @@ Kroger's public acceptable-use rules restrict systematically collecting API
 responses into a database. Actual permission covering retention and display
 must be established before enabling that source. See
 [history setup and operation](docs/HISTORY.md) and the
-[unsent permission-request draft](docs/KROGER_PERMISSION_REQUEST.md).
+[permission-request document](docs/KROGER_PERMISSION_REQUEST.md).
 
 For the separate database service, follow
 [promotion service setup](docs/PROMOTION_SERVICE.md). The web app talks to its
