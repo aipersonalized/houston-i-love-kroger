@@ -1,17 +1,17 @@
-# Stored-data operations and comparison meanings
+# App shopping operations and comparison meanings
 
 ## Detailed Content
 
 ### Scope and effects
 
-The companion's agent procedures use only this project's version-1 promotion
-service through the app. Latest deals and historical search/retrieval are
+The companion uses this project's version-1 app API. Explicit current shopping
+and stored-data reads are separate modes. Latest stored deals and historical search/retrieval are
 database reads. They do not contact Kroger, initialize a database, collect data,
 alter grants or change a cart. No supplier credentials, private database mount,
 SQL, model SDK or particular AI provider is required.
 
-The human web app has separate live store/product searches and optional Cart.
-They are described in the human manuals, not alternative agent data routes.
+The human web app and explicit agent live-shopping procedure share the app's
+current store/product API. Optional Cart remains outside the companion.
 Missing/stale/empty service data never authorizes a live fallback. Stored ZIP
 snapshots supply dated store choices; the person confirms the exact location.
 Completed-topic discovery supplies actual readable collection labels. Collection,
@@ -25,7 +25,37 @@ They own exact DTO fields, limits, pagination and errors. Source identities and
 hashes live in `research/official_docs/manifest.json`; a live response still
 requires store/topic/version validation.
 
-### Request sequence
+### Explicit current shopping
+
+Read `schemas/command-rules.md` section "Current-shopping CLI" in full before
+`shopping.py`. Its status/stores/products/deals/product/estimate commands map to
+`api/v1/status`, `stores/search`, `products/search`, `deals/search`,
+`products/retrieve` and `basket/estimate`. Bind every request to the actual app;
+searches use JSON bodies, no query, credential, cookie or redirect.
+
+Live ZIP lookup returns at most ten locations within ten miles. The person
+confirms the exact returned store before products/prices. Explicit term searches
+return one bounded fuzzy page, not every match/promotion. Next pages use only
+matching reported continuation; no automatic traversal. Product recheck takes
+the exact thirteen-digit source product ID and complete store ID; it retains
+all returned variants/evidence and never chooses a replacement.
+
+Live estimate accepts only selected source product/item IDs and quantities,
+1–10 distinct pairs, whole 1–99. The app rechecks each unique product and
+calculates at a final common evaluation time. Each line retains its own read
+time. Complete/partial describe arithmetic coverage. Unknown currency, price
+basis and purchase conditions keep the qualified subtotal null; unresolved
+lines are not zero. Source amounts, per-unit estimates and app calculations
+stay separate. Neither shopping nor estimates start collection, persist a
+shopping list or call Cart. Current browsing does not require a history grant;
+optional dated comparisons still have their own rights/retention checks.
+
+The authoritative exact DTOs are in the collected API manual, sections "Recheck
+an exact product" and "Estimate selected products from fresh checks". The
+integration owner refreshes this collected manual with the accepted backend
+candidate before delivery; an older mirror does not qualify new behavior.
+
+### Stored request sequence
 
 Use the actual app URL ending in `/` and append these relative paths. All POST
 inputs use JSON with `Content-Type: application/json` and
@@ -47,7 +77,7 @@ The Python tool maps these to `status`, `stores`, `topics`, `latest`, `prices`, 
 and `retrieve`.
 `latest --topic` selects an exact approved collection label. Historical
 `search --term` matches a literal stored description; the two are not
-interchangeable. Default page size is 20, maximum 50. The tool has no sort,
+interchangeable. Default page size is 20, maximum 50. The stored tool has no sort,
 collector, live-store or live-product operation. Stored `stores --zip` is a
 database read. Keep IDs as strings, including zeros.
 
@@ -148,7 +178,7 @@ reads stay unknown.
 
 | Condition | Action | Reason |
 |---|---|---|
-| Missing store/topic | Run stored ZIP/topic discovery and accept the person's exact choice | No live lookup, first-result assumption or unnecessary human-web handoff. |
+| Stored mode missing store/topic | Run stored ZIP/topic discovery and accept the person's exact choice | No live fallback, first-result assumption or unnecessary human-web handoff. |
 | Fresh empty latest result | Report zero qualifying deals in the completed scope | Older rows must not reappear. |
 | No completed collection or stale snapshot | Report the distinct data/freshness gap | A reader does not initiate collection. |
 | Rejected cursor or changed snapshot | Restart a bounded requested read and disclose its new snapshot | Do not mix pages from collections. |

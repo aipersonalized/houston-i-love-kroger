@@ -1,5 +1,10 @@
 # Companion tools
 
+`shopping.py` lets humans and assistants use this app's current-shopping API:
+find stores, search requested groceries/promotions, recheck exact products and
+freshly estimate selected quantities. Explicit requests can make the server
+contact Kroger. No Cart, collection, supplier key or model SDK is needed.
+
 `promotions.py` helps humans and assistants find stored store choices and collected
 topics, read deals or dated history, check prices and estimate requested quantities
 from our service through the app. It never contacts
@@ -16,6 +21,29 @@ python scripts/refresh_docs.py --check --json --no-input
 
 Read `schemas/command-rules.md` in full before other operations. Paths in that
 file resolve from the skill root, one folder above this directory.
+
+For current shopping, run:
+
+```text
+python scripts/shopping.py --help
+python scripts/shopping.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+python scripts/shopping.py products --store TEST0001 --term milk --summary-only --dry-run --json --no-input
+python scripts/shopping.py estimate --store TEST0001 --item 0000000000001 00001 2 --summary-only --dry-run --json --no-input
+```
+
+Replace the status URL with the actual installation. Other IDs are synthetic
+previews: no network or checked price/time. For a real task, use `shopping.py
+stores --zip ZIP`, wait for the person's exact store choice, then `products
+--store STORE --term TERM` or promotion-only `deals`. `product --store STORE
+--product-id PRODUCT_ID` rechecks an actual thirteen-digit returned ID.
+`estimate --store STORE --item PRODUCT_ID ITEM_ID QUANTITY` accepts 1–10 pairs,
+whole quantities 1–99. Add your base URL and output mode: --summary-only, or
+--data-use-approved after actual source/recipient rights exist. That flag grants
+none. Follow [the human guide](../references/user-guide.md) for full steps.
+
+Current numeric estimates have unknown currency/purchase context, so they are
+not a verified budget or checkout total. Missing groceries stay visible. Full
+promotion coverage remains unmet; no command automatically changes modes.
 
 To read stored deals, first check your actual installation:
 
@@ -66,6 +94,8 @@ prompts or writes data.
 
 ## What It Does
 
+- Explicitly request bounded current stores/products/promotions through the app,
+  recheck exact source IDs and estimate requested quantities without persistence.
 - Read dated ZIP directory choices and completed topic states; the person
   confirms the exact store, and stale/missing data never causes a live lookup.
 - Read bounded latest store/topic snapshots, search dated history and retrieve
@@ -80,8 +110,9 @@ prompts or writes data.
 ## Requirements
 
 Python 3.12 or newer, standard library only. Executed here with Python 3.14.
-An equivalent permitted HTTP client can use the same stored-read contract;
-human browser shopping is a separate app workflow. Documentation collection
+Keep both shopping.py and promotions.py together for shared transport primitives.
+An equivalent permitted client can use the app contract; the human page and
+companion are parallel interfaces. Documentation collection
 requires ordinary local files, not linked paths.
 
 If you want to run these optional maintenance commands:

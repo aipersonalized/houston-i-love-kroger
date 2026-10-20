@@ -1,9 +1,12 @@
-# Stored-service companion design
+# Parallel app shopping companion design
 
-The accepted agent task is to get deals from our implemented database service,
-rather than Kroger's API. A separate human web app supports live browsing.
-The companion consumes stored ZIP choices, completed topics, latest snapshots and dated history
-through the app proxy; it never triggers source fetches or collection.
+The companion is a parallel app API interface to human shopping. Explicit
+current shopping understands the person's list, gets an exact confirmed store,
+matches bounded returned products and freshly estimates selected quantities.
+The app owns source reads/arithmetic; the agent owns intent/package matching.
+The preserved stored-only client reads stored ZIP choices, completed topics,
+latest snapshots and dated history without source refresh. Neither mode starts
+collection or Cart, and no stored failure silently enters current shopping.
 
 ## Intended outcome and boundaries
 
@@ -35,16 +38,21 @@ records are not selected. Working local fetch/refresh CLIs maintain this corpus.
 The integration owner refreshes changed app manuals before acceptance; a prior
 integrity audit alone does not establish source freshness.
 
-One skill uses five procedures: store/topic choice, latest deals, price
+One skill uses six procedures: current shopping, stored store/topic choice, latest deals, price
 check/estimate, dated history and setup/recovery. Short references own permission decisions, interpretation and
-human installation; the output schema owns report meanings. The default agent
-interface is the Python standard-library client. Equivalent permitted clients
-may implement the documented stored-read contract without changing its scope.
+human installation; the output schema owns report meanings. Python standard-library
+clients implement the two explicit modes. Equivalent permitted clients may use
+the same documented app API within the selected scope.
 
 ## Feature and operation map
 
 | Feature | Interface and prerequisite | Acceptance and current evidence |
 |---|---|---|
+| Current setup | `shopping.py status` → GET `api/v1/status` | Fixed configuration/environment/capability projection; not proof of live access. |
+| Current store choices | `shopping.py stores --zip` | Bounded lookup; exact person-confirmed name/address/ID before products; store-only task finishes at choices. |
+| Requested products/promotions | `shopping.py products`/`deals --store --term`, optional sort/start/includeAll | One bounded term page; source/pricing/per-unit/evidence/page/time checks; no exhaustive catalog traversal. |
+| Exact current price | `shopping.py product --store --product-id` | Thirteen-digit returned ID, all variants/evidence, exact store; no identity inferred from UPC/name. |
+| Fresh quantity estimate | `shopping.py estimate --store --item PRODUCT_ID ITEM_ID QUANTITY` | Server recheck, max10 pairs/qty1–99; exact identity/multiplication/subtotal/unresolved/unknown-currency checks. No caller prices or persistence. |
 | Service status | `status` → GET `api/v1/promotions/status`; actual app URL | Fixed capability projection; permission is separate from collection availability. Synthetic loopback checked. |
 | Latest collected deals | `latest --store --topic` → POST `api/v1/promotions/latest`; exact accepted ID and approved operator topic | Exact DTO/store/topic binding, fresh-empty/no_data/stale/permission distinction, snapshot/attempt/page/coverage validation. Synthetic native HTTP and boundary tests. |
 | Item price check | `prices --store --topic` with optional exact product/item IDs → POST `api/v1/promotions/prices` | Fresh snapshot-bound regular/promo prices and explicit unavailable facts; source qualification/context preserved. Synthetic HTTP and exact-identity tests. |
@@ -59,11 +67,22 @@ may implement the documented stored-read contract without changing its scope.
 | Price qualification | Flat observation fields, latest availability/calculated fields | Full source facts, explicit unsupported_source_price with null invalid values; latest requires qualified promotions. No invented unit basis or history wrapper. |
 | Documentation collection/audit | Allowlisted local fetch/refresh CLIs | Six complete sources/four reviewed exclusions, no private files or network. Integrity and source-drift checks are separate from interpretation. |
 | Step listing | `list_skill_steps.py` | Local read-only discovery; no procedure execution. |
-| Live Kroger/store/product/Cart/collector operations | Excluded from agent companion | Human/operator manuals explain boundaries; no client command and no fallback. |
+| Direct supplier/Cart/collector operations | Excluded from companion | App-only requests; no direct Kroger client, Cart command or automatic source/history fallback. |
 
 ## Procedure sequence and handoffs
 
-Setup-only checks the stored service and stops. Direct latest/history entry can
+Current shopping reuses valid setup/store/recipients and source IDs for direct
+price/recheck/estimate entry. Otherwise it understands the list/preferences,
+gets live ZIP choices, waits for exact confirmation, searches requested terms,
+matches packages and estimates selected quantities. All requested lines remain
+visible, including lists over the ten-line request limit. Explicit batches are
+separate checks, never a single supplier snapshot or qualified grand total.
+Optional useful dated history remains a separate permitted read. Unknown
+recipient controls create a record-output gap, not a universal agent ban or
+history prerequisite for current shopping.
+
+Stored setup checks the stored service and stops; current setup uses app status
+without requiring that service. Direct latest/history entry can
 reuse valid URL, exact store and current source/recipient authority. Missing store enters stored ZIP lookup and the person's exact choice; missing
 topic enters completed-topic discovery. Missing/stale collection stays an operator/data gap. A failed read returns a typed connection/compatibility gap.
 
@@ -79,6 +98,16 @@ dependent result; no successful prior response creates permanent access.
 Both routes stop after the requested bounded report.
 
 ## Tool design and recovery
+
+`shopping.py` is a stateless run-and-exit reader with human terminal orientation
+and direct commands; the app supplies the visual human flow. It imports unchanged
+transport primitives from `promotions.py`, preserving that stored client's
+behavior/tests. Keep both files together. Current responses allow up to8MB;
+stored responses retain their 1MB limit. HTTPS/loopback, no redirects/proxies/
+cookies/auth, bounded time, fixed errors and no cache/file/retry apply. Current
+JSON parsing rejects duplicate keys/nonfinite values and preserves clean input
+errors. Summary gives no rows/IDs/prices/ZIP; dry run gives no input values or
+false checked time. Full mode acknowledges an actual source/recipient review.
 
 `promotions.py status|stores|topics|latest|prices|estimate|search|retrieve` uses only fixed stored-read app
 paths over HTTPS, with loopback HTTP for local use. It refuses URL credentials,
@@ -98,6 +127,15 @@ manifest last; a multi-file interruption can leave a mixed snapshot, so audit
 before accepting it. They never scan private files or fetch runtime APIs.
 
 ## Verification and remaining qualification
+
+`tests/test_shopping.py` covers current inputs/source-ID bounds, wrong scope and
+private fields, source/pricing/per-unit/evidence/page/estimate arithmetic,
+complete/empty/unresolved states, promo-only estimates and JavaScript millisecond
+date precision. Actual subprocess loopback HTTP checks every current route/body,
+plus proxy/redirect/JSON-content/size/duplicate/nonfinite/raw-error boundaries.
+These synthetic tests establish no source rights, actual access, cross-platform
+qualification or model performance. Root owns actual usage, receiving review,
+exact-candidate manual refresh and publication checks.
 
 `tests/test_promotions.py` runs synthetic loopback/native CLI and mock checks:
 exact route/body, no credentials/query, permission gate, no-network dry run,
