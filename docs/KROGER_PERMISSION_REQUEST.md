@@ -46,8 +46,9 @@ Continue testing the Public current-price features and synthetic database flows
 independently. Keep real history/directory collection disabled pending that
 specific basis. Temporary response caching within permitted headers cannot
 supply dated history; the Cart API's visit-only cache allowance does not authorize
-a price database. Live lookups also do not meet the companion's database-only
-requirement. A separately licensed real dataset could be an alternative if its
+a price database. Live lookups support the companion's explicit current-shopping
+workflow; they do not supply records for its separate stored-history workflow.
+A separately licensed real dataset could be an alternative if its
 terms cover the intended use and an importer is implemented; this project has
 neither such a dataset nor that import path. Synthetic fixtures test software,
 not real shopping history. Complete promotion coverage remains a separate unmet

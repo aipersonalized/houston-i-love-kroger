@@ -1,11 +1,15 @@
 # HTTP API
 
-The human page and an explicit live-shopping procedure can look up stores and
-current products through this site's API and its server-side Kroger connection.
-The stored companion procedures have a separate read path: they get latest
-stored ZIP-query locations, completed collection topics, collected deals, regular prices, quantity estimates and dated history from this installation's promotion database
-service. Companion requests do not call Kroger, refresh products or run the
-collector. No empty or stale database result falls back to a supplier request.
+The human page and the companion's explicit current-shopping tools can look up
+stores, search current products, recheck selected products and estimate selected
+quantities through this installation's API. The installation's trusted server
+handles its Kroger connection; the companion needs no supplier credentials.
+
+The companion's separate stored-data tools get saved ZIP-query locations,
+completed collection topics, collected deals, regular prices, quantity estimates
+and dated history from this installation's promotion database service. Stored
+requests do not call Kroger, refresh products or run the collector. No empty or
+stale database result falls back to a supplier request.
 Optional Cart writes belong to a separate explicit shopper authorization and
 session contract below; they are outside the companion's read-only tool.
 
@@ -799,7 +803,7 @@ for a qualified historical comparison; an authorized source must establish it.
 
 ## Latest collected deals
 
-This is the companion skill's primary deal operation. It reads this
+This is the companion skill's stored latest-deals operation. It reads this
 installation's promotion database, not Kroger. It never makes a supplier
 request, refreshes data or starts collection. The human page's live product
 search is a separate path; an empty, stale or blocked database result does not
@@ -819,8 +823,9 @@ accepted store; use [stored store discovery](#stored-store-discovery) when an
 approved directory snapshot exists, and [completed collection topics](#completed-collection-topics)
 to select an actual readable collected scope. No stored read makes a live request.
 A person can also choose a store on the app, then use its reference in
-Store details. Do not have the companion make live store/product requests to
-fill that gap. Omit unused fields; unsupported fields and clock/source/freshness
+Store details. A stored procedure must not automatically make live store/product
+requests to fill a data gap. Current shopping uses its separate explicit live
+procedure. Omit unused fields; unsupported fields and clock/source/freshness
 overrides are rejected.
 
 Synthetic request example; replace the store and topic with your accepted scope:

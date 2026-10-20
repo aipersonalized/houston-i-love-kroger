@@ -357,7 +357,8 @@ explicit common measurement basis; package text alone does not supply it.
 
 ## Latest deals from our database
 
-The companion gets deals from our service, not from a live Kroger request.
+The companion's stored-deal workflow gets deals from our database service,
+without a live Kroger request. Its explicit current-shopping workflow is separate.
 After actual collection permission and a successful operator run, use
 `POST api/v1/promotions/latest` with the exact store reference and approved
 operator topic. The [API contract](API.md#latest-collected-deals) and
@@ -374,8 +375,8 @@ rights again and never run collection.
 
 The default maximum age is24hours, configured by the operator, not the caller.
 This is a site policy, not a supplier guarantee. History and latest deals cover
-only approved retained samples. Missing latest data is not permission to query
-Kroger through the companion. Use the independently permission-gated
+only approved retained samples. Missing latest data does not trigger a supplier
+request or switch the companion to current-shopping mode. Use the independently permission-gated
 [stored ZIP directory](API.md#stored-store-discovery) to choose an exact store,
 then [completed topics](API.md#completed-collection-topics) to discover readable
 collected scope. Missing data remains an operator dependency.
