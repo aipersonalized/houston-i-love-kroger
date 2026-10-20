@@ -177,7 +177,7 @@ routing service.
 
 ## Browse all priced products
 
-`POST api/v1/products/search` accepts the same store, optional term and sort as
+`POST api/v1/products/search` accepts the same store, optional term, page start and sort as
 the promotion endpoint below, plus optional boolean `includeAll` (default `true`).
 Unknown fields, `null`/non-boolean `includeAll` and invalid inputs are rejected.
 
@@ -279,6 +279,7 @@ with a separate unknown group. It does not calculate a walking route.
 | `locationId` | Yes | Exact eight-character alphanumeric store ID; keep leading zeros. |
 | `term` | No | A search with 3–80 characters and at most eight words. Omit it for the starter sample. |
 | `sort` | No | `savings` (default), `percent` or `price`. |
+| `start` | No | Integer 1–250, only with an explicit term. Omit it for the supplier's default page. Zero, strings, fractions and sample pagination are rejected. |
 
 An omitted term immediately loads the selected store's starter sample:
 
@@ -306,6 +307,63 @@ Every product request includes the chosen store and the in-store fulfillment
 filter `ais`. No nationwide price is substituted when local pricing is missing.
 The response always echoes the store under `scope.locationId`; clients must
 discard a response if it belongs to a previously selected store.
+
+### Explicit product pages
+
+Each current search response adds `page`. The three-query starter sample has
+`page: null`; it has no next-page operation. An explicit term response has:
+
+```json
+{
+  "page": {
+    "requestedStart": null,
+    "reported": { "start": 0, "limit": 50, "total": 1000 },
+    "continuation": { "status": "available", "nextStart": 50 }
+  }
+}
+```
+
+This synthetic example assumes fifty returned products. `requestedStart: null`
+means no start parameter was sent. `reported` preserves supplier-reported safe
+nonnegative integers or `null` when unavailable; request defaults and returned
+counts never substitute for missing source facts. Reported `total` counts
+matching raw products, not qualifying promotions or all store promotions.
+Reported zero-based starts are retained; explicit requests still require 1–250.
+The human page caption converts a known reported start and positive raw-product
+count to a one-based range, such as **Product results 1–50**. Unknown starts,
+empty pages and unsafe range arithmetic omit that caption; requested starts
+never substitute for missing reported positions. The range does not promise
+stable ordering or distinct products across pages.
+
+| Continuation status | Meaning and next action |
+| :--- | :--- |
+| `available` | `nextStart` is a bounded candidate based on the reported start plus returned raw-product count. Send it only in an explicit new request with the same exact store and canonical term. |
+| `reported_end` | The reported matching-product boundary has been reached. This is no guarantee of a stable, exhaustive search or every promotion. `nextStart` is `null`. |
+| `source_limit` | The next candidate exceeds the documented start cap of 250. Refine the term; no bypass or automatic partitioning occurs. `nextStart` is `null`. |
+| `unknown` | Source facts do not establish safe continuation, including unexplained empty pages. No offset or total is guessed. `nextStart` is `null`. |
+
+For example, explicitly send `{ "locationId": "01400001", "term": "whole milk",
+"start": 50 }` after accepting the corresponding candidate. Both current search
+routes make one bounded product-page call, normalize that page independently and
+return its own evidence/counts. They never accumulate, traverse automatically,
+cache results, write history or invoke collection. Fuzzy order can change;
+repeated/skipped products and changing totals remain possible.
+
+An explicit requested/reported start disagreement is an upstream-format failure,
+not rewritten metadata or an actionable looping cursor. Malformed page adapter
+responses also fail visibly. Existing injected single-array clients remain
+supported for default requests with null reported facts and unknown continuation;
+they cannot accept an explicit start and return `pagination_unavailable` (503).
+The real client uses its accepted `searchProductPage` interface for term pages;
+the sample and collector retain their existing single-array interface.
+
+The human **Next results page** button replaces the current result page and keeps
+the selected store/shopping list. Failures and cancellation keep the confirmed
+page and same retry candidate. Term/store changes invalidate continuation; stale
+responses cannot replace a newer search. Response validation binds canonical
+term, exact store and requested start, checks raw-count/evidence agreement and
+derives continuation from reported facts. Sorting/source filters apply only to
+the loaded page; source-evidence inspection remains available.
 
 ### Response example
 
@@ -411,9 +469,66 @@ For a term search, `scope.mode` is `search`, `scope.term` is the normalized term
 `scope.exhaustive` remains `false`. Query counts include returned products before
 duplicate removal and promotion qualification.
 
+### Returned source evidence
+
+Both current `deals/search` and `products/search` responses add `sourceEvidence`
+independently of `offers`, `products`, `includeAll` and their existing summary.
+Those existing fields retain their strict price, date, availability and identity
+rules. Source evidence accounts for this returned page or starter sample only;
+it does not enumerate the store or establish complete promotion coverage.
+
+`sourceEvidence.records` preserves response order, with one record per returned
+item and one placeholder for a product without an item list. Fifty products with
+at most ten items each produce at most 500 evidence records; missing-item
+placeholders remain inside this bound. Malformed source types still fail the
+request rather than becoming invented evidence.
+
+| Field | Meaning |
+| :--- | :--- |
+| `recordIndex` | Zero-based locator within this response, never a product identity. |
+| `productIndex`, `itemIndex` | Positions in the combined returned products and their items. `itemIndex: null` identifies a missing-item placeholder. |
+| `source` | Supplied product/item IDs, description, brand, size, sold-by basis, price fields, stock, fulfillment, categories, SNAP and dietary claims. Missing source text/IDs remain `null`; no fallback name becomes source data. |
+| `reportedPromotion` | A finite positive `source.price.promo` was returned. This does not prove currency, validity, availability, eligibility or savings. Missing/zero/nonpositive promo values do not establish a free offer or absence of store sales. |
+| `savingsArithmeticAvailable` | Pure arithmetic: both item amounts are usable positive whole hundredths and promo is lower. It ignores dates, stock, names and identity conflicts; it is not a validated offer. No calculated current price or savings is added to evidence. |
+| `includedInOffers` | Literal membership of this particular row, once, in the unchanged strict `offers` list. It is not a source-truth or eligibility flag; inspect dispositions independently. |
+| `dispositions` | All applicable fixed codes below, independently of source promotion presence. |
+| `duplicateOf` | Earlier record index for an exact duplicate with known product/item identity; otherwise `null`. Missing identities are not synthesized or deduplicated. |
+
+Disposition codes are `missing_items`, `missing_description`, `not_in_store`,
+`out_of_stock`, `missing_regular_price`, `unsupported_price`,
+`no_positive_promo`, `not_discounted`, `unqualified_dates`, `duplicate` and
+`identity_conflict`. Conflicting variants are all retained and flagged; neither
+version is chosen as truth. One intentional correction applies the existing
+conflict rule before description eligibility: if a missing-name row has the
+same exact product/item identity and differing price/details, neither variant
+enters `offers` or `products`. The conflict and incomplete-product counters keep
+their meanings. A product with no item identity stays unknown; no identity is
+invented to group it with another item.
+
+`sourceEvidence.summary` contains `records`, `returnedProducts`, `returnedItems`,
+`missingItemLists`, `reportedPromotions`, `withoutSavingsArithmetic` (no usable
+arithmetic pair), and `otherReportedPromotions` (positive reported promo outside
+strict offers). Counts refer to returned records before shopper filters and
+include repeats. Missing item lists are unknown sale status, not empty offers.
+
+The browser's **Other reported sale prices** panel shows positive reported
+promos outside strict offers, in source order, with the same SNAP/dietary filters.
+It preserves numeric precision and raw date/timezone facts; it supplies no
+shopping-list/cart action or guessed current price. Older responses without
+`sourceEvidence` remain supported; a present malformed evidence object fails
+visibly rather than being replaced with a successful empty list.
+At that response boundary, included rows must match the literal `offers` array
+exactly once through their shared source fields, with usable arithmetic and no
+disqualifying dispositions. The browser recomputes numeric and date qualification
+against `retrievedAt`, checks contiguous product/item coverage and missing-item
+placeholders, and validates known-identity duplicate relationships. Unknown
+product/item IDs remain permitted independent observations.
+
 ### Source values, calculations and missing information
 
-Current source prices do not supply a currency field. The human page formats
+The normalized displayed current prices retain no currency identifier. The
+selected public schema defines none; that is not a claim that a raw supplier
+response cannot contain additional fields. The human page formats
 numeric amounts without assuming USD or another currency symbol and labels that
 gap beside results and the shopping-list subtotal. Reported arithmetic is not a
 qualified monetary or payable checkout total. Fields named `regularCents`,
@@ -463,7 +578,7 @@ offer conditions.
 | Field | Meaning |
 | --- | --- |
 | `products` | Total product records returned across this request's queries. |
-| `items` | Item records examined in products with displayable details. |
+| `items` | Returned item records examined, including those whose product description is missing. Products without an item list contribute no items; their placeholders are counted separately in source evidence. |
 | `unpriced` | Legacy count of items lacking one or both usable positive whole-cent comparison prices, including zero promos. A regular-price product can still be displayed. |
 | `notDiscounted` | Items whose usable promo price is not below regular price. |
 | `unqualifiedDates` | Otherwise qualifying items with ambiguous, invalid, future or expired reported windows. |

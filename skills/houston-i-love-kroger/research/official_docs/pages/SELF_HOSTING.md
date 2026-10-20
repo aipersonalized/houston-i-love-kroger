@@ -10,7 +10,9 @@ need qualification. The [Compose option](#6a-optional-compose-installation) runs
 the web app and private database service separately; supplied container files
 alone do not prove a particular image or host has been tested or deployed.
 
-Real Kroger retention/display permission remains unestablished for this project.
+Permission for systematic Kroger history/directory collection and retained-data
+use remains unestablished for this project. Ordinary Public current-price access
+does not require Partner enrollment; see the [permission guide](KROGER_PERMISSION_REQUEST.md).
 New databases start empty and permission-gated. Installing the app, supplying
 API credentials or enabling a setting cannot create source rights. Cart is
 optional and disabled by default.
@@ -446,10 +448,11 @@ established by these instructions. See [history maintenance](HISTORY.md) and
 ## 8. Optional stored ZIP and topic discovery
 
 An assistant can discover stores and collected topics through our database
-without using the live human store-search endpoint. This requires independent
-directory collection/display/agent rights, explicit operator-chosen ZIPs and a
-completed directory collection. Product API access or a product-history policy
-does not supply these directory rights.
+without using the live human store-search endpoint. This requires a basis covering
+directory database collection and the intended display/recipient uses, explicit
+operator-chosen ZIPs and a completed directory collection. Product API access or
+a product-history policy does not supply that basis unless its actual scope also
+covers the directory. Agent access alone does not require Partner enrollment.
 
 1. Finish the private service setup in [section 4a](#4a-native-private-promotion-service).
    Keep its token private. The public app needs no new credentials, database

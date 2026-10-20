@@ -4,7 +4,7 @@
   "inventoryUrl": "repo:/",
   "appVersion": "0.2.0",
   "sourceRevision": "working-tree-snapshot",
-  "retrievedAt": "2026-10-20T00:41:26.394316+00:00",
+  "retrievedAt": "2026-10-20T13:42:01.326837+00:00",
   "inventorySha256": "870746c1f8b90c3ae955930ead90e5ba4f347e556899c454553db29368cd927b",
   "counts": {
     "indexed": 6,
@@ -19,9 +19,9 @@
       "title": "App HTTP API",
       "url": "repo:/docs/API.md",
       "status": "saved",
-      "sha256": "5687471e5ddaae0dc51134c216c2eb404d7c5f8ccbac9e80dfd603eddf4be8d7",
-      "bytes": 61159,
-      "retrievedAt": "2026-10-20T00:41:26.394316+00:00",
+      "sha256": "a789c43cd21f9f450510d1348397f67a1368f6affda33037f7d20905f39f0be8",
+      "bytes": 69439,
+      "retrievedAt": "2026-10-20T13:42:01.326837+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -30,9 +30,9 @@
       "title": "Human shopping guide",
       "url": "repo:/docs/USER_GUIDE.md",
       "status": "saved",
-      "sha256": "15b8df2c6bc821336f27e4b9ae77894de0f11db7705438f33de358669e49b6b8",
-      "bytes": 21834,
-      "retrievedAt": "2026-10-20T00:41:26.394316+00:00",
+      "sha256": "022132540bdd77aa479581abc33749179615520f52fd8773079c074cffef5a66",
+      "bytes": 24547,
+      "retrievedAt": "2026-10-20T13:42:01.326837+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -41,9 +41,9 @@
       "title": "App installation and configuration",
       "url": "repo:/docs/SELF_HOSTING.md",
       "status": "saved",
-      "sha256": "953faa5d8a7f6d301ed4773f3cbb8dc58b11cd4544d23ed589d6e9d9ae3f4896",
-      "bytes": 30258,
-      "retrievedAt": "2026-10-20T00:41:26.394316+00:00",
+      "sha256": "0c07f26bcdd0b8ec97ff5052dac884d423ab0d69e2c50575c8c2ef86c0ca7320",
+      "bytes": 30560,
+      "retrievedAt": "2026-10-20T13:42:01.326837+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -52,9 +52,9 @@
       "title": "History prerequisites and operator boundary",
       "url": "repo:/docs/HISTORY.md",
       "status": "saved",
-      "sha256": "226879871b47ce3a4f82cfeccdd2966d3d364636cbe84d9126b3a5f76daaeeb2",
-      "bytes": 30258,
-      "retrievedAt": "2026-10-20T00:41:26.394316+00:00",
+      "sha256": "249d0f1df85c79322e8c4dd847c89eae76aa8987be56c0b885560b0547a14053",
+      "bytes": 30648,
+      "retrievedAt": "2026-10-20T13:42:01.326837+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -63,9 +63,9 @@
       "title": "Private promotions service and permission-aware reads",
       "url": "repo:/docs/PROMOTION_SERVICE.md",
       "status": "saved",
-      "sha256": "31b224eb846f9e2d6b96b434db3a747d6d5df896f1c607b92c995d64341c89ac",
-      "bytes": 22963,
-      "retrievedAt": "2026-10-20T00:41:26.394316+00:00",
+      "sha256": "ac79440b14364ffef6a64c1f6cd676c4912529d184b9fae9ab2b6b3f211c9282",
+      "bytes": 23364,
+      "retrievedAt": "2026-10-20T13:42:01.326837+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -74,9 +74,9 @@
       "title": "Source-permission questions, not a grant",
       "url": "repo:/docs/KROGER_PERMISSION_REQUEST.md",
       "status": "saved",
-      "sha256": "243930af3e2784570e24934495d1cba8667f80fcc088a0a89bb600a914ecaed3",
-      "bytes": 8322,
-      "retrievedAt": "2026-10-20T00:41:26.394316+00:00",
+      "sha256": "063e37bdd312d15ccb56be7513897b9a80051b090812fadd1bbf32fc72a94f83",
+      "bytes": 13538,
+      "retrievedAt": "2026-10-20T13:42:01.326837+00:00",
       "discovery": "reviewed first-party inventory"
     }
   ]

@@ -81,6 +81,33 @@ Clear the field and select **Search** for the starter sample. Editing text clear
 the old results; it does not search on every keystroke. Your existing list stays
 while you search the same store.
 
+After an explicit grocery search, read the page information below the results.
+It distinguishes this page's returned products from Kroger's reported count of
+matching products. These counts are not the number of promotions at your store.
+When Kroger reports a usable starting position, a label such as **Product results
+1–50** shows this page's range before filters and price checks. Empty pages and
+pages without a usable starting position omit the range. An unavailable total
+stays unknown.
+
+When **Next results page** is available:
+
+1. Select it to replace these results with another bounded page for the same
+   confirmed search and store. It keeps your selected store and shopping list.
+2. Wait for the page to finish. It does not load more pages automatically or
+   accumulate a catalog. Your existing results remain while it loads.
+3. Read the new page and its **Checked** time. Sorting and filters apply to the
+   loaded page, including **Other reported sale prices**. Search order can
+   change; products may repeat or be skipped between pages.
+
+If the next page fails or you cancel it, the current page remains. Select
+**Next results page** again to retry the same page. Editing the search or changing
+stores clears the old page context; submit the new search to begin again.
+At the available paging limit, use a more specific grocery or brand. A reported
+end means the matching-product results for this search reached Kroger's reported
+boundary; it does not establish full store-promotion coverage. If another page
+cannot be confirmed, no next offset is guessed. The starter sample has no next
+page button.
+
 **Products to show** starts at **All priced products**. Usable regular-price
 groceries stay visible alongside qualifying promotions. A reported price without
 a usable regular comparison can appear without a savings claim. A zero or
@@ -90,8 +117,23 @@ in-store fulfillment and unusable prices can exclude a result. Read **Result
 details** for the reasons; counts can overlap.
 
 Choose **Promotions only** for positive regular and lower promo prices with
-qualified supplied dates. No matching promotion describes this returned sample,
-not the whole store.
+qualified supplied dates in the main list. This view also keeps the separate
+reported sale prices described below. No matching promotion describes this
+returned sample, not the whole store.
+
+When available, open **Other reported sale prices** below the main results.
+These are sale amounts Kroger returned that could not enter the savings-ranked
+list, for example because stock is unavailable, dates are uncertain, a regular
+price is missing, or differing details were returned. Read each explanation and
+the exact reported amounts. Fractional amounts are not rounded into a different
+price. Currency and unit bases may be unknown. A reported sale amount alone does
+not establish a current price, savings or purchase eligibility.
+
+These rows cannot be added to the shopping list from this panel. Repeated and
+differing results remain separate; neither conflicting version is confirmed.
+The panel count follows your filters, while the returned-record note describes
+the whole loaded search before filters. Missing item details leave sale status
+unknown. Neither count is the number of all promotions at your store.
 
 When relevant source facts exist in the loaded results, these filters appear:
 
@@ -101,7 +143,8 @@ When relevant source facts exist in the loaded results, these filters appear:
   This is source wording, not the app's certification of a diet or allergy
   requirement. Missing claims remain unknown.
 
-These labels come from Kroger. Filters work on the groceries already shown.
+These labels come from Kroger. Filters work on the loaded groceries and the
+separate reported sale prices, including when **Promotions only** is selected.
 Relax them or change views if nothing matches. Check the package for ingredients
 and allergens; these fields do not establish allergen safety.
 

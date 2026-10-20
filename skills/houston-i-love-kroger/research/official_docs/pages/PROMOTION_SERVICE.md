@@ -12,6 +12,12 @@ established.** A new installation returns `permission_required`. Successful
 software tests use synthetic data in temporary databases; they do not grant
 source rights or produce real promotion history.
 
+The missing basis concerns systematic collection and reuse of retained data;
+Partner enrollment is not a blanket requirement for apps or agents and does not
+itself authorize that database. The human app's separate live Public lookups can
+proceed within their published terms. See the [permission guide](KROGER_PERMISSION_REQUEST.md)
+for the exact restriction and the specific exception to ask about.
+
 ## How data reaches an agent
 
 ```mermaid
