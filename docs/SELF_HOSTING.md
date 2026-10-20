@@ -277,7 +277,7 @@ actual retention rights or production capacity.
 ## 6. Prepare public hosting
 
 Before publication, complete the exact-candidate licensing/legal-liability review
-and qualify the actual host. See [release preparation](RELEASING.md). A hosted
+and qualify the actual host. See [release preparation](https://github.com/aipersonalized/houston-i-love-kroger/blob/main/docs/RELEASING.md). A hosted
 setup page with blank credentials establishes no live or historical-source
 permission. MIT covers original software, not supplier data or branding rights.
 
@@ -500,9 +500,10 @@ need the optional private history service or directory database. Keep Cart
 disabled unless a separate explicitly authorized workflow requires it; the
 companion has no Cart commands.
 
-1. Obtain the reviewed app/skill version containing `skills/houston-i-love-kroger`.
-   Keep the entire skill folder, including both Python clients and manuals.
-   This guide describes a development candidate until its release is verified.
+1. Download the separately released [companion plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin)
+   and follow its [installation guide](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/README.md).
+   Keep the complete extracted folder, including both Python clients and manuals.
+   The app checkout does not contain or install the plugin.
 2. On the assistant's execution host, install Python 3.12+ if needed. In a terminal
    run `python --version` (or `python3` on hosts that use that name). There are no
    Python packages or model SDKs to install. Local checks used Python 3.14;
@@ -513,7 +514,7 @@ companion has no Cart commands.
 4. Supply only the app base URL ending `/`, through `--base-url` or optional
    `HOUSTON_APP_URL`. HTTPS is required except loopback HTTP. Do not give the
    companion Kroger credentials, private service tokens or database access.
-5. From the complete skill folder run:
+5. From the plugin's `skills/houston-i-love-kroger` folder run:
 
    ```text
    python scripts/shopping.py --help
@@ -528,7 +529,7 @@ companion has no Cart commands.
    path and deployed app version, not configure a database to repair it.
 6. Review the chosen assistant/tool/provider's actual retention and secondary-use
    controls against source terms and user privacy. Use the
-   [recipient guide](../skills/houston-i-love-kroger/references/source-permissions.md).
+   [recipient guide](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/skills/houston-i-love-kroger/references/source-permissions.md).
    Full records require a valid existing review; `--data-use-approved` only
    acknowledges it. Unknown controls leave a record-output gap; fixed summaries
    are available for authorized diagnostics. No persistent search/catalog logs,

@@ -52,7 +52,8 @@ permission and a deliberate operator collection are configured.
 An agent can recommend useful discounts or lower whole-package outlays among
 the fresh returned sample. It must keep package sizes, collection time, coverage
 and unknown units clear, rather than claiming storewide cheapest prices or live
-checkout validation. See the [companion](../skills/houston-i-love-kroger/SKILL.md).
+checkout validation. The [companion plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin)
+has its own repository and release; it connects through this app's API.
 
 ## 1. Prepare the installation
 

@@ -25,47 +25,9 @@ coverage/
 .cache/
 .DS_Store
 
-# Local workspace instructions and development records are outside the source release.
+# Operator skills and retired in-repository companion installations are private.
 /AGENTS.md
-/skills/houston-i-love-kroger/references/project-record.md
-/skills/houston-i-love-kroger/evaluations/
-/skills/houston-i-love-kroger/research/recon/
-/skills/houston-i-love-kroger/research/sources/
-
-# Version the portable first-party Kroger API skill only. Supplier source
-# snapshots, Terms captures and local research/task records remain private.
-/skills/kroger-api/*
-!/skills/kroger-api/SKILL.md
-!/skills/kroger-api/vocabulary.yaml
-!/skills/kroger-api/scripts/
-/skills/kroger-api/scripts/*
-!/skills/kroger-api/scripts/fetch_docs.py
-!/skills/kroger-api/scripts/refresh_docs.py
-!/skills/kroger-api/scripts/list_skill_steps.py
-!/skills/kroger-api/scripts/README.md
-!/skills/kroger-api/schemas/
-/skills/kroger-api/schemas/*
-!/skills/kroger-api/schemas/command-rules.md
-!/skills/kroger-api/playbooks/
-/skills/kroger-api/playbooks/*
-!/skills/kroger-api/playbooks/main-procedure.md
-!/skills/kroger-api/playbooks/setup-and-auth.md
-!/skills/kroger-api/playbooks/maintain-documentation.md
-!/skills/kroger-api/references/
-/skills/kroger-api/references/*
-!/skills/kroger-api/references/api_reference.md
-!/skills/kroger-api/references/data-use-and-security.md
-!/skills/kroger-api/references/collection-design.md
-!/skills/kroger-api/references/catalog-v2.md
-!/skills/kroger-api/references/user-guide.md
-!/skills/kroger-api/templates/
-/skills/kroger-api/templates/*
-!/skills/kroger-api/templates/integration-record.md
-!/skills/kroger-api/evals/
-/skills/kroger-api/evals/*
-!/skills/kroger-api/evals/test_docs.py
-!/skills/kroger-api/skill-ci/
-/skills/kroger-api/skill-ci/*
-!/skills/kroger-api/skill-ci/README.md
-
-# The companion's research/official_docs pages are project-authored manuals and stay public.
+/skills/
+/plugins/houston-i-love-kroger/
+/.local/
+/.agents/

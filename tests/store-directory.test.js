@@ -221,8 +221,8 @@ test('actual synthetic ZIP→explicit store choice→completed topics→deals/pr
   const estimated = await read('estimate', { locationId: chosen.locationId,
     items: [{ topic: selection.topic, productId: 'synthetic-product', itemId: 'synthetic-item', quantity: 2 }] });
   assert.equal(estimated.totals.reportedSubtotalCents, 600); assert.equal(estimated.totals.qualifiedSubtotalCents, null);
-  await t.test('native Python companion follows stored ZIP, exact choice, topics and prices without supplier calls', { skip: !process.env.COMPANION_PYTHON }, async () => {
-    const tool = fileURLToPath(new URL('../skills/houston-i-love-kroger/scripts/promotions.py', import.meta.url));
+  await t.test('native Python companion follows stored ZIP, exact choice, topics and prices without supplier calls', { skip: !process.env.COMPANION_PYTHON || !process.env.COMPANION_TOOL }, async () => {
+    const tool = process.env.COMPANION_TOOL;
     for (const [operation, fields] of [['stores', ['--zip', '00000']], ['topics', ['--store', chosen.locationId]],
       ['latest', ['--store', chosen.locationId, '--topic', selection.topic]], ['prices', ['--store', chosen.locationId, '--topic', selection.topic]],
       ['estimate', ['--store', chosen.locationId, '--item', selection.topic, 'synthetic-product', 'synthetic-item', '2']]]) {

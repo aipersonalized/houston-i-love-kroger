@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
 import { createApp } from '../src/app.js';
 import { createPromotionService } from '../src/promotion-service.js';
 import { createPromotionClient } from '../src/promotion-client.js';
@@ -65,7 +64,8 @@ test('synthetic native adapter→collector→SQLite→private service→public c
 
   async function nativeRead(operation, fields = [], expectedStatus = 'available') {
     assert.ok(process.env.COMPANION_PYTHON, 'Native checks require the explicitly selected interpreter.');
-    const tool = fileURLToPath(new URL('../skills/houston-i-love-kroger/scripts/promotions.py', import.meta.url));
+    assert.ok(process.env.COMPANION_TOOL, 'Native checks require the explicitly selected external companion tool.');
+    const tool = process.env.COMPANION_TOOL;
     let result;
     try {
       result = await promisify(execFile)(process.env.COMPANION_PYTHON, [tool, operation, '--base-url', `${appUrl}/`, ...fields,
@@ -78,9 +78,9 @@ test('synthetic native adapter→collector→SQLite→private service→public c
     assert.equal(output.ok, true); assert.equal(output.status, expectedStatus); return output;
   }
 
-  // Optional native CLI check uses an explicitly chosen installed interpreter;
+  // Optional native CLI check uses an explicitly chosen interpreter and external tool;
   // Node-only testing has no Python or package-manager runtime dependency.
-  await t.test('native Python companion exercises all six stored-read operations', { skip: !process.env.COMPANION_PYTHON }, async () => {
+  await t.test('native Python companion exercises all six stored-read operations', { skip: !process.env.COMPANION_PYTHON || !process.env.COMPANION_TOOL }, async () => {
     const fields = ['--store', 'TEST0001', '--topic', 'milk'];
     const output = await nativeRead('latest', fields);
     assert.equal(output.deals[0].price.promo, 3); assert.equal(sourceCalls, beforeReads);
@@ -106,14 +106,14 @@ test('synthetic native adapter→collector→SQLite→private service→public c
   assert.equal(empty.snapshot.observedAt, now);
   now = '2026-01-03T16:00:00.000Z';
   assert.equal((await call('latest', selection)).status, 'stale');
-  await t.test('native Python companion withholds stale deals', { skip: !process.env.COMPANION_PYTHON }, async () => {
+  await t.test('native Python companion withholds stale deals', { skip: !process.env.COMPANION_PYTHON || !process.env.COMPANION_TOOL }, async () => {
     await nativeRead('latest', ['--store', 'TEST0001', '--topic', 'milk'], 'stale');
   });
   const beforeRevokedReads = sourceCalls;
   store.revokeSource(SOURCE, { now });
   for (const operation of ['latest', 'prices']) assert.equal((await call(operation, selection)).status, 'permission_required');
   assert.equal((await call('status')).status, 'permission_required');
-  await t.test('native Python companion withholds revoked deals', { skip: !process.env.COMPANION_PYTHON }, async () => {
+  await t.test('native Python companion withholds revoked deals', { skip: !process.env.COMPANION_PYTHON || !process.env.COMPANION_TOOL }, async () => {
     await nativeRead('latest', ['--store', 'TEST0001', '--topic', 'milk'], 'permission_required');
   });
   assert.equal(sourceCalls, beforeRevokedReads);

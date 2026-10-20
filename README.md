@@ -15,13 +15,11 @@ feed. Historical collection still requires actual source permission; the
 database service never fills that gap with sample prices.
 
 [Setup](docs/SELF_HOSTING.md) · [Shopping guide](docs/USER_GUIDE.md) ·
-[HTTP API](docs/API.md) · [Companion skill](skills/houston-i-love-kroger/SKILL.md)
+[HTTP API](docs/API.md) · [Standalone companion plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin)
 
-For integration work, the optional [Kroger API reference skill](skills/kroger-api/SKILL.md)
-includes a [step-by-step setup guide](skills/kroger-api/references/user-guide.md).
-It collects public documentation locally; it is separate from the shopping app
-and supplies no credentials or grocery API access. Supplier documents are
-excluded from this project's source distribution.
+The separately released [standalone plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin) includes its own
+portable skill, Python tools, manuals, license and ZIP builder. It needs only a
+compatible app URL, not this app checkout or supplier credentials.
 
 [Open the hosted app](https://aipersonalized.io/apps/houston-i-love-kroger/)
 or run your own installation below. A hosted operator controls its enabled
@@ -129,7 +127,7 @@ Historical comparisons describe retained observations, not every past sale.
 - [Use the shared human/agent HTTP API](docs/API.md)
 - [Configure the history database and collector](docs/HISTORY.md)
 - [Run the promotion database microservice](docs/PROMOTION_SERVICE.md)
-- [Companion assistant skill](skills/houston-i-love-kroger/SKILL.md): authored
+- [Companion assistant skill](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/skills/houston-i-love-kroger/SKILL.md): authored
   instructions and portable Python clients for current shopping, collected
   deals, price checks, quantity estimates and dated history. Follow the
   [step-by-step assistant guide](docs/USER_GUIDE.md#9-ask-an-assistant-through-the-app).

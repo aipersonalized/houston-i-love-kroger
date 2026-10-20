@@ -381,16 +381,17 @@ calculate requested quantities. It calls only this app's API. You need no
 supplier credentials or browser automation, and no AI-provider account is built
 into the project. It never signs in, uses Cart, collects prices or checks out.
 
-1. Make the complete [companion folder](../skills/houston-i-love-kroger/SKILL.md)
-   available through your assistant's actual local-skill/import mechanism. Follow
-   the [installation guide](../skills/houston-i-love-kroger/references/user-guide.md).
+1. Download the complete [companion plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin)
+   and make it available through your assistant's actual local-skill/import mechanism. Follow
+   the [installation guide](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/README.md).
+   The plugin is released separately; it is not included in the app checkout.
    The assistant needs Python 3.12+ or an equivalent supported app client and
    the actual app base URL ending `/`. Copying a skill does not install a server
    or a remote connector.
 2. Check the chosen assistant/tool/provider's actual retention and secondary-use
    controls or agreement. The shopping path must not retain/train on/independently
    reuse or onward disclose these records beyond your actual task. Read the
-   [recipient guide](../skills/houston-i-love-kroger/references/source-permissions.md).
+   [recipient guide](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/skills/houston-i-love-kroger/references/source-permissions.md).
    You do not paste private agreements or credentials into chat. Reuse a valid
    established review; the acknowledgement flag creates no rights.
 3. Explain your groceries, quantities, preferred brands/package sizes, budget
@@ -443,9 +444,9 @@ price, estimate requested quantities or look for dated past prices. It does not
 call Kroger, refresh prices, collect data or change a cart. This stored-only
 workflow is independent of explicit current shopping above.
 
-1. Make the complete [companion skill folder](../skills/houston-i-love-kroger/SKILL.md)
+1. Make the complete separately released [companion plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin)
    available through your assistant's supported import or local-folder mechanism.
-   Follow its [installation and usage guide](../skills/houston-i-love-kroger/references/user-guide.md).
+   Follow its [installation and usage guide](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/README.md).
    The assistant needs a suitable client and your installation's actual app URL;
    copying a skill does not install a service or connector.
 2. Establish that your chosen assistant/tool/provider may receive the source data.

@@ -1,9 +1,12 @@
 # Prepare a source release
 
-This manual is for the person preparing the app and its companion skill for
+This manual is for the person preparing the app for
 publication. It describes a source candidate, not an npm package or a deployed
 service. The package remains private to prevent accidental registry publication.
-Use native Git to review an exact candidate; no release builder is required.
+Use native Git to review an exact candidate. The
+[companion plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin)
+has its own repository, development/main worktrees and release. Its source and
+ZIP require a separate exact-candidate review; app publication does not publish it.
 
 ## 1. Keep the intended source boundary
 
@@ -18,27 +21,17 @@ The source candidate includes:
   `config/collection-plan.example.json` and
   `config/store-directory-plan.example.json`.
 - Human and operator manuals in `docs/`.
-- The companion at `skills/houston-i-love-kroger/`, excluding the local-only
-  paths below. Its six project-authored manual copies under
-  `research/official_docs/pages/`, plus their manifest and exclusions file, are
-  part of the companion's documented workflow.
-- The 18 first-party Kroger API skill files explicitly allowed by `.gitignore`
-  under `skills/kroger-api/`: the entry point and vocabulary, scripts and their
-  README, command schema, three playbooks, five reusable references, integration
-  template, synthetic test suite and improvement guide. Its
-  [setup guide](../skills/kroger-api/references/user-guide.md) explains how to
-  build the excluded supplier mirror locally. No mirror is bundled.
+
+The companion plugin is not part of this app's source tree. It uses only the app
+API and has no dependency on the private Kroger API technology skill. That
+technology skill remains outside both public repositories and releases.
 
 The source candidate excludes these local paths, as recorded in
 `.gitignore`:
 
 | Path or pattern | Reason |
 |---|---|
-| `/AGENTS.md` | Workspace instructions, not public app or companion instructions. |
-| `/skills/houston-i-love-kroger/references/project-record.md` | Local development decisions and evidence. |
-| Non-allowlisted paths under `/skills/kroger-api/`, including `research/`, `public-terms.txt`, `agents/`, local reports and evaluation outputs | Supplier originals, Terms captures/inputs, local task records and optional provider metadata; only the reviewed first-party core is included. |
-| `/skills/houston-i-love-kroger/evaluations/` | Local evaluation reports, not proof of live qualification. |
-| `/skills/houston-i-love-kroger/research/recon/`, `/skills/houston-i-love-kroger/research/sources/` | Disposable research and source-tool captures. |
+| `/AGENTS.md`, `/skills/`, `/.agents/`, `/.local/` | Workspace instructions, private operator skills, development records and captures. |
 | `/.env`, `/.env.*` except `.env.example`, `/compose.yaml`, `/compose.override.yaml` | Private runtime configuration. |
 | `/.runtime/`, SQLite/database patterns, `/config/*` except the two public examples | History, permission policies, collection plans and runtime storage. |
 | `node_modules/`, `.venv/`, `__pycache__/`, `*.py[cod]`, `.cache/`, `dist/`, `coverage/`, `.DS_Store` | Installed packages, caches, build output and local metadata. |
@@ -61,7 +54,7 @@ git worktree list
 git branch --show-current
 ```
 
-Use `main` for integration and release. Make source, documentation, skill and
+Use `main` for integration and release. Make source, documentation and
 container changes in a separate worktree on `dev` or a descriptive `dev/` branch.
 Reuse an existing appropriate worktree. For a clean repository with an existing
 `main` commit, this example creates a sibling worktree and a new development
@@ -80,21 +73,18 @@ work; do not reset it or initialize another repository inside a worktree.
 ## 3. Commit the scoped candidate on development
 
 Read source changes, new files, dependency notices and public manuals in the
-development worktree. Check links against the public inventory, including the
-companion's documentation copies. Inspect the live state before staging:
+development worktree. Check local links against this app's public inventory and
+external companion links against its intended repository. Inspect the live state before staging:
 
 ```text
 git status --short
 ```
 
 Stage only reviewed paths from the inclusion list. These commands are a starting
-list for this candidate; inspect every file under a staged directory first. Keep
-the app and two skill groups visible in separate staging steps:
+list for this candidate; inspect every file under a staged directory first:
 
 ```text
 git add -- .env.example .gitignore .dockerignore Dockerfile compose.example.yaml LICENSE README.md THIRD_PARTY_NOTICES.md package.json package-lock.json config/collection-plan.example.json config/store-directory-plan.example.json docs migrations public scripts src tests
-git add -- skills/houston-i-love-kroger
-git add -- skills/kroger-api
 git diff --cached --name-only
 git diff --cached --check
 git diff --cached
@@ -102,9 +92,9 @@ git diff --cached
 
 Compare the staged inventory with section 1, including new files that a usual
 diff might omit before staging. Do not use a forced add to bypass the exclusions.
-Use `git ls-files -- skills/kroger-api` to inspect the tracked technology-skill
-inventory. Additional files require an explicit source-boundary review before
-changing its allowlist; never add supplier captures to make the tests portable.
+Verify that `git ls-files -- skills plugins` lists no companion or private
+technology-skill files. Never add either skill tree, private records or supplier
+captures to this app's release.
 If an unexpected file is staged, stop and correct the index while preserving
 the working file before continuing. An existing tracked excluded file or a
 commit containing private material requires a separate scoped review; ignoring
@@ -131,12 +121,35 @@ npm run check
 npm test
 ```
 
+To exercise the native companion integration checks, explicitly set both
+`COMPANION_PYTHON` to the chosen Python interpreter and `COMPANION_TOOL` to the
+external plugin's `skills/houston-i-love-kroger/scripts/promotions.py` file, then
+run `npm test`. For example, in PowerShell:
+
+```powershell
+$env:COMPANION_PYTHON = 'PATH_TO_PYTHON'
+$env:COMPANION_TOOL = 'PATH_TO_PLUGIN/skills/houston-i-love-kroger/scripts/promotions.py'
+npm test
+```
+
+In a POSIX shell:
+
+```sh
+COMPANION_PYTHON=PATH_TO_PYTHON COMPANION_TOOL=PATH_TO_PLUGIN/skills/houston-i-love-kroger/scripts/promotions.py npm test
+```
+
+Without both variables, the four optional native companion checks are skipped;
+record that limitation. For a companion integration release, supply both and
+require those checks to pass. The app never guesses a sibling checkout path.
+
 Reuse accepted passing evidence for unchanged behavior, with its matching
 source identified. These tests use synthetic fixtures and temporary databases;
 they do not establish live API entitlement, retention rights, hosted capacity
 or observed agent performance. If selected manuals change, refresh and audit
-the companion's first-party snapshot using its
-[documentation command contract](../skills/houston-i-love-kroger/schemas/command-rules.md).
+the separately maintained companion's first-party snapshot using its
+[documentation command contract](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/skills/houston-i-love-kroger/schemas/command-rules.md).
+That optional maintenance command runs in the plugin checkout and requires an
+explicit `--repository PATH_TO_APP_CHECKOUT`; ordinary plugin use needs no app source.
 Do not include generated evaluation reports or source caches in the release.
 
 Then exercise the relevant real interface in a development preview. For browser
@@ -185,6 +198,13 @@ reference, then verify the actual public task and files. Keep source publishing
 and hosted-app deployment separate. Never archive the working folder: ignored
 records may remain there. Derive a source archive from the reviewed revision
 and inspect its final inventory. A tree review does not review earlier commits.
+
+Build, test and publish the companion only from its own reviewed repository;
+follow that project's [packaging instructions](https://github.com/aipersonalized/houston-i-love-kroger-plugin#maintain-or-package-a-copy).
+Review its extracted inventory and ZIP hash separately. No app checkout, private
+API skill, runtime data or credentials may become an installed dependency.
+Optional host metadata is not proof of a tested host installation. Publishing
+the companion source/ZIP alone requires no app runtime rebuild.
 
 MIT covers the original project materials identified by [LICENSE](../LICENSE).
 Dependency notices remain in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).

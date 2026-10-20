@@ -252,12 +252,14 @@ supervisor must honor permissions, expiry, quota and duplicate-job behavior.
 read operator settings, call Kroger or authorize retention. The pipeline test
 exercises the native source adapter, collector, SQLite and running private/public
 HTTP services. To include all six operations of the actual Python companion,
-install Python 3.12 or newer, set `COMPANION_PYTHON` to that interpreter's command
-or full executable path, then run `node --test tests/collection-pipeline.test.js`.
-For example, in PowerShell use `$env:COMPANION_PYTHON = 'python'`; in a POSIX
-shell use `COMPANION_PYTHON=python3 node --test tests/collection-pipeline.test.js`.
-Use the interpreter installed on your machine. The companion subprocess check
-is included only when that setting is present, with explicit skipped subtests
+install Python 3.12 or newer and obtain the separately released
+[companion plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin).
+Set `COMPANION_PYTHON` to that interpreter's command or full executable path and
+`COMPANION_TOOL` to the plugin's `skills/houston-i-love-kroger/scripts/promotions.py`
+file, then run `node --test tests/collection-pipeline.test.js`. See the
+[PowerShell and POSIX examples](https://github.com/aipersonalized/houston-i-love-kroger/blob/main/docs/RELEASING.md#4-check-and-evaluate-the-committed-development-candidate).
+The tests never guess a sibling checkout. The companion subprocess check
+is included only when both settings are present, with explicit skipped subtests
 otherwise; ordinary Node-only tests exercise
 the same public read contract. Python 3.14 on Windows has been exercised here.
 
