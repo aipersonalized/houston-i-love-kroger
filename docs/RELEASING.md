@@ -7,7 +7,7 @@ Use native Git to review an exact candidate; no release builder is required.
 
 ## 1. Keep the intended source boundary
 
-The first source candidate includes:
+The source candidate includes:
 
 - Root `.env.example`, `.gitignore`, `LICENSE`, `README.md`,
   `THIRD_PARTY_NOTICES.md`, `package.json` and `package-lock.json`.
@@ -21,15 +21,21 @@ The first source candidate includes:
   paths below. Its six project-authored manual copies under
   `research/official_docs/pages/`, plus their manifest and exclusions file, are
   part of the companion's documented workflow.
+- The 18 first-party Kroger API skill files explicitly allowed by `.gitignore`
+  under `skills/kroger-api/`: the entry point and vocabulary, scripts and their
+  README, command schema, three playbooks, five reusable references, integration
+  template, synthetic test suite and improvement guide. Its
+  [setup guide](../skills/kroger-api/references/user-guide.md) explains how to
+  build the excluded supplier mirror locally. No mirror is bundled.
 
-The first source candidate excludes these local paths, as recorded in
+The source candidate excludes these local paths, as recorded in
 `.gitignore`:
 
 | Path or pattern | Reason |
 |---|---|
 | `/AGENTS.md` | Workspace instructions, not public app or companion instructions. |
 | `/skills/houston-i-love-kroger/references/project-record.md` | Local development decisions and evidence. |
-| `/skills/kroger-api/` | Separate local technology skill containing a third-party documentation mirror whose redistribution is not cleared. |
+| Non-allowlisted paths under `/skills/kroger-api/`, including `research/`, `public-terms.txt`, `agents/`, local reports and evaluation outputs | Supplier originals, Terms captures/inputs, local task records and optional provider metadata; only the reviewed first-party core is included. |
 | `/skills/houston-i-love-kroger/evaluations/` | Local evaluation reports, not proof of live qualification. |
 | `/skills/houston-i-love-kroger/research/recon/`, `/skills/houston-i-love-kroger/research/sources/` | Disposable research and source-tool captures. |
 | `/.env`, `/.env.*` except `.env.example`, `/compose.yaml`, `/compose.override.yaml` | Private runtime configuration. |
@@ -82,12 +88,12 @@ git status --short
 
 Stage only reviewed paths from the inclusion list. These commands are a starting
 list for this candidate; inspect every file under a staged directory first. Keep
-the two source groups separate so that the app and companion remain visible in
-review:
+the app and two skill groups visible in separate staging steps:
 
 ```text
 git add -- .env.example .gitignore .dockerignore Dockerfile compose.example.yaml LICENSE README.md THIRD_PARTY_NOTICES.md package.json package-lock.json config/collection-plan.example.json docs migrations public scripts src tests
 git add -- skills/houston-i-love-kroger
+git add -- skills/kroger-api
 git diff --cached --name-only
 git diff --cached --check
 git diff --cached
@@ -95,6 +101,9 @@ git diff --cached
 
 Compare the staged inventory with section 1, including new files that a usual
 diff might omit before staging. Do not use a forced add to bypass the exclusions.
+Use `git ls-files -- skills/kroger-api` to inspect the tracked technology-skill
+inventory. Additional files require an explicit source-boundary review before
+changing its allowlist; never add supplier captures to make the tests portable.
 If an unexpected file is staged, stop and correct the index while preserving
 the working file before continuing. An existing tracked excluded file or a
 commit containing private material requires a separate scoped review; ignoring
