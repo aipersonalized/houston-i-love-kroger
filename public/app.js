@@ -969,8 +969,12 @@ async function searchHistory({ more = false } = {}) {
     if (!payload) return;
     if (!historyScopeValid(payload)) throw new SearchError('invalid_response');
     if (payload.status === 'permission_required' || payload.status === 'unavailable') {
+      state.history = null;
       state.historyCursor = null;
+      abortRequest('detail');
       ui['history-results'].replaceChildren();
+      ui['history-detail'].hidden = true;
+      ui['history-detail-content'].replaceChildren();
       ui['history-coverage'].textContent = '';
       ui['history-search-status'].textContent = historyUnavailableMessage(payload);
       return;
