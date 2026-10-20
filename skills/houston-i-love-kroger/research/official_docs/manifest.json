@@ -4,7 +4,7 @@
   "inventoryUrl": "repo:/",
   "appVersion": "0.2.0",
   "sourceRevision": "working-tree-snapshot",
-  "retrievedAt": "2026-10-20T00:08:33.990400+00:00",
+  "retrievedAt": "2026-10-20T00:09:18.028503+00:00",
   "inventorySha256": "870746c1f8b90c3ae955930ead90e5ba4f347e556899c454553db29368cd927b",
   "counts": {
     "indexed": 6,
@@ -21,7 +21,7 @@
       "status": "saved",
       "sha256": "b076082e9f43002609c399c57bb0dd92f71ec02ba76e34c91adb081c50680225",
       "bytes": 55185,
-      "retrievedAt": "2026-10-20T00:08:33.990400+00:00",
+      "retrievedAt": "2026-10-20T00:09:18.028503+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -32,7 +32,7 @@
       "status": "saved",
       "sha256": "6c860417867d4fa998a108d54f84a556ad6b5545d8e8a4201abc8523a8b26d06",
       "bytes": 18981,
-      "retrievedAt": "2026-10-20T00:08:33.990400+00:00",
+      "retrievedAt": "2026-10-20T00:09:18.028503+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -43,7 +43,7 @@
       "status": "saved",
       "sha256": "4710d93946e17ab8b901e0b928463430fc1ab3fd94f80e0ec8210da32d4ce657",
       "bytes": 26974,
-      "retrievedAt": "2026-10-20T00:08:33.990400+00:00",
+      "retrievedAt": "2026-10-20T00:09:18.028503+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -52,9 +52,9 @@
       "title": "History prerequisites and operator boundary",
       "url": "repo:/docs/HISTORY.md",
       "status": "saved",
-      "sha256": "a2c4f74239c8016a3cf393076e26c4a87c82a7a44924b4411245d9922d1d069e",
-      "bytes": 24170,
-      "retrievedAt": "2026-10-20T00:08:33.990400+00:00",
+      "sha256": "4502c4386eeb040c38c7fa3b528b0a5170e6393be67a7d8749cc98b91d117480",
+      "bytes": 24248,
+      "retrievedAt": "2026-10-20T00:09:18.028503+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -65,7 +65,7 @@
       "status": "saved",
       "sha256": "545b40137ac177c12b243f03363f13f41f2b516946a04ee14d7d68a966325a0d",
       "bytes": 19803,
-      "retrievedAt": "2026-10-20T00:08:33.990400+00:00",
+      "retrievedAt": "2026-10-20T00:09:18.028503+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -74,9 +74,9 @@
       "title": "Source-permission questions, not a grant",
       "url": "repo:/docs/KROGER_PERMISSION_REQUEST.md",
       "status": "saved",
-      "sha256": "55644461f1384cf564404ed6ac2e8d0e0a54328f38b19c5c1030ee6d5aeac598",
-      "bytes": 2423,
-      "retrievedAt": "2026-10-20T00:08:33.990400+00:00",
+      "sha256": "3c2f39b5a5f4571ea787a67af8dbb89423cc84dfd866432d69b8561efbc1eb8f",
+      "bytes": 7300,
+      "retrievedAt": "2026-10-20T00:09:18.028503+00:00",
       "discovery": "reviewed first-party inventory"
     }
   ]

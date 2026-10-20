@@ -18,7 +18,8 @@ Kroger's public acceptable-use policy restricts systematically gathering API
 response data into a database. Its public API documentation does not establish
 a complete historical-price or store-promotion endpoint. Partner documentation
 also does not grant access or retention rights. See the
-[permission request draft](KROGER_PERMISSION_REQUEST.md); it has not been sent.
+[permission request draft](KROGER_PERMISSION_REQUEST.md) to prepare a request for
+your installation. A submitted request is not an access or retention grant.
 
 This collector therefore starts disabled, with the `kroger-public` source marked
 pending. API credentials, the user's request to build the app, a successful test
@@ -399,7 +400,7 @@ the stored fact at observation time, not a current free offer, current deal,
 complete historical record or all-time low. Preserve unknown currency, basis,
 fulfillment and eligibility rather than filling them from store geography.
 
-For an upgrade, stop writers and take a consistent private backup first. Schema 4
+For an upgrade, stop writers and take a consistent private backup first. Schema 5
 has no in-place downgrade; restore a compatible backup with its matching older
 version if rolling back, while reconciling later collection and current rights.
 See [backup and recovery](SELF_HOSTING.md#7-back-up-upgrade-and-recover).

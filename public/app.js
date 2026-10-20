@@ -10,7 +10,7 @@ const ui = Object.fromEntries([
   'initial-state', 'selected-store', 'selected-store-name', 'selected-store-address',
   'selected-store-id', 'change-store', 'deal-form', 'search-term', 'search-deals',
   'search-error', 'deal-status', 'cancel-deals', 'results-region', 'result-count',
-  'retrieved-at', 'sort-order', 'sample-coverage', 'query-coverage', 'empty-results',
+  'result-summary', 'retrieved-at', 'sort-order', 'sample-coverage', 'query-coverage', 'empty-results',
   'offers-list', 'excluded-summary', 'history-title', 'history-message',
   'store-details', 'store-details-content', 'product-view', 'snap-filter-field', 'snap-filter',
   'declaration-filter-field', 'declaration-filter', 'empty-results-title', 'empty-results-message',
@@ -127,6 +127,7 @@ function updateControls() {
   ui['search-history'].disabled = !state.alive || !state.selectedStore || Boolean(state.requests.history);
   ui['cancel-history'].hidden = !state.requests.history && !state.requests.detail;
   ui['more-history'].disabled = Boolean(state.requests.history);
+  ui['more-history'].hidden = !state.selectedStore || !state.historyCursor || Boolean(state.requests.history);
   ui['history-form'].setAttribute('aria-busy', String(Boolean(state.requests.history)));
   ui['store-form'].setAttribute('aria-busy', String(Boolean(state.requests.stores)));
   ui['deal-form'].setAttribute('aria-busy', String(Boolean(state.requests.deals)));
@@ -233,7 +234,7 @@ function clearResults() {
   state.results = null;
   ui['results-region'].hidden = true;
   ui['offers-list'].replaceChildren();
-  for (const id of ['result-count', 'retrieved-at', 'sample-coverage', 'query-coverage', 'excluded-summary']) ui[id].textContent = '';
+  for (const id of ['result-count', 'result-summary', 'retrieved-at', 'sample-coverage', 'query-coverage', 'excluded-summary']) ui[id].textContent = '';
   ui['sort-order'].value = 'savings';
   ui['snap-filter'].value = 'all';
   ui['declaration-filter'].replaceChildren(element('option', '', 'Any declaration'));
@@ -406,7 +407,10 @@ async function loadDeals() {
 }
 
 function readableDate(value) {
-  if (typeof value !== 'string') return null;
+  if (typeof value !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(value)) return null;
+  const calendar = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(calendar.getTime()) || calendar.toISOString().slice(0, 10) !== value.slice(0, 10)) return null;
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? dateTime.format(date) : null;
 }
@@ -414,7 +418,7 @@ function readableDate(value) {
 function priceDate(label, date) {
   if (typeof date?.value !== 'string') return null;
   const readable = readableDate(date.value);
-  if (!readable) return null;
+  if (!readable) return `${label}: ${date.value} (date or time not confirmed)`;
   // Preserve supplied timezone provenance rather than guessing store-local time.
   return `${label}: ${readable}${typeof date.timezone === 'string' && date.timezone ? ` (source timezone: ${date.timezone})` : ''}`;
 }
@@ -614,14 +618,28 @@ function renderResults() {
   }), ui['sort-order'].value);
   const count = offers.length;
   const promoted = ui['product-view'].value === 'promotions';
-  ui['result-count'].textContent = `${count} ${promoted ? 'promotions' : 'products'}${count !== payload.products.length ? ` of ${payload.products.length} priced products` : ''}`;
+  const itemLabel = promoted ? count === 1 ? 'qualifying promotion' : 'qualifying promotions'
+    : count === 1 ? 'priced item' : 'priced items';
+  ui['result-count'].textContent = `${count} ${itemLabel} shown`;
+  const checked = payload.summary?.products;
+  const checkedText = Number.isInteger(checked) && checked >= 0
+    ? `${checked} product ${checked === 1 ? 'result' : 'results'} checked${payload.scope.topics.length > 1 ? ' (may include repeats)' : ''}.`
+    : 'Number of checked results unavailable.';
+  const promotionCount = payload.products.filter(product => product.pricing.status === 'promotion').length;
+  ui['result-summary'].textContent = `${checkedText} ${payload.products.length} priced ${payload.products.length === 1 ? 'item' : 'items'} loaded; ${promotionCount} qualifying ${promotionCount === 1 ? 'promotion' : 'promotions'}.`;
   const retrieved = readableDate(payload.retrievedAt);
   ui['retrieved-at'].textContent = retrieved ? `Checked ${retrieved}` : 'Price check time unavailable.';
   const sample = payload.scope.mode === 'sample';
   const topics = payload.scope.topics.join(', ');
-  const limit = Number.isInteger(payload.scope.productLimit) ? ` up to ${payload.scope.productLimit} products` : ' a limited selection';
-  ui['sample-coverage'].textContent = `${sample ? 'A starter selection of' : 'Results for'} ${topics}, covering${limit}.`;
-  ui['query-coverage'].textContent = 'Sorted within these results. Compare package sizes as well as prices.';
+  const limit = Number.isInteger(payload.scope.productLimit) && payload.scope.productLimit > 0 ? payload.scope.productLimit : null;
+  const perQueryLimit = Number.isInteger(payload.scope.perQueryLimit) && payload.scope.perQueryLimit > 0 ? payload.scope.perQueryLimit : null;
+  ui['sample-coverage'].textContent = payload.scope.exhaustive === false
+    ? 'This is a limited selection for this store. More promotions may be available.'
+    : 'This selection is for this store only. Coverage of all store promotions has not been verified.';
+  const selection = sample
+    ? `Starter selection: ${perQueryLimit ? `up to ${perQueryLimit} results each for` : 'limited results for'} ${topics}${limit ? ` (${limit} at most in total)` : ''}.`
+    : `Search selection: ${limit ? `up to the first ${limit} matching results for` : 'limited results for'} ${topics}.`;
+  ui['query-coverage'].textContent = `${selection} Sorting and filters apply only to loaded items. Compare package sizes as well as prices.`;
   ui['empty-results'].hidden = count !== 0;
   ui['empty-results-title'].textContent = promoted ? 'No qualifying promotions match this view.' : 'No priced products match this view.';
   ui['offers-list'].replaceChildren(...offers.map(renderOffer));
@@ -854,6 +872,8 @@ async function addCart() {
   if (ui['add-cart'].disabled || !state.cart?.csrfToken || state.requests.cart) return;
   const eligible = cartItems(state.basket, state.selectedStore?.locationId);
   if (eligible.excludedCount || !eligible.items.length || eligible.items.length > 50) return;
+  const sentStore = state.selectedStore.locationId;
+  const sentItems = JSON.stringify(eligible.items);
   ui['cart-status'].textContent = 'Sending the listed quantities to your Kroger cart…';
   try {
     const payload = await request('cart', './api/v1/cart/add', { items: eligible.items, csrfToken: state.cart.csrfToken }, { credentials: 'same-origin' });
@@ -863,8 +883,11 @@ async function addCart() {
     }
     if (payload.acknowledged !== true || !payload.cart) throw new SearchError('invalid_response');
     state.cart = payload.cart;
-    state.cartAcknowledged = true;
+    const current = cartItems(state.basket, state.selectedStore?.locationId);
+    state.cartAcknowledged = state.selectedStore?.locationId === sentStore &&
+      current.excludedCount === 0 && JSON.stringify(current.items) === sentItems;
     ui['cart-status'].textContent = 'Kroger acknowledged the add request. Review the actual items, quantities, store and prices in your Kroger cart; no order has been placed.';
+    if (!state.cartAcknowledged) ui['cart-status'].textContent += ' Your list changed while sending. Only the earlier quantities were sent. Check your Kroger cart before adding the full list again.';
   } catch (error) {
     const knownRejections = ['cart_disabled', 'cart_setup_required', 'cart_session_required', 'cart_authorization_required', 'cart_csrf_invalid', 'invalid_cart_items', 'origin_not_allowed', 'invalid_host'];
     if (!knownRejections.includes(error.code)) state.cartUncertain = true;
@@ -946,6 +969,7 @@ async function searchHistory({ more = false } = {}) {
     if (!payload) return;
     if (!historyScopeValid(payload)) throw new SearchError('invalid_response');
     if (payload.status === 'permission_required' || payload.status === 'unavailable') {
+      state.historyCursor = null;
       ui['history-results'].replaceChildren();
       ui['history-coverage'].textContent = '';
       ui['history-search-status'].textContent = historyUnavailableMessage(payload);
@@ -961,7 +985,7 @@ async function searchHistory({ more = false } = {}) {
     const count = ui['history-results'].children.length;
     ui['history-search-status'].textContent = count ? `${count} past ${count === 1 ? 'price' : 'prices'} found.${payload.page?.truncated ? ' Choose Show more past prices to see the next page.' : ''}` : 'No matching past prices were found. Try another grocery or brand. This doesn’t mean the item has never been on sale.';
   } catch (error) { ui['history-search-status'].textContent = describeError(error); }
-  updateControls();
+  finally { updateControls(); }
 }
 
 async function loadHistoryDetail(observationId) {
