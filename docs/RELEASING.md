@@ -15,7 +15,8 @@ The source candidate includes:
   container hosting; a private `compose.yaml` is not a release file.
 - Application code in `public/`, `src/`, `scripts/` and `migrations/`.
 - Synthetic tests in `tests/` and the disabled
-  `config/collection-plan.example.json`.
+  `config/collection-plan.example.json` and
+  `config/store-directory-plan.example.json`.
 - Human and operator manuals in `docs/`.
 - The companion at `skills/houston-i-love-kroger/`, excluding the local-only
   paths below. Its six project-authored manual copies under
@@ -39,7 +40,7 @@ The source candidate excludes these local paths, as recorded in
 | `/skills/houston-i-love-kroger/evaluations/` | Local evaluation reports, not proof of live qualification. |
 | `/skills/houston-i-love-kroger/research/recon/`, `/skills/houston-i-love-kroger/research/sources/` | Disposable research and source-tool captures. |
 | `/.env`, `/.env.*` except `.env.example`, `/compose.yaml`, `/compose.override.yaml` | Private runtime configuration. |
-| `/.runtime/`, SQLite/database patterns, `/config/*` except the public example | History, permission policies, collection plans and runtime storage. |
+| `/.runtime/`, SQLite/database patterns, `/config/*` except the two public examples | History, permission policies, collection plans and runtime storage. |
 | `node_modules/`, `.venv/`, `__pycache__/`, `*.py[cod]`, `.cache/`, `dist/`, `coverage/`, `.DS_Store` | Installed packages, caches, build output and local metadata. |
 
 Keep excluded local files in place. Exclusion is not a deletion request, a
@@ -91,7 +92,7 @@ list for this candidate; inspect every file under a staged directory first. Keep
 the app and two skill groups visible in separate staging steps:
 
 ```text
-git add -- .env.example .gitignore .dockerignore Dockerfile compose.example.yaml LICENSE README.md THIRD_PARTY_NOTICES.md package.json package-lock.json config/collection-plan.example.json docs migrations public scripts src tests
+git add -- .env.example .gitignore .dockerignore Dockerfile compose.example.yaml LICENSE README.md THIRD_PARTY_NOTICES.md package.json package-lock.json config/collection-plan.example.json config/store-directory-plan.example.json docs migrations public scripts src tests
 git add -- skills/houston-i-love-kroger
 git add -- skills/kroger-api
 git diff --cached --name-only

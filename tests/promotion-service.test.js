@@ -54,8 +54,18 @@ test('service supports private status/search/retrieve/compare via actual HTTP an
 
 test('missing source permission remains explicit over every operation; liveness has no storage data', async t => {
   const { url } = await service(t, { approved: false });
-  const client = createPromotionClient({ url, token: TOKEN });
-  assert.equal((await client.getStatus()).status, 'permission_required');
+  let transportCode = null;
+  let httpStatus = null;
+  const client = createPromotionClient({ url, token: TOKEN, fetchImpl: async (...args) => {
+    try { const response = await fetch(...args); httpStatus = response.status; return response; }
+    catch (error) {
+      const code = error?.cause?.code;
+      transportCode = ['ECONNRESET', 'ECONNREFUSED', 'UND_ERR_SOCKET', 'UND_ERR_CONNECT_TIMEOUT'].includes(code) ? code : 'unclassified_transport';
+      throw error;
+    }
+  } });
+  try { assert.equal((await client.getStatus()).status, 'permission_required'); }
+  catch { assert.fail(`Synthetic status read failed; transport=${transportCode ?? 'none'}; HTTP=${httpStatus ?? 'unobserved'}. No source payload is included.`); }
   assert.equal((await client.searchPromotions({ locationId: 'TEST0001' })).status, 'permission_required');
   assert.equal((await client.retrievePromotion({ locationId: 'TEST0001', observationId: '1' })).status, 'permission_required');
   assert.equal((await client.getComparisons({ locationId: 'TEST0001', offers: [offer()] })).histories[0].status, 'permission_required');

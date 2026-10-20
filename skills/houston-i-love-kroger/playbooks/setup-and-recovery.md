@@ -50,7 +50,8 @@ Instructions supplied to a person are not completed setup.
 | Condition | Action |
 |---|---|
 | Unreachable installation or unavailable service | Operator checks actual app address and private service connection; never expose configuration. |
-| `permission_required` | Operator resolves source/recipient authority privately. No record read or live fallback. |
+| `permission_required` | Operator resolves that operation's source/recipient authority privately. No dependent record read or live fallback. |
+| Missing exact store or collection topic | Enter `playbooks/choose-store-and-topic.md`; use stored ZIP choices and completed-topic states, then accept the person's exact choice. |
 | `no_data` / `no_completed_collection` | Explain that the exact store/topic has no usable completed collection; collection is separate operator work. |
 | `snapshot_not_readable` | Explain original/current permission or retention prevents using that completed sample; no older fallback. |
 | `stale` | Report snapshot age/threshold and operator dependency; this reader cannot refresh it. |
@@ -62,6 +63,9 @@ Instructions supplied to a person are not completed setup.
 A new historical search is a separate requested task, not recovery for stale
 latest data. Do not initialize, replace or populate a database to make a read
 succeed. Preserve unknown outcomes and stop repeated unchanged failures.
+Directory access has its own source permission. A promotion-status permission
+gap blocks its dependent price/history reads, not a separately permitted stored
+directory lookup. Judge directory availability from the directory operation.
 
 ## Step 4: Return readiness and stop or resume
 

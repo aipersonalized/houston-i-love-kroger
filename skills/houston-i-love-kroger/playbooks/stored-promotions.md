@@ -19,7 +19,10 @@ for the actual HTTP contract. For setup, read `references/user-guide.md`.
 ## Step 1: Establish the installation, store and recipient
 
 Use the user's selected installation and exact full eight-character store ID.
-Do not guess a store from a ZIP. Confirm that the source grant permits this
+If only a ZIP is supplied, read and follow `playbooks/choose-store-and-topic.md`
+in full for stored directory lookup and the person's exact store choice; dated
+history does not require a current topic. Do not guess a store from a ZIP.
+Confirm that the source grant permits this
 recipient, including any model service that receives tool output. Reuse valid
 authority. The CLI's acknowledgement flag is not a new grant.
 

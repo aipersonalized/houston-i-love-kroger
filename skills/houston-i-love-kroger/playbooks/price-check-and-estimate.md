@@ -23,9 +23,11 @@ for exact request/response fields. Before reporting, read
 ## Step 1: Accept the installation, store, scope and requested task
 
 Reuse a valid actual app URL, complete accepted store ID, known approved
-collection topic(s) and source/recipient authority. If needed run the stored
-service status command. Never obtain these by live source searches. Human store
-selection and operator collection configuration are prerequisites when absent.
+collection topic(s) and source/recipient authority. When store/topic is missing,
+read and follow `playbooks/choose-store-and-topic.md` in full, using stored ZIP
+choices, the person's exact store choice and completed-topic discovery. Never
+obtain these through live source searches. An absent or stale stored collection
+is an operator/data gap rather than a mandatory human web-app handoff.
 
 Establish whether the person wants a known item/package price, a quantity
 estimate, a budget comparison or alternatives. Accept supplied category/brand/

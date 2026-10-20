@@ -7,6 +7,7 @@
 /.runtime/
 /config/*
 !/config/collection-plan.example.json
+!/config/store-directory-plan.example.json
 *.sqlite
 *.sqlite-*
 *.sqlite3

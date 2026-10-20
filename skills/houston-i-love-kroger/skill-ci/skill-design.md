@@ -1,8 +1,8 @@
 # Stored-service companion design
 
 The accepted agent task is to get deals from our implemented database service,
-rather than Kroger's API. A separate human web app supports store selection and
-live browsing. The companion consumes stored latest snapshots and dated history
+rather than Kroger's API. A separate human web app supports live browsing.
+The companion consumes stored ZIP choices, completed topics, latest snapshots and dated history
 through the app proxy; it never triggers source fetches or collection.
 
 ## Intended outcome and boundaries
@@ -15,9 +15,9 @@ claims. Unnamed/incomplete rows are explained rather than ranked as good deals.
 It preserves exact store/topic, snapshot and observation dates, freshness,
 limited coverage and source facts, or explains a specific permission/data gap.
 Latest and history are separate questions. A fresh empty snapshot replaces old
-deals; stale/no-data results do not cause live or historical fallback. No stored
-store directory is implemented, so accepted IDs or human store choice are
-prerequisites. Missing names/addresses are disclosed rather than fetched live.
+deals; stale/no-data results do not cause live or historical fallback. Stored ZIP snapshots offer dated name/address/ID choices; the person confirms
+the exact store before completed-topic and price reads. Missing or stale
+metadata remains a gap rather than a live request or guessed identity.
 
 Original project-authored material uses the root MIT LICENSE. Underlying source
 data, its retention and actual tool/model recipients still need applicable rights.
@@ -35,8 +35,8 @@ records are not selected. Working local fetch/refresh CLIs maintain this corpus.
 The integration owner refreshes changed app manuals before acceptance; a prior
 integrity audit alone does not establish source freshness.
 
-One skill uses four procedures: latest deals, price check/estimate, dated history
-and setup/recovery. Short references own permission decisions, interpretation and
+One skill uses five procedures: store/topic choice, latest deals, price
+check/estimate, dated history and setup/recovery. Short references own permission decisions, interpretation and
 human installation; the output schema owns report meanings. The default agent
 interface is the Python standard-library client. Equivalent permitted clients
 may implement the documented stored-read contract without changing its scope.
@@ -53,7 +53,8 @@ may implement the documented stored-read contract without changing its scope.
 | Retrieve selected observation | `retrieve --store --observation-id` | Rechecks store/record binding and current rights/retention; not_found distinct from no past promotion. Synthetic checks. |
 | Source/recipient authority | Permission reference and acknowledgement flag | Actual rights before output; flag creates none. Missing recipient authority blocks network record mode in tests. |
 | Human app/skill/tool setup | Complete local folder and selected manuals | Plain-language instructions, actual URL and runtime, private operator settings. Cross-host discovery and human usability remain unobserved here. |
-| Exact-store selection | Accepted supplied ID or human chooses in app | No stored metadata directory; no automatic agent live ZIP lookup. |
+| Exact-store selection | `stores --zip` or an already accepted complete ID | Dated bounded directory choices; person confirms exact name/address/ID; no live Locations fallback. |
+| Collected topics | `topics --store` | Completed readable named jobs with snapshot/count/freshness; no private uncollected plans or guessed legacy labels. |
 | Freshness/coverage reporting | Snapshot dates/age/maxAge, latestAttempt, topic sample/page | Default operator 24 hours; not supplier validity or live stock. Changed cursor restarts a bounded read and never mixes snapshots. |
 | Price qualification | Flat observation fields, latest availability/calculated fields | Full source facts, explicit unsupported_source_price with null invalid values; latest requires qualified promotions. No invented unit basis or history wrapper. |
 | Documentation collection/audit | Allowlisted local fetch/refresh CLIs | Six complete sources/four reviewed exclusions, no private files or network. Integrity and source-drift checks are separate from interpretation. |
@@ -63,9 +64,8 @@ may implement the documented stored-read contract without changing its scope.
 ## Procedure sequence and handoffs
 
 Setup-only checks the stored service and stops. Direct latest/history entry can
-reuse valid URL, exact store and current source/recipient authority. Missing
-store choice returns to the person; missing approved topic or collection goes
-to the operator. A failed read returns a typed connection/compatibility gap.
+reuse valid URL, exact store and current source/recipient authority. Missing store enters stored ZIP lookup and the person's exact choice; missing
+topic enters completed-topic discovery. Missing/stale collection stays an operator/data gap. A failed read returns a typed connection/compatibility gap.
 
 Latest requires the exact topic and selects the latest completed snapshot before
 promotion qualification. Server provenance prevents superseded promotions from
@@ -80,7 +80,7 @@ Both routes stop after the requested bounded report.
 
 ## Tool design and recovery
 
-`promotions.py status|latest|prices|estimate|search|retrieve` uses only fixed stored-read app
+`promotions.py status|stores|topics|latest|prices|estimate|search|retrieve` uses only fixed stored-read app
 paths over HTTPS, with loopback HTTP for local use. It refuses URL credentials,
 queries, fragments and redirects; uses no ambient proxy/cookie credentials;
 bounds time and response bytes; and emits fixed recovery errors without raw

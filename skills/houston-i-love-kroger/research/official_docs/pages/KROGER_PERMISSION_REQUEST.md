@@ -120,3 +120,21 @@ Record any response privately and review its actual scope before creating a
 bounded source-policy file. A policy JSON file alone cannot grant rights. Keep
 account identifiers, correspondence, credentials and signatures out of this
 repository. A partner documentation page is not partner entitlement.
+
+## Stored store-directory permission questions
+
+Include these questions when qualifying directory retention. A product-history
+grant does not establish permission to retain or redistribute location data.
+
+> We also want assistants to find store choices through our own read-only
+> database service. May a separate collector retain dated ZIP-query results
+> from Public Locations, including exact store identifiers, names and addresses,
+> and return them to human users, local agents and external model services?
+> Please specify authorized ZIPs, query frequency, retained fields, freshness,
+> retention, attribution, recipient restrictions, deletion and backup duties.
+> The bounded directory would identify its radius and result limit and would
+> not claim to include every nearby store. Please identify any required separate
+> agreement or source for this use.
+
+Keep directory collection disabled until its own actual permission is verified.
+Record any granted scope separately from product-price and promotion rights.

@@ -12,13 +12,14 @@ SQL, model SDK or particular AI provider is required.
 
 The human web app has separate live store/product searches and optional Cart.
 They are described in the human manuals, not alternative agent data routes.
-Missing/stale/empty service data never authorizes a live fallback. The person
-selects a store in the human page when needed; the stored API currently has no
-store-name/address directory. Collection, source permission, retention and
-service configuration remain operator responsibilities.
+Missing/stale/empty service data never authorizes a live fallback. Stored ZIP
+snapshots supply dated store choices; the person confirms the exact location.
+Completed-topic discovery supplies actual readable collection labels. Collection,
+source permission, retention and service configuration remain operator responsibilities.
 
 Before requests, read `research/official_docs/pages/API.md` sections
-"Latest collected deals", "Stored price checks and basket estimates" and
+"Stored store discovery", "Completed collection topics", "Latest collected deals",
+"Stored price checks and basket estimates" and
 "Stored promotion search and retrieval" in full.
 They own exact DTO fields, limits, pagination and errors. Source identities and
 hashes live in `research/official_docs/manifest.json`; a live response still
@@ -34,18 +35,42 @@ Do not follow redirects or send source records to unapproved recipients.
 | Operation | Body | Receiving check |
 |---|---|---|
 | `GET api/v1/promotions/status` | None | Stored-service permission/availability only; not proof of any store/topic collection. |
+| `POST api/v1/promotions/stores` | Five-digit `zipCode` string | Matching ZIP, directory snapshot dates/age, bounded radius/cap and exact store names/addresses/IDs; directory permission is separate from product-history permission. |
+| `POST api/v1/promotions/topics` | Exact accepted `locationId` | Matching store and completed readable topic labels, each snapshot/date/state/count; no configured-but-uncollected disclosure or complete-catalog claim. |
 | `POST api/v1/promotions/latest` | Exact `locationId`, exact `topic`; optional `limit`, `cursor` | Matching store/topic, latest completed snapshot, freshness, fixed attempt status/times, bounded coverage and snapshot-bound page. |
 | `POST api/v1/promotions/prices` | Exact `locationId`, `topic`; optional exact `productId`, `itemId`, `limit`, `cursor` | Same snapshot/freshness/coverage, `products` with usable regular/promo pricing or explicit unavailable reason. |
 | `POST api/v1/promotions/estimate` | Exact `locationId`, 1–10 `items` with `topic`, `productId`, `itemId`, whole `quantity` 1–99 | Exact requested line identity/quantity, source-backed current amounts, real line/subtotal arithmetic, currency/context qualifications and unresolved lines. |
 | `POST api/v1/promotions/search` | Exact `locationId`; optional literal `term`, IDs, UTC bounds, `limit`, `cursor` | Dated retained observations; query-bound pagination and explicit coverage. |
 | `POST api/v1/promotions/retrieve` | `locationId`, `observationId` | Same store/record with current permission and retention checks. |
 
-The Python tool maps these to `status`, `latest`, `prices`, `estimate`, `search`
+The Python tool maps these to `status`, `stores`, `topics`, `latest`, `prices`, `estimate`, `search`
 and `retrieve`.
 `latest --topic` selects an exact approved collection label. Historical
 `search --term` matches a literal stored description; the two are not
 interchangeable. Default page size is 20, maximum 50. The tool has no sort,
-collector, live-store or live-product operation. Keep IDs as strings, including zeros.
+collector, live-store or live-product operation. Stored `stores --zip` is a
+database read. Keep IDs as strings, including zeros.
+
+### Stored store and topic choices
+
+`stores` returns a stored ZIP query snapshot, never a fresh source query.
+`available` may contain an empty `stores` list. `no_data`, `stale`,
+`permission_required` and `unavailable` remain separate gaps. Snapshot and
+latest-attempt fields use the existing dated/freshness meanings. Coverage is
+`bounded_zip_directory`: source query radius ten miles, up to ten results,
+`completeNearbyStores: false`. Do not infer distance or claim every nearby store.
+Names/addresses can be missing; ask the person which exact returned location
+they intend to visit rather than inventing metadata or choosing the first.
+
+`topics` returns readable completed named collection jobs for the accepted store,
+up to ten current permitted topics. Each row has `topic`, `status` (`available`
+or `stale`), snapshot, latest-attempt and `returnedProductCount`. Zero can be a
+completed empty collection. Overall state is `available` when any returned scope
+is fresh, `stale` when all returned scopes are stale, or `no_data` when none are
+readable. Permission/unavailable gaps stay explicit. Legacy jobs lacking retained
+topic labels do not get names reconstructed from hashes/private configuration.
+Configured but uncollected topics are not returned. Only fresh relevant scopes
+support current-price recommendations; discovery proves no complete catalog.
 
 ### Stored price and quantity estimates
 
@@ -112,8 +137,8 @@ reads stay unknown.
 
 ## Key Concepts
 
-- **Accepted store:** the complete person-selected `locationId`; names/addresses
-  are unavailable from this stored API unless separately supplied and verified.
+- **Accepted store:** the complete `locationId` explicitly chosen by the person
+  from stored name/address choices or supplied as an already verified choice.
 - **Collection topic:** an exact approved operator label, not a live search term.
 - **Snapshot:** the latest completed bounded store/topic collection and its age.
 - **Observation:** a dated source fact; request time is a separate timestamp.
@@ -123,7 +148,7 @@ reads stay unknown.
 
 | Condition | Action | Reason |
 |---|---|---|
-| Missing store/topic | Return the person/operator prerequisite | No live lookup or assumed first topic. |
+| Missing store/topic | Run stored ZIP/topic discovery and accept the person's exact choice | No live lookup, first-result assumption or unnecessary human-web handoff. |
 | Fresh empty latest result | Report zero qualifying deals in the completed scope | Older rows must not reappear. |
 | No completed collection or stale snapshot | Report the distinct data/freshness gap | A reader does not initiate collection. |
 | Rejected cursor or changed snapshot | Restart a bounded requested read and disclose its new snapshot | Do not mix pages from collections. |

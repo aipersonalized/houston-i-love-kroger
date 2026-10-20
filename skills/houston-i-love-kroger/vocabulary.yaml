@@ -6,7 +6,9 @@ SKILL.md:
   "Operational candidate": "Authored instructions and bounded checks; actual installation and model qualification remain separate."
 playbooks:
   _purpose: "Accepted task identity and finish conditions"
-  "Accepted store": "The complete eight-character locationId already chosen by the person; no stored directory is currently supplied."
+  "Accepted store": "The complete eight-character locationId explicitly chosen from stored name/address choices, or supplied as an already verified choice."
+  "Stored directory": "A dated bounded ZIP search snapshot; reads never call live Locations or start collection."
+  "Completed topics": "Readable named collection jobs for the accepted store, with freshness and counts; not private uncollected plans or guessed legacy labels."
   "Collection topic": "The exact operator-approved topic label, distinct from a historical description filter."
   "Fresh empty": "A recent completed sample with zero qualifying deals, replacing older deals for its scope."
   "No data": "No usable completed exact-scope collection, distinct from a fresh empty sample."

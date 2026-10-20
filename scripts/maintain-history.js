@@ -72,13 +72,16 @@ export async function main(args = process.argv.slice(2), env = process.env) {
       return 2;
     }
     let removedObservations = 0;
-    if (action === 'revoke') removedObservations = store.revokeSource(sourceId, { purge: Boolean(values.purge) }).removedObservations;
-    if (action === 'purge_expired') removedObservations = store.purgeExpired({ sourceId }).removedObservations;
+    let removedDirectorySnapshots = 0;
+    if (action === 'revoke') ({ removedObservations, removedDirectorySnapshots } = store.revokeSource(sourceId, { purge: Boolean(values.purge) }));
+    if (action === 'purge_expired') ({ removedObservations, removedDirectorySnapshots } = store.purgeExpired({ sourceId }));
     const result = { status: 'completed', action, sourceStatus: store.getSourceStatus(sourceId).status,
       permissionStatus: store.getSourcePermission(sourceId).status,
-      removedObservations, ...store.getSummary(), message: action === 'status' ? 'Local history counts and source state checked.' :
-        action === 'revoke' ? 'The selected source is revoked. Requested observation row deletion is complete; other copies were not erased.' :
-          'Expired, revoked, or currently out-of-scope observation rows were removed for the selected source. Other copies were not erased.' };
+      directoryPermissionStatus: store.getDirectoryPermission(sourceId).status,
+      removedObservations, removedDirectorySnapshots, directory: store.getDirectorySummary(),
+      ...store.getSummary(), message: action === 'status' ? 'Local history/directory counts and source state checked.' :
+        action === 'revoke' ? 'The selected source is revoked. Requested price/directory row deletion is complete; other copies were not erased.' :
+          'Expired, revoked, or currently out-of-scope price/directory rows were removed for the selected source. Other copies were not erased.' };
     printResult(result, values, 'History maintenance');
     if (!values.json) process.stdout.write(`Retained observations: ${result.observations}. Observation rows removed: ${removedObservations}. Source state: ${result.sourceStatus}.\n`);
     return 0;

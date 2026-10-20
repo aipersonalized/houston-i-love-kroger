@@ -2,7 +2,7 @@
 
 The human page can look up stores and current products through the site's
 Kroger connection. The companion skill has a different read path: it gets latest
-collected deals, regular prices, quantity estimates and dated history from this installation's promotion database
+stored ZIP-query locations, completed collection topics, collected deals, regular prices, quantity estimates and dated history from this installation's promotion database
 service. Companion requests do not call Kroger, refresh products or run the
 collector. No empty or stale database result falls back to a supplier request.
 Optional Cart writes belong to a separate explicit shopper authorization and
@@ -37,6 +37,8 @@ to the configured `APP_BASE_PATH`. For example, the status URL at that address i
 | --- | --- | --- |
 | `GET` | `api/v1/status` | Check configuration and history capability. |
 | `POST` | `api/v1/stores/search` | Find nearby Kroger locations from a ZIP code. |
+| `POST` | `api/v1/promotions/stores` | Read a completed permission-approved stored ZIP query; no supplier call. |
+| `POST` | `api/v1/promotions/topics` | Discover readable completed named collection topics for an exact store. |
 | `POST` | `api/v1/products/search` | Browse usable store prices, including regular-only products. |
 | `POST` | `api/v1/deals/search` | Promotion-only comparison interface. |
 | `GET` | `api/v1/promotions/status` | Check the separate private history-service capability. |
@@ -557,8 +559,10 @@ fall back to it.
 | `cursor` | Optional opaque next cursor from this same store/topic/page limit. |
 
 Keep store references as strings, preserving leading zeros. Supply an already
-accepted store; this stored-read interface has no ZIP lookup or store-name
-directory. A human can choose a store on the app, then use its reference in
+accepted store; use [stored store discovery](#stored-store-discovery) when an
+approved directory snapshot exists, and [completed collection topics](#completed-collection-topics)
+to select an actual readable collected scope. No stored read makes a live request.
+A person can also choose a store on the app, then use its reference in
 Store details. Do not have the companion make live store/product requests to
 fill that gap. Omit unused fields; unsupported fields and clock/source/freshness
 overrides are rejected.
@@ -996,3 +1000,102 @@ The upstream integration follows the reviewed 2026-10-19 public contracts:
 and [Authorization 1.0.17](https://developer.kroger.com/api-products/api/authorization-endpoints-public).
 These establish documented operations; authenticated production behavior remains
 separate verification.
+
+## Stored store discovery
+
+`POST api/v1/promotions/stores` accepts exactly `{ "zipCode": "00000" }`.
+This ZIP is synthetic; use the person's accepted five-digit ZIP, preserving
+leading zeros. Extra fields, radius/limit overrides, autocomplete and URLs are
+rejected. This route reads our database only. It cannot call the live
+`api/v1/stores/search`, fetch Kroger data, geocode or start collection.
+
+Directory permission is separate from product-history permission. Operator
+collection requires an actual grant for all three directory purposes and the
+exact ZIP. The tool's recipient acknowledgement does not create that grant.
+A product-status `available` response does not establish directory permission;
+directory discovery can work while product-history permission is missing.
+
+The response adds `ok: true` and `apiVersion: 1` to these fields:
+
+| Field | Meaning |
+| --- | --- |
+| `status` | `available`, `no_data`, `stale`, `permission_required`, or a minimal `unavailable` operational response. |
+| `zipCode` | Exact requested ZIP. It is not inferred from a returned store address. |
+| `stores` | At most ten distinct returned stores; empty except when `available`. |
+| `snapshot` | `null` without readable data; otherwise `snapshotId`, `observedAt`, `completedAt`, `ageSeconds`, `maxAgeSeconds`. |
+| `latestAttempt` | `null` or fixed `status`, `startedAt`, `finishedAt`; a failed attempt does not refresh a completed snapshot. |
+| `coverage` | `type: "bounded_zip_directory"`, exact `zipCode`, `radiusMiles: 10`, `limitPerQuery: 10`, `returnedStoreCount`, `completeNearbyStores: false`, and `message`. |
+| `reason`, `message` | Optional fixed gap/recovery information. |
+
+Each store has exactly `locationId`, nullable `name`, and `address`. The address
+has nullable `addressLine1`, `addressLine2`, `city`, `county`, `state`, `zipCode`.
+The full eight-character location ID stays a string. Missing metadata remains
+null. No distance, nearest-store ordering or store coverage is invented.
+`returnedStoreCount` preserves the raw query count and must exactly equal the
+available store-row count. Repeated store identities, including exact repeats,
+fail the collection; records are never silently dropped to make counts agree.
+
+The operator collects one Public Locations query per explicit ZIP, using a
+10-mile radius and first-page limit of ten. That establishes neither every
+nearby store nor the nearest ten. The query ZIP can differ from a returned
+store's address ZIP. A fresh completed empty query is `available` with `[]` and
+count `0`; no completed query is `no_data/no_completed_directory`. Stale data
+returns snapshot dates but no store rows. Original/current rights, retention,
+expiry, scope and revocation are checked on every read. An unreadable completed
+snapshot gives `no_data/snapshot_not_readable`; an old snapshot is never revived.
+
+Show names, addresses, exact references, collection time and the query bounds.
+Ask the person to choose a returned store; do not silently pick the first one.
+Then call completed-topic discovery. Missing/stale/denied data is an operator
+gap; the read never falls back to a supplier. A missing remote service or
+certification environment returns the existing minimal `unavailable` envelope,
+with no fabricated `stores` or completed-empty claim.
+
+## Completed collection topics
+
+`POST api/v1/promotions/topics` accepts exactly
+`{ "locationId": "TEST0001" }`. The value is synthetic; use the chosen complete
+store ID. This is a database read, not an operator-plan or live-source endpoint.
+
+The response has `ok`, `apiVersion`, `status`, `locationId`, `topics`, and
+`coverage: { "type": "completed_store_topics", "completeCatalog": false,
+"message": "..." }`, with optional fixed `reason`/`message`.
+Each of at most ten distinct topic entries has:
+
+```json
+{
+  "topic": "milk",
+  "status": "available",
+  "snapshot": {
+    "snapshotId": "1",
+    "observedAt": "2026-01-02T12:00:00.000Z",
+    "completedAt": "2026-01-02T12:00:01.000Z",
+    "ageSeconds": 1,
+    "maxAgeSeconds": 86400
+  },
+  "latestAttempt": null,
+  "returnedProductCount": 0
+}
+```
+
+This synthetic entry represents a fresh completed empty topic. Count `0` means
+zero product results in that completed sample, not no collection or no store
+promotions. Topic rows can be `available` or `stale`; the overall result is
+`available` when any row is fresh, `stale` when every returned row is stale,
+`no_data/no_completed_topics` when no readable named completion exists, or
+`permission_required` when the exact store lacks product-history permission.
+Operational `unavailable` has no invented topics. Permission-denied/no-data
+results have `topics: []`.
+
+Only completed store/topic samples under original and current permission are
+listed. Running/failed attempts do not create topic labels; failures after a
+completion remain visible as its `latestAttempt`. The endpoint does not expose
+configured but uncollected targets, private source-policy references, credentials
+or operator configuration. Legacy jobs had only topic hashes: schema 6 leaves
+their labels unknown rather than guessing or reversing hashes. Known-label
+legacy reads still work where their original provenance permits them.
+
+Use a chosen fresh topic verbatim in `latest` or `prices`; use actual returned
+product/item references in `estimate`. Stale topics provide dated scope and an
+operator recovery action, not current recommendations. No response establishes
+full selected-store promotion coverage or a complete topic universe.

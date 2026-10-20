@@ -1,6 +1,6 @@
 ---
 name: houston-i-love-kroger
-description: "Use Houston I Love Kroger's stored-data service to find useful deals, check reported item prices, estimate requested grocery quantities, or read dated price history. Explain freshness, coverage, partial costs and permission gaps; never query Kroger directly."
+description: "Use Houston I Love Kroger's stored-data service to find stores from a ZIP, confirm the person's exact store, discover collected topics, find useful deals, check item prices, estimate requested quantities, or read dated history. Explain freshness, coverage, partial costs and permission gaps; never query Kroger directly."
 ---
 
 # Houston I Love Kroger
@@ -35,15 +35,18 @@ entitlement, source/recipient rights or deployment of a proposed public URL.
 This skill requires:
 - The installation's actual app base URL, ending in `/`, and Python 3.12+ or an
   equivalent permitted client for the documented stored-read API.
-- An already accepted complete eight-character store ID. If missing, the person
-  chooses a store in the human web app and supplies its ID through an allowed
-  channel. The service currently supplies no stored store-name/address lookup.
+- A five-digit US ZIP for stored store discovery, or an already accepted complete
+  eight-character store ID. Use the stored directory and ask which exact
+  name/address the person wants; never choose the first result for them.
 - Source permission and user authorization covering the actual agent, provider,
   transport, display and retention involved; reuse valid established authority.
-- For latest deals, the exact operator-configured collection topic. For dated
-  history, optional literal term, product/item IDs and UTC time bounds.
+- For latest deals/prices, a topic returned by stored completed-topic discovery
+  or an already verified collection scope. For dated history, optional literal
+  term, product/item IDs and UTC time bounds.
 
 This skill produces:
+- Stored store choices with name/address, collection dates and limited search
+  coverage, followed by the person's exact choice and completed-topic states.
 - Latest collected deals or dated historical observations with full source facts,
   dates, unit/history limits and bounded coverage; or a precise stale, no-data,
   empty, permission or connection result with the next practical action.
@@ -61,11 +64,12 @@ Match the first applicable situation. Read the named playbook in full.
 
 | User situation | Purpose | Workflow | Expected result |
 |---|---|---|---|
+| Need store choices from a ZIP, an exact store choice, or available collection topics | Find stored store choices and completed topic scopes | read `playbooks/choose-store-and-topic.md` in full | Exact person-selected store and relevant fresh topic, or precise directory/data gap |
 | Check a known grocery/package price, estimate quantities or assess a grocery budget | Use stored prices and source-verified estimate arithmetic | read `playbooks/price-check-and-estimate.md` in full | Dated price facts and qualified full/partial estimate, or exact input/data gap |
 | Find or compare the latest collected deals for an accepted store and topic | Read the service's latest completed collection | read `playbooks/main-procedure.md` in full | Fresh dated deals, fresh empty result, stale/no-data result or a permission gap |
 | Search or retrieve dated past observations | Read retained history separately from latest deals | read `playbooks/stored-promotions.md` in full | Dated source observations or an explicit permission/availability gap |
 | Install the skill/app, check setup, or recover a failed connection | Establish a usable permitted installation | read `playbooks/setup-and-recovery.md` in full | Working prerequisite checks or a bounded setup gap |
-| Choose a store, use the human page, or ask about Cart/collection | Explain the human/operator boundary | read `references/user-guide.md` in full | Human steps or the appropriate operator dependency; no agent live-source request |
+| Use the human page or ask about Cart/collection | Explain the human/operator boundary | read `references/user-guide.md` in full | Human steps or the appropriate operator dependency; no agent live-source request |
 
 ## Scenario Workflows
 
@@ -74,15 +78,18 @@ Match the first applicable situation. Read the named playbook in full.
 | Stage / owner | Prerequisite and output | Receiving check | Next / return / stop |
 |---|---|---|---|
 | Setup, `playbooks/setup-and-recovery.md` | Actual app URL and client/privacy context → service status or exact dependency | Read procedure accepts usable connection and current recipient permission | Enter a requested read only; setup-only stops |
+| Store/topic choice, `playbooks/choose-store-and-topic.md` | ZIP or accepted store and permitted recipients → stored directory → person's exact choice → completed topics | Check directory date/coverage, confirmed store and each topic's freshness/state | Continue the requested deal/price/estimate task; dated history needs the accepted store only |
 | Latest deals, `playbooks/main-procedure.md` | Accepted store/topic/recipient → latest completed snapshot → bounded report | Caller checks snapshot age, scope, source facts and result state | Complete, or return connection to setup and missing store/topic to its owner |
 | Price check/estimate, `playbooks/price-check-and-estimate.md` | Accepted store/topic/item and requested quantities → stored-price read and supported estimate | Caller checks source identity, currency, quantity, line arithmetic, partial totals and exclusions | Complete with qualified costs or explicit unresolved lines; never live fallback |
 | Dated history, `playbooks/stored-promotions.md` | Accepted store/recipient and history scope → bounded search or selected record | Caller checks observation dates and query/store binding | Complete; no automatic fallback between history and latest |
 
-Direct read entry accepts current equivalent inputs; do not repeat setup or ask
-for authority already established. Changed store, topic, query, recipient or
-installation invalidates dependent results. These procedures are alternatives;
-stale/empty latest data never triggers a live search, collector or hidden history
-substitution. Store selection in the web app is a human prerequisite.
+Direct read entry accepts current equivalent inputs; do not repeat setup, store
+choice or authority already established. Missing store/topic enters the stored
+discovery procedure before the requested read. Changed store, topic, query,
+recipient or installation invalidates dependent results. Read procedures are
+alternatives; stale/empty data never triggers a live search, collector or hidden
+history substitution. A separate human web-app visit is not required when the
+stored directory and topics provide the needed facts.
 
 ## Completion Criteria
 

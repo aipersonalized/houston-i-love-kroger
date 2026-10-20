@@ -23,6 +23,8 @@ From this skill folder:
 ```text
 python scripts/promotions.py --help
 python scripts/promotions.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+python scripts/promotions.py stores --zip 00000 --summary-only --dry-run --json --no-input
+python scripts/promotions.py topics --store TEST0001 --summary-only --dry-run --json --no-input
 python scripts/promotions.py latest --store TEST0001 --topic milk --summary-only --dry-run --json --no-input
 python scripts/promotions.py prices --store TEST0001 --topic milk --summary-only --dry-run --json --no-input
 python scripts/promotions.py estimate --store TEST0001 --item milk PRODUCT_ID ITEM_ID 2 --summary-only --dry-run --json --no-input
@@ -30,15 +32,18 @@ python scripts/promotions.py search --store TEST0001 --term milk --summary-only 
 python scripts/promotions.py retrieve --store TEST0001 --observation-id 1 --data-use-approved --json --no-input
 ```
 
-The TEST0001/1 values are synthetic examples, not a real selected store or record.
+The 00000/TEST0001/1 values are synthetic examples, not a real selected ZIP, store or record.
 Set `HOUSTON_APP_URL` or supply `--base-url` ending in `/`. HTTPS is required
 except for localhost/loopback HTTP. Credentials, address queries, fragments and
 redirects are refused. Requests declare a client User-Agent, do not inherit a
 proxy/cookie/credential configuration, use bounded timeouts and read at most 1 MB.
 
-Operations: status GETs `api/v1/promotions/status`; latest/prices/estimate/search/
-retrieve POST JSON to the matching relative `api/v1/promotions/` path.
-`--store` is required for every record operation and preserves leading zeros.
+Operations: status GETs `api/v1/promotions/status`; stores/topics/latest/prices/
+estimate/search/retrieve POST JSON to the matching relative `api/v1/promotions/`
+path. `stores --zip` takes exactly five US ZIP digits and sends `zipCode` as a
+string; it reads a stored directory snapshot, never live Locations. `topics
+--store` sends the exact `locationId` and reads completed named collection
+scopes. `--store` is required for topic/price/history operations and preserves zeros.
 Latest/prices additionally require `--topic`, an exact operator-approved collection
 label of 3–80 characters and at most eight words. `--limit` is 1–50, default 20;
 `--cursor` must be the returned matching snapshot/query cursor (at most 512
@@ -46,6 +51,17 @@ URL-safe characters). Latest rejects historical search fields and has no sorting
 or arbitrary live term. Prices additionally accepts exact `--product-id` and
 `--item-id`; it returns usable regular/promo prices and explicit unavailable facts.
 The operator alone configures freshness, default 24 hours.
+
+Store discovery validates the matching ZIP, nullable name/address facts, exact
+eight-character IDs, snapshot/freshness/attempt fields and bounded directory
+coverage. `available` with no stores is a fresh saved empty search. Stale, no_data,
+permission_required and unavailable are distinct gaps. Topic discovery validates
+the matching store, up to ten completed named scopes and their available/stale
+snapshot/attempt/count facts. Overall stale means all returned topics are stale;
+no_data means no readable named completed topic. Legacy unnamed jobs and private
+uncollected plan labels are not reconstructed or returned. Neither discovery
+operation accepts caller clocks, source choices, live-search flags or collection.
+Directory permission is independent of product-history permission.
 
 Estimate takes `--store` and repeated `--item TOPIC PRODUCT_ID ITEM_ID QUANTITY`:
 1–10 unique source-backed product/item pairs, each whole quantity 1–99. It sends
@@ -64,6 +80,9 @@ or exactly three fractional digits), `--limit`
 not current offers or a latest-deals fallback.
 
 `--summary-only` emits fixed status/counts without source rows or store IDs.
+For stores/topics it also omits ZIP, store names/addresses, topic labels and
+source metadata; use established recipient permission and `--data-use-approved`
+for the full choices needed to confirm an exact store and collected scope.
 For latest/prices it also projects snapshot dates, age/threshold, fixed attempt
 status/times and recognized reason; it omits topic, snapshot/observation IDs,
 descriptions and prices. Summary still makes a server read and grants no rights.

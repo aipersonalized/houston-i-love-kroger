@@ -47,7 +47,7 @@ See README for the complete policy format and local credential setup.
 
 // Config files may contain private references. Bound reads and never echo their
 // content, paths, source-policy references, or parse errors into CLI output.
-function readJsonFile(filename) {
+export function readJsonFile(filename) {
   const full = resolve(cleanPath(filename));
   let current = parse(full).root;
   for (const part of full.slice(current.length).split(/[\\/]/u).filter(Boolean)) {
@@ -80,6 +80,9 @@ export async function main(args = process.argv.slice(2), env = process.env) {
   }
   if (values.help) { process.stdout.write(values.json ? `${JSON.stringify({ status: 'help', help: HELP })}\n` : HELP); return 0; }
   let store;
+  let collectionStarted = false;
+  let output;
+  let exitCode;
   const controller = new AbortController();
   const stop = () => controller.abort();
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
@@ -113,6 +116,7 @@ export async function main(args = process.argv.slice(2), env = process.env) {
     const maxRuns = values.watch ? Number(values['max-runs'] ?? plan.maxRuns ?? 1) : 1;
     const results = [];
     for (let count = 0; count < maxRuns; count++) {
+      collectionStarted = !values['dry-run'];
       const result = await runCollection({ store, client, plan, planProvided, dryRun: values['dry-run'] === true, signal: controller.signal });
       if (values['dry-run']) {
         result.message = 'Prerequisites checked without opening storage, importing policy, or making source requests. Existing stored permission was not inspected.';
@@ -126,17 +130,25 @@ export async function main(args = process.argv.slice(2), env = process.env) {
       catch { results.push({ status: 'cancelled', requests: 0, observationsWritten: 0 }); break; }
     }
     const final = results.at(-1);
-    const output = values.watch ? { ...final, runs: results.length, totalRequests: results.reduce((n, r) => n + r.requests, 0),
+    output = values.watch ? { ...final, runs: results.length, totalRequests: results.reduce((n, r) => n + r.requests, 0),
       totalObservationsWritten: results.reduce((n, r) => n + r.observationsWritten, 0) } : final;
-    printResult(output, values, 'Historical price collection');
-    return resultCode(final);
+    exitCode = resultCode(final);
   } catch {
-    printResult({ status: 'failed', code: 'collection_setup_invalid', message: 'Error: collection setup could not be accepted. Check the documented plan, policy metadata, credentials configuration, and regular local file paths. No source request was started.' }, values);
-    return 2;
+    output = collectionStarted ? { status: 'failed', code: 'collection_outcome_unknown',
+      message: 'Collection did not return a verified result. Source requests or committed observations may exist. Stop scheduling and inspect the recorded last attempt and storage before retrying.' }
+      : { status: 'failed', code: 'collection_setup_invalid', message: 'Error: collection setup could not be accepted. Check the documented plan, policy metadata, credentials configuration, and regular local file paths. No source request was started.' };
+    exitCode = collectionStarted ? 1 : 2;
   } finally {
     process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop);
-    store?.close();
+    try { store?.close(); }
+    catch {
+      output = { ...output, status: 'failed', code: 'collection_storage_cleanup_failed',
+        message: 'Storage could not be closed cleanly. Counts, if present, reflect the returned collection result. Stop scheduling and inspect storage and the recorded last attempt before retrying.' };
+      exitCode = 1;
+    }
   }
+  printResult(output, values, 'Historical price collection');
+  return exitCode;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await main();

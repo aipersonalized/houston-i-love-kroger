@@ -203,11 +203,11 @@ test('a genuine v4 database upgrades additively, preserves synthetic facts and p
     .run(SOURCE, Date.parse(FIRST), Date.parse(later(30 * 86400)));
   legacy.close();
   const upgraded = openHistoryStore({ filename });
-  assert.equal(upgraded.getSummary().schemaVersion, 5);
+  assert.equal(upgraded.getSummary().schemaVersion, 6);
   assert.equal(upgraded.getSourceStatus().status, 'pending');
   const rows = upgraded.searchPromotions({ sourceId: SOURCE, locationId: 'TEST0001', term: 'Synthetic', asOf: FIRST }).observations;
   assert.equal(rows.length, 1); assert.equal(rows[0].description, 'Synthetic legacy milk'); assert.equal(rows[0].price.promo, 3);
   upgraded.close();
   const reopened = openHistoryStore({ filename });
-  assert.equal(reopened.getSummary().schemaVersion, 5); assert.equal(reopened.getSummary().observations, 1); reopened.close();
+  assert.equal(reopened.getSummary().schemaVersion, 6); assert.equal(reopened.getSummary().observations, 1); reopened.close();
 });

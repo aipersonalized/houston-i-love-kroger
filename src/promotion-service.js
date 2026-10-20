@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { DEFAULT_PROMOTION_MAX_AGE_SECONDS, HistoryError } from './history-store.js';
+import { DIRECTORY_SOURCE, validDirectoryRequest, validTopicsRequest } from './store-directory.js';
 
 const SEARCH_FIELDS = ['locationId', 'term', 'productId', 'itemId', 'observedFrom', 'observedTo', 'limit', 'cursor'];
 const RETRIEVE_FIELDS = ['locationId', 'observationId'];
@@ -15,7 +16,8 @@ class RequestError extends Error {
 function fields(value, allowed) {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
       Object.keys(value).some(key => !allowed.includes(key)) ||
-      typeof value.locationId !== 'string' || !/^[a-zA-Z0-9]{8}$/u.test(value.locationId)) {
+      (allowed.includes('zipCode') ? !validDirectoryRequest(value)
+        : typeof value.locationId !== 'string' || !/^[a-zA-Z0-9]{8}$/u.test(value.locationId))) {
     throw new RequestError('invalid_request', 'Use an exact selected locationId and the documented request fields.');
   }
   return value;
@@ -68,6 +70,7 @@ function requestBody(request, { maxBodyBytes, requestTimeoutMs }) {
 
 // The token is installation-owned and never included in a response or log.
 export function createPromotionService({ store, token, sourceId = 'kroger-public', now = () => new Date().toISOString(),
+  directorySourceId = DIRECTORY_SOURCE,
   maxAgeSeconds = DEFAULT_PROMOTION_MAX_AGE_SECONDS,
   maxBodyBytes = 1_048_576, requestTimeoutMs = 5000, maxActive = 8, maxRequestsPerMinute = 120 } = {}) {
   if (typeof token !== 'string' || !/^[\x21-\x7e]{32,512}$/u.test(token)) {
@@ -121,6 +124,8 @@ export function createPromotionService({ store, token, sourceId = 'kroger-public
         ['/v1/deals/search', [LATEST_FIELDS, 'getLatestDeals']],
         ['/v1/prices/search', [PRICE_FIELDS, 'searchPrices']],
         ['/v1/basket/estimate', [ESTIMATE_FIELDS, 'estimateBasket']],
+        ['/v1/stores/search', [['zipCode'], 'getStoredStores']],
+        ['/v1/topics/search', [['locationId'], 'getStoreTopics']],
       ]);
       const route = routes.get(request.url);
       if (!route) throw new RequestError('not_found', 'This service operation does not exist.', 404);
@@ -129,8 +134,9 @@ export function createPromotionService({ store, token, sourceId = 'kroger-public
       if (route[1] === 'getComparisons' && (!Array.isArray(body.offers) || body.offers.length > 500)) {
         throw new RequestError('invalid_request', 'Supply at most 500 current offers for comparison.');
       }
-      const result = await store[route[1]]({ ...body, sourceId, asOf: now(),
-        ...(['getLatestDeals', 'searchPrices', 'estimateBasket'].includes(route[1]) ? { maxAgeSeconds } : {}) });
+      if (route[1] === 'getStoreTopics' && !validTopicsRequest(body)) throw new RequestError('invalid_request', 'Use one exact store ID.');
+      const result = await store[route[1]]({ ...body, sourceId: route[1] === 'getStoredStores' ? directorySourceId : sourceId, asOf: now(),
+        ...(['getLatestDeals', 'searchPrices', 'estimateBasket', 'getStoredStores', 'getStoreTopics'].includes(route[1]) ? { maxAgeSeconds } : {}) });
       send(response, 200, result);
     } catch (error) {
       const failure = safeError(error);

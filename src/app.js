@@ -7,6 +7,7 @@ import { orderOffers, orderProducts } from '../public/ordering.js';
 import { IMAGE_HOSTS } from './catalog.js';
 import { CartSessions } from './cart.js';
 import { validPriceSearchRequest, validEstimateRequest } from './stored-pricing.js';
+import { validDirectoryRequest, validTopicsRequest } from './store-directory.js';
 
 const PUBLIC_FILES = new Map([
   ['', ['index.html', 'text/html; charset=utf-8']],
@@ -163,7 +164,7 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
       }
       if (!['api/v1/stores/search', 'api/v1/deals/search', 'api/v1/products/search',
         'api/v1/promotions/search', 'api/v1/promotions/retrieve', 'api/v1/promotions/latest',
-        'api/v1/promotions/prices', 'api/v1/promotions/estimate', 'api/v1/cart/connect',
+        'api/v1/promotions/prices', 'api/v1/promotions/estimate', 'api/v1/promotions/stores', 'api/v1/promotions/topics', 'api/v1/cart/connect',
         'api/v1/cart/add', 'api/v1/cart/disconnect'].includes(path)) throw new AppError('not_found', 'This operation does not exist.', 404);
       if (request.method !== 'POST') {
         response.setHeader('Allow', 'POST');
@@ -196,16 +197,23 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
           const latest = path.endsWith('/latest');
           const prices = path.endsWith('/prices');
           const estimate = path.endsWith('/estimate');
+          const stores = path.endsWith('/stores');
+          const topics = path.endsWith('/topics');
+          if (stores && !validDirectoryRequest(body) || topics && !validTopicsRequest(body)) {
+            throw new AppError('invalid_request', 'Use only a five-digit ZIP for stored stores, or an exact eight-character locationId for collected topics.');
+          }
           if (prices && !validPriceSearchRequest(body) || estimate && !validEstimateRequest(body)) {
             throw new AppError('invalid_request', 'Use an exact store and approved topic. Estimates accept 1–10 distinct exact items with whole-unit quantities from 1 to 99.');
           }
-          const input = prices || estimate ? body : latest ? validateLatestDealsRequest(body) : validatePromotionRequest(body, path.endsWith('/retrieve'));
+          const input = prices || estimate || stores || topics ? body : latest ? validateLatestDealsRequest(body) : validatePromotionRequest(body, path.endsWith('/retrieve'));
+          const binding = stores ? { zipCode: input.zipCode } : { locationId: input.locationId };
           if (client.environment !== 'production') {
-            json(response, 200, { ok: true, apiVersion: 1, status: 'unavailable', reason: 'history_environment_mismatch', locationId: input.locationId }); return;
+            json(response, 200, { ok: true, apiVersion: 1, status: 'unavailable', reason: 'history_environment_mismatch', ...binding }); return;
           }
-          if (!promotionProvider) { json(response, 200, { ok: true, apiVersion: 1, ...promotionsUnavailable(), locationId: input.locationId }); return; }
+          if (!promotionProvider) { json(response, 200, { ok: true, apiVersion: 1, ...promotionsUnavailable(), ...binding }); return; }
           let result;
-          try { result = await (prices ? promotionProvider.searchPrices(input) : estimate ? promotionProvider.estimateBasket(input)
+          try { result = await (stores ? promotionProvider.getStoredStores(input) : topics ? promotionProvider.getStoreTopics(input)
+            : prices ? promotionProvider.searchPrices(input) : estimate ? promotionProvider.estimateBasket(input)
             : latest ? promotionProvider.getLatestDeals(input)
             : path.endsWith('/retrieve') ? promotionProvider.retrievePromotion(input) : promotionProvider.searchPromotions(input)); }
           catch (error) {

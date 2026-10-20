@@ -35,22 +35,23 @@ collection. Setup gaps return to `playbooks/setup-and-recovery.md`.
 
 ## Step 2: Bind the accepted store and exact collection topic
 
-Use the person's complete eight-character store ID as a string, including any
-leading zeros. If the person has not selected one, explain how they choose in
-the human web app and provide its ID through an allowed channel. Do not call
-the app's live ZIP/store search for the agent. The stored service has no store
-name/address lookup; missing metadata stays unavailable.
+Use the person's accepted complete eight-character store ID, including zeros.
+If store choice or collected scope is missing, read and follow
+`playbooks/choose-store-and-topic.md` in full. Use its stored ZIP choices and
+completed-topic discovery, then accept the person's exact location. No separate
+human web-app visit or live ZIP request is needed when stored data is usable.
 
 Accept the person's category, budget or brand preferences when supplied. Use
 them to select among known approved topics or filter the returned records;
 do not imply that local filters enlarged collection coverage. If no preferences
 are given, use the known accepted topic scope and explain its limits.
 
-Use an exact operator-configured topic, such as an operator-confirmed `milk`.
+Use an exact fresh completed topic returned by discovery, or an already verified
+operator-confirmed scope, such as `milk`.
 Latest topics are exact collection labels, not arbitrary product substring
 searches. Do not assume a starter sample or broaden to every topic. A missing
-topic goes to the operator's collection configuration; a missing store choice
-goes to the person. Neither is solved by a live API fallback.
+topic enters stored topic discovery; an absent/stale collection goes to the
+operator. The person confirms an ambiguous store/scope. No gap causes live fallback.
 
 ## Step 3: Read one bounded latest-deals page
 
