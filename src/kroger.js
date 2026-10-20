@@ -1,5 +1,6 @@
 import { AppError } from './errors.js';
 import { normalizeStore } from './catalog.js';
+import { extractProductPagination } from './product-pagination.js';
 
 const ORIGINS = Object.freeze({
   production: 'https://api.kroger.com',
@@ -213,15 +214,25 @@ export class KrogerClient {
   }
 
   async searchProducts(locationId, term, { signal, limit = 50 } = {}) {
+    // Keep the collector and existing callers on the same single-page array
+    // interface. Pagination is an explicit, separate shopper operation.
+    return (await this.searchProductPage(locationId, term, { signal, limit })).products;
+  }
+
+  async searchProductPage(locationId, term, { signal, limit = 50, start } = {}) {
     if (typeof locationId !== 'string' || !/^[a-zA-Z0-9]{8}$/.test(locationId) ||
         typeof term !== 'string' || term.trim().length < 3 || term.length > 80 ||
         term.trim().split(/\s+/u).length > 8 || /[\p{Cc}\p{Cf}]/u.test(term) ||
-        !Number.isInteger(limit) || limit < 1 || limit > 50) throw new AppError('invalid_search', 'Choose a store and a supported search term.');
+        !Number.isInteger(limit) || limit < 1 || limit > 50 ||
+        start !== undefined && (!Number.isInteger(start) || start < 1 || start > 250)) {
+      throw new AppError('invalid_search', 'Choose a store, a supported search term, a limit from 1 to 50 and an optional start from 1 to 250.');
+    }
     const payload = await this.#get('/v1/products', {
       'filter.locationId': locationId, 'filter.term': term,
       'filter.fulfillment': 'ais', 'filter.limit': String(limit),
+      ...(start === undefined ? {} : { 'filter.start': String(start) }),
     }, signal);
     if (!Array.isArray(payload?.data) || payload.data.length > limit) throw formatError();
-    return payload.data;
+    return { products: payload.data, pagination: extractProductPagination(payload.meta) };
   }
 }
