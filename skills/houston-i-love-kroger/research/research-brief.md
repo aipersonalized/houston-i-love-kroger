@@ -23,7 +23,8 @@ summary: "Agents read our latest collected deals and dated history; useful shopp
 
 The user wants a person to ask an assistant what looks good, inexpensive or on
 deal, and have this skill get the facts from our microservice instead of Kroger's
-API. The task also includes item price checks, requested-quantity costs, budget
+API. The task also includes stored ZIP choices and exact store acceptance, completed
+topic discovery, item price checks, requested-quantity costs, budget
 fit and relevant comparisons within actual data coverage. The assistant's useful
 deliverable is a concise, supported shopping choice:
 product/package, reported price, supported discount and why it fits the person's
@@ -33,7 +34,7 @@ qualifying deals and must disclose finite coverage.
 
 The human web app retains its independent store-selection/live product/cart
 features. They do not become companion agent routes. Agent reads use only
-`api/v1/promotions/status|latest|prices|estimate|search|retrieve`; they never contact Kroger,
+`api/v1/promotions/status|stores|topics|latest|prices|estimate|search|retrieve`; they never contact Kroger,
 fetch live products, collect data, change policy or access a private database.
 
 ## Collected source scope and freshness
@@ -87,9 +88,12 @@ rights remain separate.
 
 4. **Inputs identify collected scope.** Latest requires an accepted full
    eight-character store ID and exact approved operator `topic`, not a generic
-   live search term. There is no stored store-name/address directory. The person
-   chooses a store in the human app when needed; the agent never calls live ZIP
-   discovery or chooses a first result. Unknown topic scope goes to the operator.
+   live search term. Stored ZIP snapshots supply dated bounded name/address/ID choices; the person
+   confirms their exact location. Completed-topic discovery lists only readable
+   named collections and their freshness/counts, never private uncollected plans
+   or guessed legacy hash labels. Directory permission is separate from
+   product/history permission. No agent live ZIP lookup or first-result choice
+   occurs; missing/stale data remains an operator gap.
 
 5. **Pages belong to a snapshot and query.** Latest uses bounded keyset pages,
    default 20 and maximum 50, with snapshot/query/store generation binding. A new

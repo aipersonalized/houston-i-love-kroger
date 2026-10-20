@@ -25,6 +25,7 @@ COPY public/ ./public/
 COPY migrations/ ./migrations/
 COPY scripts/ ./scripts/
 COPY config/collection-plan.example.json ./config/collection-plan.example.json
+COPY config/store-directory-plan.example.json ./config/store-directory-plan.example.json
 USER node
 EXPOSE 4173
 STOPSIGNAL SIGTERM

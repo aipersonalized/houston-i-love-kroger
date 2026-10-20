@@ -40,7 +40,9 @@ export function printResult(result, values, title = 'History storage') {
   for (const blocker of result.blockers ?? []) stream.write(`- ${blocker.code}: ${blocker.message}\n`);
   if (typeof result.observationsWritten === 'number') stream.write(`Observations written: ${result.observationsWritten}. Source requests: ${result.requests}.\n`);
   if (values.verbose && result.schemaVersion) stream.write(`Schema version: ${result.schemaVersion}.\n`);
-  if (values.verbose && result.coverage) stream.write(`Coverage: bounded sample; ${result.coverage.targetCount} targets; at most ${result.coverage.limitPerTarget} products each; one page per target.\n`);
+  if (values.verbose && result.coverage) stream.write(result.coverage.type === 'bounded_zip_directory'
+    ? `Coverage: ${result.coverage.targetCount} bounded ZIP queries; 10-mile radius and first 10 store results each.\n`
+    : `Coverage: bounded sample; ${result.coverage.targetCount} targets; at most ${result.coverage.limitPerTarget} products each; one page per target.\n`);
 }
 export async function main(args = process.argv.slice(2)) {
   let values;

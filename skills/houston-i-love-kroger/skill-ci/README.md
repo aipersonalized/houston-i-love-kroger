@@ -11,10 +11,11 @@ separate reviewer; the author does not call a static walkthrough a trial.
 
 ## What
 
-Supported tasks are setup help, latest completed store/topic snapshots, stored
+Supported tasks are setup help, stored ZIP choices, completed-topic discovery,
+latest completed store/topic snapshots, stored
 item price checks, requested-quantity/budget estimates and separate history
-search/retrieval. Human store selection and live app
-browsing remain human workflows; the agent calls no live source or collector.
+search/retrieval. The person confirms the exact stored store choice; human live
+app browsing remains separate. The agent calls no live source or collector.
 A useful shopping answer explains supported discounts and low whole-package
 prices separately, matching supplied preferences. It preserves store/topic,
 snapshot/observation dates, age and bounded coverage, full source facts,

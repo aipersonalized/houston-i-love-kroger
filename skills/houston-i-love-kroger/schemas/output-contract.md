@@ -47,7 +47,9 @@ retailers. Unknown currency, unit basis, stock and checkout conditions stay clea
 | Required meaning | Evidence or explicit unavailable value |
 |---|---|
 | State | Fresh deals, fresh empty, no completed collection, stale, permission required, unavailable, not found or known request failure. |
-| Store and query | Exact accepted ID and exact collection topic for latest, or history filters. Name/address are unavailable from the stored API; do not invent them or fetch live metadata. |
+| Store and query | Exact person-accepted ID; directory name/address and date when returned, never invented; exact completed topic for latest/prices or history filters. |
+| Store discovery | Matching ZIP, dated stored directory snapshot, freshness/state, bounded radius/cap and explicit person choice; an empty saved search is not proof there are no nearby stores. |
+| Topic discovery | Completed readable topic labels, each snapshot/state/date and returned count; fresh empty, all-stale, missing/unnamed collection and permission gaps remain distinct. No complete-catalog claim. |
 | Source and dates | Source labels, each observation date, snapshot ID and observed/completed times with timezone; request time is distinct. Synthetic status remains explicit. |
 | Latest freshness | Snapshot age and operator max-age threshold, default 24 hours; latest attempt status/times when supplied. No supplier validity guarantee follows. |
 | Coverage | Exact returned bounded topic sample or retained-history query, collection product/page limits, returned count, incomplete coverage and additional-page state. |
@@ -71,6 +73,12 @@ collected low as an all-time low. No stored response means no stored-price claim
 For setup, state actual installation identity, requested help, checks executed,
 service status, permission/client/data gaps and next action. Human instructions
 are instructions rather than executed installations, registrations or reads.
+
+For store choice, show usable returned names/addresses first and ask which exact
+location the person wants. Do not choose a first/closest result or make the
+human web app a mandatory handoff when stored data is usable. For topics, explain
+which requested categories have fresh completed data and which remain gaps;
+operator plan labels and raw DTOs are not the default shopping answer.
 
 ## Checks and failures
 

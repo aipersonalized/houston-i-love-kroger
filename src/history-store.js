@@ -5,9 +5,10 @@ import { dirname, join, parse, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validPriceSearchRequest, validEstimateRequest, storedAvailability, storedPriceDecision,
   priceQualificationGaps, estimateStoredLine, storedEstimateTotals } from './stored-pricing.js';
+import { createDirectoryStore, DIRECTORY_SOURCE } from './store-directory.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
-const MIGRATIONS = ['001-history.sql', '002-history-scope.sql', '003-observation-description.sql', '004-latest-deals.sql', '005-collection-control.sql'].map((filename, index) => {
+const MIGRATIONS = ['001-history.sql', '002-history-scope.sql', '003-observation-description.sql', '004-latest-deals.sql', '005-collection-control.sql', '006-store-directory.sql'].map((filename, index) => {
   const sql = readFileSync(new URL(`../migrations/${filename}`, import.meta.url), 'utf8');
   return { version: index + 1, sql, checksum: createHash('sha256').update(sql).digest('hex') };
 });
@@ -202,7 +203,8 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
       const version = db.pragma('user_version', { simple: true });
       if (appId !== APPLICATION_ID || !Number.isInteger(version) || version < 1 || version > SCHEMA_VERSION) fail('history_schema_unknown', 'This is not a supported history database. Choose a new file or use the matching app version.');
       const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type = 'table'").all().map(row => row.name);
-      const requiredTables = version >= 5 ? [...REQUIRED_TABLES, 'collection_control', 'collection_reservations'] : REQUIRED_TABLES;
+      const requiredTables = [...REQUIRED_TABLES, ...(version >= 5 ? ['collection_control', 'collection_reservations'] : []),
+        ...(version >= 6 ? ['directory_rights', 'directory_runs', 'directory_snapshots', 'directory_stores'] : [])];
       if (tables.length !== requiredTables.length || !requiredTables.every(table => tables.includes(table))) fail('history_schema_unknown');
       const applied = db.prepare('SELECT version, checksum FROM schema_migrations ORDER BY version').all();
       if (applied.length !== version || applied.some((row, index) => row.version !== index + 1 ||
@@ -237,6 +239,8 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
       }).immediate();
     }
     db.pragma('foreign_keys = ON');
+    db.prepare("INSERT INTO sources VALUES (?, 'Kroger Public Locations API', 'pending', NULL, ?) ON CONFLICT(source_id) DO NOTHING")
+      .run(DIRECTORY_SOURCE, Date.now());
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = FULL');
     db.function('history_topic_key', { deterministic: true, directOnly: true }, value => typeof value === 'string' ? topicKey(value) : null);
@@ -266,6 +270,7 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
 
   const savePolicy = db.transaction((policy, at) => {
     const p = validateSourcePolicy(policy, { now: at });
+    if (p.sourceId === DIRECTORY_SOURCE || db.prepare('SELECT 1 FROM directory_rights WHERE source_id=?').get(p.sourceId)) fail('source_policy_conflict');
     const source = db.prepare('SELECT status, current_rights_id FROM sources WHERE source_id = ?').get(p.sourceId);
     if (source?.status === 'revoked') fail('source_revoked', 'This source was revoked. A separate reviewed reinstatement is required.');
     const activePolicy = source?.current_rights_id
@@ -600,6 +605,30 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
     if (new Set(scopes.map(scope => JSON.stringify(scope))).size !== scopes.length) fail();
     return JSON.stringify(scopes);
   }
+  function getStoreTopics({ locationId, sourceId = 'kroger-public', asOf = new Date().toISOString(),
+    maxAgeSeconds = DEFAULT_PROMOTION_MAX_AGE_SECONDS } = {}) {
+    location(locationId);
+    const at = instant(asOf);
+    if (!Number.isInteger(maxAgeSeconds) || maxAgeSeconds < 1 || maxAgeSeconds > 604_800) fail();
+    const base = { locationId, topics: [], coverage: { type: 'completed_store_topics', completeCatalog: false,
+      message: 'Only readable completed named topic samples for this store. Missing topics are not proof of missing promotions or a complete catalog.' } };
+    const access = permission(sourceId, asOf, [{ locationId }]);
+    if (access.status !== 'permitted') return { ...base, ...access };
+    const labels = db.prepare(`SELECT DISTINCT j.topic_label FROM collection_jobs j
+      JOIN collection_runs run ON run.run_id=j.run_id AND run.source_id=j.source_id
+      WHERE j.source_id=? AND j.location_id=? AND j.topic_label IS NOT NULL
+      AND run.status='completed' AND run.finished_at<=? AND j.observed_at<=? ORDER BY j.topic_label`).all(sourceId, locationId, at, at);
+    for (const { topic_label: topic } of labels) {
+      if (!access.topics.includes(topic)) continue;
+      const result = getLatestDeals({ locationId, topic, sourceId, asOf, maxAgeSeconds, limit: 1 });
+      if (!['available', 'stale'].includes(result.status)) continue;
+      base.topics.push({ topic, status: result.status, snapshot: result.snapshot,
+        latestAttempt: result.latestAttempt, returnedProductCount: result.coverage.returnedProductCount });
+    }
+    return { ...base, status: base.topics.length === 0 ? 'no_data' : base.topics.some(row => row.status === 'available') ? 'available' : 'stale',
+      ...(base.topics.length === 0 ? { reason: 'no_completed_topics' } : {}) };
+  }
+  const topicsRead = db.transaction(getStoreTopics);
   const latestRead = db.transaction(getLatestDeals);
   const pricesRead = db.transaction(searchPrices);
   const estimateRead = db.transaction(estimateBasket);
@@ -640,9 +669,9 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
       if (db.prepare('SELECT 1 FROM collection_jobs WHERE source_id = ? AND job_key = ?').get(sourceId, job.jobKey)) continue;
       const retain = Math.min(observed + access.retentionDays * DAY, access.expiresAt,
         observed + original.retention_days * DAY, original.expires_at);
-      const jobId = db.prepare(`INSERT INTO collection_jobs(source_id,job_key,run_id,location_id,observed_at,returned_product_count,topic_key,rights_id,retain_until)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(sourceId, job.jobKey, runId, job.locationId, observed, job.returnedProductCount, topicKey(job.term), rightsId, retain).lastInsertRowid;
+      const jobId = db.prepare(`INSERT INTO collection_jobs(source_id,job_key,run_id,location_id,observed_at,returned_product_count,topic_key,rights_id,retain_until,topic_label)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(sourceId, job.jobKey, runId, job.locationId, observed, job.returnedProductCount, topicKey(job.term), rightsId, retain, job.term).lastInsertRowid;
       const seenInJob = new Map();
       for (const offer of job.offers) {
         const row = normalize(offer);
@@ -703,6 +732,8 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
     // attempt failed before the replacement run starts; completed jobs survive.
     db.prepare("UPDATE collection_runs SET status = 'failed', finished_at = max(started_at, ?), failure_category = 'collection_failed' WHERE source_id = ? AND status = 'running'")
       .run(at, sourceId);
+    db.prepare("UPDATE directory_runs SET status='failed',finished_at=max(started_at,?),failure_category='collection_failed' WHERE source_id=? AND status='running'")
+      .run(at, sourceId);
     db.prepare('UPDATE collection_control SET lease_owner = ?, lease_until = ? WHERE source_id = ?').run(owner, at + LEASE_MS, sourceId);
     return { status: 'acquired' };
   });
@@ -728,7 +759,11 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
     db.prepare('UPDATE collection_control SET lease_until = ? WHERE source_id = ?').run(at + LEASE_MS, sourceId);
     return { status: 'reserved', reservedRequests: (count + 1) * 4 };
   });
+  const directory = createDirectoryStore(db, { fail, instant, text, requireLease });
+  const { revokeDirectory: _revokeDirectory, purgeDirectory: _purgeDirectory, ...directoryOperations } = directory;
   return {
+    ...directoryOperations,
+    getStoreTopics(input) { return topicsRead.deferred(input); },
     close() { if (db.open) db.close(); },
     getComparisons, searchPromotions, retrievePromotion, getSourcePermission: permission,
     getLatestDeals(input) { return latestRead.deferred(input); },
@@ -774,15 +809,17 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
         if (!db.prepare('SELECT 1 FROM sources WHERE source_id = ?').get(sourceId)) fail('source_unknown', 'The selected history source is unknown. Check the source ID before changing history.');
         db.prepare("UPDATE sources SET status = 'revoked', updated_at = ? WHERE source_id = ?").run(at, sourceId);
         db.prepare("UPDATE source_rights SET status = 'revoked' WHERE source_id = ?").run(sourceId);
+        const removedDirectorySnapshots = directory.revokeDirectory(sourceId, { purge });
         const removed = purge ? db.prepare('DELETE FROM observations WHERE source_id = ?').run(sourceId).changes : 0;
-        return { status: 'revoked', removedObservations: removed };
+        return { status: 'revoked', removedObservations: removed, removedDirectorySnapshots };
       }).immediate();
     },
     purgeExpired({ now = new Date().toISOString(), sourceId = 'kroger-public' } = {}) {
       text(sourceId, 80, true); const at = instant(now);
       return db.transaction(() => {
         if (!db.prepare('SELECT 1 FROM sources WHERE source_id = ?').get(sourceId)) fail('source_unknown', 'The selected history source is unknown. Check the source ID before changing history.');
-        return { removedObservations: db.prepare(`DELETE FROM observations AS o WHERE o.source_id = ? AND
+        const removedDirectorySnapshots = directory.purgeDirectory(sourceId, now);
+        return { removedDirectorySnapshots, removedObservations: db.prepare(`DELETE FROM observations AS o WHERE o.source_id = ? AND
           (o.retain_until <= ? OR o.rights_id IN (SELECT rights_id FROM source_rights WHERE status = 'revoked' OR expires_at <= ?)
           OR NOT EXISTS (SELECT 1 FROM sources s JOIN source_rights cr ON cr.rights_id = s.current_rights_id
             JOIN collection_jobs j ON j.job_id = o.job_id

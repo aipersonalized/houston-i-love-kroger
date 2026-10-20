@@ -3,6 +3,7 @@
 Choose your Kroger store, browse reported prices and promotions, and make a
 shopping list for this page visit. You can also look for past prices when they
 are available on the site you use.
+For assistant use, follow [Ask an assistant using stored data](#9-ask-an-assistant-using-stored-data).
 
 This independent project is in development. It is not affiliated with, endorsed
 by, or sponsored by The Kroger Co. Kroger is a trademark of its owner. The
@@ -321,3 +322,43 @@ descriptions wrap. This guide certifies no particular screen reader or browser.
 Operators should read [self-hosting](SELF_HOSTING.md), [history operations](HISTORY.md)
 and the [private service guide](PROMOTION_SERVICE.md). Assistant clients should
 use [the shared API contract](API.md).
+
+## 9. Ask an assistant using stored data
+
+The companion assistant reads this project's database service. It can find saved
+store choices for a ZIP, check collected topics, explain deals, check a package
+price, estimate requested quantities or look for dated past prices. It does not
+call Kroger, refresh prices, collect data or change a cart. Browser browsing above
+is a separate live-source workflow.
+
+1. Make the complete [companion skill folder](../skills/houston-i-love-kroger/SKILL.md)
+   available through your assistant's supported import or local-folder mechanism.
+   Follow its [installation and usage guide](../skills/houston-i-love-kroger/references/user-guide.md).
+   The assistant needs a suitable client and your installation's actual app URL;
+   copying a skill does not install a service or connector.
+2. Establish that your chosen assistant/tool/provider may receive the source data.
+   Do not send API credentials, private service tokens or agreements to chat.
+   Store-directory and product/history permissions are separate.
+3. Give a five-digit ZIP, or reuse a complete store ID you have already confirmed.
+   Ask it to find stored store choices. Check their names, addresses and collection
+   date, then tell it the exact location you intend to visit. It waits for your
+   choice; no separate browser visit is required when stored data is usable.
+4. Ask which completed topics have fresh data for that store. Topics describe
+   collected categories rather than every product or promotion. Choose relevant
+   ones for your question; the assistant can use clear category preferences you
+   already supplied. Stale or missing topics remain data gaps.
+5. Ask the actual task, for example: "Which reported milk deals look useful?",
+   "What price was saved for this package?", or "Estimate two of this item and
+   three of that one." Select actual returned packages before quantities. A
+   budget question needs your budget; partial costs, unknown currency, weight
+   and unavailable prices must stay clear beside the estimate.
+6. For past-price comparison, ask explicitly and compare matching store, package,
+   dates and price conditions. Saved past prices and unit estimates may be absent;
+   a missing unit basis cannot become a known price per ounce or pound.
+
+Saved store choices come from a bounded source query, up to ten locations within
+ten miles, and can be stale or empty. They do not prove every nearby store or a
+distance ranking. Promotion topics and deals cover completed bounded samples,
+not all store promotions. Missing saved store/category data,
+permission gaps and stale prices are explained as such; no read starts collection
+or silently switches to Kroger. Confirm current prices and conditions before buying.

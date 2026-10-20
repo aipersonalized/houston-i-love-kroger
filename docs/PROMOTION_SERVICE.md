@@ -1,6 +1,7 @@
 # Private promotion database service
 
-Run one private service to let companion agents find collected deals, check
+Run one private service to let companion agents discover stored locations and
+completed topics, find collected deals, check
 regular prices, estimate quantities and read dated history without contacting
 Kroger. The service owns the SQLite history
 database and its permission rules. It does not fetch a catalog or save shopper
@@ -33,7 +34,7 @@ disabled by default; an operator can enable at most three attempts, governed by
 durable quota reservations, backoff and a source lease. See the
 [collection limits and recovery guide](HISTORY.md#limits-and-recovery).
 
-The companion's latest/price/estimate/status/history requests query our stored data only. They
+The companion's stores/topics/latest/price/estimate/status/history requests query our stored data only. They
 need neither a Kroger credential nor a database file. Empty, stale, unavailable
 and permission-blocked results remain explicit and never trigger a live source
 fetch. The human page's current-price search is separate; ordinary shopping
@@ -293,7 +294,9 @@ runtime values; do not embed secrets in a script or skill.
    snapshot authority/retention, target scope, availability and price qualification
    after version3's nullable description/brand and paging index.
    Version 5 adds durable collector lease, request reservations and backoff;
-   it changes no supplier facts or grants. Known version 1, 2, 3 or 4 databases
+   it changes no supplier facts or grants. Version 6 adds separately permitted
+   directory snapshots and nullable labels for new product jobs. Known version
+   1, 2, 3, 4 or 5 databases
    are verified before migration. Their old prices and identifiers remain
    unchanged; missing descriptions stay missing. Do not run mixed-version
    collectors: an already-open older process cannot enforce the new lease.
@@ -302,7 +305,7 @@ runtime values; do not embed secrets in a script or skill.
 3. Recheck liveness, authenticated status and a permitted exact-store task.
    Stop if integrity or schema checks fail. Do not rename an unrelated file to
    make it look like this database.
-4. An older app version cannot open schema 5. For rollback, stop the new service
+4. An older app version cannot open schema 6. For rollback, stop the new service
    and restore a compatible, consistent private backup with its matching app
    version. There is no in-place schema downgrade. Account for data collected
    since the backup and its retention/revocation obligations.
@@ -329,3 +332,50 @@ production database, actual source agreement or deployed container network.
 Protocol and migration references: [Node.js HTTP](https://nodejs.org/download/release/v22.21.0/docs/api/http.html),
 [constant-time comparison](https://nodejs.org/docs/latest-v22.x/api/crypto.html#cryptotimingsafeequala-b)
 and [SQLite ALTER TABLE](https://www.sqlite.org/lang_altertable.html).
+
+## Stored directory and completed topics
+
+The same private service provides two additional read-only operations:
+
+| Method/path | Exact input | Database operation |
+| --- | --- | --- |
+| `POST /v1/stores/search` | `{ "zipCode": "00000" }` | `getStoredStores`; independently permitted completed ZIP query. |
+| `POST /v1/topics/search` | `{ "locationId": "TEST0001" }` | `getStoreTopics`; readable completed named topics for that exact store. |
+
+These are synthetic values. Public consumers use the app's
+[`api/v1/promotions/stores` and `topics`](API.md#stored-store-discovery) proxy,
+with the same private authentication, request limits, fixed errors, no-cache and
+whole-response deadline as other service reads. Neither endpoint calls Kroger,
+reads private operator configuration, changes policy or starts collection.
+
+`stores` returns a completed first-page ZIP query under separately reviewed
+directory rights: fixed ten-mile radius, at most ten source results, exact
+query/time, nullable store metadata and `completeNearbyStores: false`. It does
+not establish a nearest-store order or every nearby location. Show the results
+and let the person choose the exact store; then discover completed topics.
+Current-price and Cart workflows remain separate from these companion reads.
+
+`topics` lists only completed samples with an explicit stored label and original
+and current product-history permission. It returns fresh/stale snapshot state
+and raw product-result count; zero denotes a completed empty sample. Failed or
+running attempts do not introduce labels or refresh completed times. Configured
+but uncollected targets and private policy references are not exposed. Legacy
+topic hashes are not reversed or matched to current private configuration.
+
+Directory-source permission and product-source permission are independent. A
+product `status` response cannot grant directory access or reveal directory
+policy. Directory rows can be usable while topics/deals are permission-blocked,
+and the reverse can occur. The source starts pending; only the separate private
+[`stores:collect` operator task](HISTORY.md#collect-a-stored-zip-directory-separately)
+can populate it under an actual reviewed grant. Initialization, source access
+and the CLI recipient acknowledgement grant no storage/display/agent rights.
+
+Schema 6 adds directory rights, attempts, snapshots and bounded store rows,
+plus nullable labels for new completed product jobs. It leaves old facts,
+permissions and unknown labels intact. Verified schemas 1–5 migrate
+transactionally; earlier migration files stay unchanged. Stop every older app,
+service and operator process before opening the authoritative file with this
+version. Newly opened older code refuses schema 6, while an already-open older
+writer does not know all new metadata and policy rules. Do not mix versions.
+Keep its matching consistent stopped-state backup and code for rollback; there
+is no in-place downgrade. Migration does not begin source collection.

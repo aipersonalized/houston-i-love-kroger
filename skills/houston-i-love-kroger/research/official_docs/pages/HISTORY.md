@@ -40,7 +40,7 @@ Forwarding data to an external model service needs its own applicable permission
    npm run history:init -- --json --no-input
    ```
 
-4. Expect `status: ready`, schema version 5 and an observation count. On first
+4. Expect `status: ready`, schema version 6 and an observation count. On first
    use it should be zero. Repeating initialization preserves existing history.
 5. Protect this folder with your operating system's access controls. Unix
    directory mode requests do not establish Windows ACL protection. Keep the
@@ -50,7 +50,7 @@ The SQLite adapter uses foreign keys, WAL journaling, full synchronization,
 prepared queries and transactional writes. Opening an unrelated or incompatible
 database, a changed migration or linked database path is refused. Do not change
 the migration files after creating a database and expect an automatic upgrade.
-Verified version-1/2/3/4 schemas upgrade transactionally to version 5 after schema
+Verified version-1/2/3/4/5 schemas upgrade transactionally to version 6 after schema
 and migration-checksum checks. Earlier migration files remain unchanged.
 Version 2 added each operator topic's hash for later scope narrowing. Version 3
 adds nullable description/brand and a paging index for store-specific reads.
@@ -69,6 +69,14 @@ mix schema-4 collectors with schema-5 processes. An already-open older writer
 does not acquire the new lease. Older versions refuse to open a schema-5 file.
 Keep the original consistent schema-4 backup with its matching application for
 rollback; a schema-5 file has no in-place downgrade.
+
+Version 6 adds separate directory rights, completed ZIP-query snapshots,
+bounded store metadata and attempt state. New completed product jobs also retain
+their explicit topic label for discovery. Old labels remain null; no source
+facts, grants or labels are backfilled. Stop all older processes before migration;
+older versions refuse schema 6, and already-open older writers do not know all
+new metadata/policy rules. Rollback requires the matching stopped-state backup,
+not an in-place downgrade. Collection remains disabled after migration.
 
 In separate-service mode, set the operator command's `HISTORY_DB_PATH` to the
 service's authoritative file in its private storage environment. Do not initialize
@@ -245,7 +253,8 @@ or full executable path, then run `node --test tests/collection-pipeline.test.js
 For example, in PowerShell use `$env:COMPANION_PYTHON = 'python'`; in a POSIX
 shell use `COMPANION_PYTHON=python3 node --test tests/collection-pipeline.test.js`.
 Use the interpreter installed on your machine. The companion subprocess check
-is included only when that setting is present; ordinary Node-only tests exercise
+is included only when that setting is present, with explicit skipped subtests
+otherwise; ordinary Node-only tests exercise
 the same public read contract. Python 3.14 on Windows has been exercised here.
 
 ### Optional Compose operator jobs
@@ -326,7 +335,7 @@ See [backup and recovery](SELF_HOSTING.md#7-back-up-upgrade-and-recover).
 Observations retain source/store/product/item identity, supplied description and
 brand, package size, sale unit,
 reported prices and estimates, source dates, observation time, permission scope
-and retention deadline. No raw response, shopper identity, ZIP search or saved
+and retention deadline. No raw response, shopper identity, shopper ZIP search or saved
 shopping query is retained. Collection-run metadata reports bounded coverage.
 
 The reader uses only earlier retained observations for the exact store and item.
@@ -362,8 +371,10 @@ rights again and never run collection.
 The default maximum age is24hours, configured by the operator, not the caller.
 This is a site policy, not a supplier guarantee. History and latest deals cover
 only approved retained samples. Missing latest data is not permission to query
-Kroger through the companion. Without a known store reference and approved
-topic, establish that scope first; no stored ZIP directory is implemented.
+Kroger through the companion. Use the independently permission-gated
+[stored ZIP directory](API.md#stored-store-discovery) to choose an exact store,
+then [completed topics](API.md#completed-collection-topics) to discover readable
+collected scope. Missing data remains an operator dependency.
 
 ## Search and retrieve retained observations
 
@@ -400,7 +411,83 @@ the stored fact at observation time, not a current free offer, current deal,
 complete historical record or all-time low. Preserve unknown currency, basis,
 fulfillment and eligibility rather than filling them from store geography.
 
-For an upgrade, stop writers and take a consistent private backup first. Schema 5
+For an upgrade, stop writers and take a consistent private backup first. Schema 6
 has no in-place downgrade; restore a compatible backup with its matching older
 version if rolling back, while reconciling later collection and current rights.
 See [backup and recovery](SELF_HOSTING.md#7-back-up-upgrade-and-recover).
+
+## Collect a stored ZIP directory separately
+
+This optional operator task enables an assistant to start from a ZIP without
+making live supplier requests. It does not collect a shopper's lookup history.
+The operator chooses at most ten explicit ZIP queries in advance. The history
+collector's stores/topics and grant do not enable directory collection.
+
+1. Obtain and review an actual Public Locations data grant for systematic
+   collection, human display, intended agent recipients, retained fields, query
+   frequency, ZIP scope, retention, expiry, revocation and backups. API access
+   alone does not grant any of these rights.
+2. Copy `config/store-directory-plan.example.json` to private
+   `config/store-directory-plan.json`. Keep `enabled: false`. The source is
+   `kroger-public-locations`, separate from `kroger-public` product history.
+3. Add only approved five-digit strings to `zipCodes`; preserve leading zeros.
+   The plan fields are exactly `version: 1`, `sourceId`, `enabled`,
+   `intervalMinutes` (60–10,080; default 1,440), `maxRequestsPerDay` (4–1,000;
+   default 40), and `zipCodes` (zero to ten distinct ZIPs; at least one to run).
+   Radius is fixed at ten miles and limit at ten first-page source records.
+   Neither the plan nor read requests can expand those query bounds.
+4. Prepare private directory-policy metadata only after the grant is verified:
+   `sourceId`, `sourceLabel`, `status: "verified"`, opaque `evidenceReference`
+   and `reviewReference`, actual UTC `verifiedAt`/`expiresAt`, `retentionDays`
+   (1–3,660), `allowedZipCodes` (one to ten explicit strings), and
+   `allowedPurposes` containing exactly `store-directory-collection`,
+   `store-directory-display`, `store-directory-agent-access`. Keep actual
+   agreements, identities, paths and private values outside these public files.
+   A policy JSON file is not evidence that permission exists.
+5. Run `npm run stores:collect -- --help`, then
+   `npm run stores:collect -- --dry-run --json --no-input`. A dry run opens no
+   database, reads/imports/reviews no policy, and makes no network request.
+   It reports missing permission because existing stored rights were not read.
+6. Only after actual rights, private credentials and approved scope are ready,
+   set `enabled: true` and run once, supplying your private policy location:
+   `npm run stores:collect -- --directory-policy config/directory-policy.json --once --json --no-input`.
+   Use the authoritative service's private database, not a second web-container
+   file. The command emits fixed counts/status, not store records or private
+   configuration. The production adapter refuses certification or another source.
+7. Expect `completed`, with snapshots/stores/request counts, or a precise
+   blocked/deferred/failed state. All selected ZIP responses publish together
+   only after current and original rights and the source lease are rechecked.
+   An empty completed response replaces that ZIP's older snapshot. A failed ZIP
+   publishes no partial replacement or refreshed date. Repeated store identities
+   or conflicting metadata fail instead of silently dropping a store.
+8. If scheduling externally, honor the reviewed frequency and finite plan. One
+   scheduled bucket is idempotent while its completed snapshot is retained.
+   Source-wide leases, conservative four-attempt reservations per query, a true
+   rolling 24-hour local budget and provider backoff survive restart. There is
+   no automatic directory retry or unbounded watcher. Local budgets do not
+   replace the supplier's actual agreement or shared account limits.
+
+The [stored directory API](API.md#stored-store-discovery) preserves query ZIP,
+source identity, original rights, retrieval/completion times, raw result count
+and the fixed query bounds in private storage. It returns only source-reported
+store ID/name/address metadata, never inferred distance or coverage. A 10-mile
+first-ten query is not every nearby store or verified nearest-store ordering.
+Freshness uses the service's configured threshold (default 24 hours), not a
+supplier validity guarantee. Fresh-empty, missing, failed-attempt, stale and
+permission-denied outcomes remain distinct. Reads never collect or refresh.
+
+Use `history:maintain -- --source kroger-public-locations --status --json` to
+inspect local status, independent directory permission and global directory
+counts. For expiry/scope tightening, use the same source with `--purge-expired`;
+for an authorized revocation/deletion use
+`history:maintain -- --revoke-source kroger-public-locations --purge --json`.
+Directory snapshots/store rows are purged together; product history remains at
+its own source. Rights revocation immediately blocks reads; reinstatement is
+not implemented. A later broader grant never restores a shortened deadline.
+Row deletion does not prove physical erasure from WAL, devices or backups.
+
+An operator error after collection starts is not a zero-request result. An
+unverified publication uses null counts; an escaped failure omits unknown
+counts. Stop scheduling and inspect the recorded last attempt and storage before
+retrying. A failed storage close is reported before any completion output.
+Never treat a restart or a missing acknowledgment as proof no snapshot committed.

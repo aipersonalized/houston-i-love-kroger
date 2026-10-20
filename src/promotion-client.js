@@ -1,4 +1,5 @@
 import { priceQualificationGaps, storedAvailability, storedEstimateTotals } from './stored-pricing.js';
+import { validDiscoveryResponse } from './store-directory.js';
 
 export class PromotionClientError extends Error {
   constructor(code = 'promotion_service_unavailable') {
@@ -71,6 +72,7 @@ function validEstimate(value, input) {
 }
 function validResponse(value, operation, input) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  if (['getStoredStores', 'getStoreTopics'].includes(operation)) return validDiscoveryResponse(value, operation, input);
   if (operation === 'getComparisons') return ['available', 'permission_required'].includes(value.status) &&
     Array.isArray(value.histories) && value.histories.length === input.offers.length &&
     value.histories.every(row => row && typeof row.status === 'string');
@@ -199,6 +201,8 @@ export function createPromotionClient({ url, token, timeoutMs = 5000, maxRespons
   }
   return {
     getStatus() { return call('/v1/status', 'getStatus'); },
+    getStoredStores(input) { return call('/v1/stores/search', 'getStoredStores', input); },
+    getStoreTopics(input) { return call('/v1/topics/search', 'getStoreTopics', input); },
     getLatestDeals(input) { return call('/v1/deals/search', 'getLatestDeals', input); },
     searchPrices(input) { return call('/v1/prices/search', 'searchPrices', input); },
     estimateBasket(input) { return call('/v1/basket/estimate', 'estimateBasket', input); },

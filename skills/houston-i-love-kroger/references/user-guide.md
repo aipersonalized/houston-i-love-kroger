@@ -28,8 +28,8 @@ of chat. The assistant only needs the app's public base URL.
 3. If the host reads local files but has no importer, explicitly ask it to read
    this folder's `SKILL.md`. That is manual use, not verified automatic discovery.
 4. Refresh the session only as that host requires. Ask it to describe the skill.
-Expect stored latest deals, item price checks, qualified quantity estimates and
-dated history, an accepted store/topic, actual
+Expect stored ZIP/store choices, completed topics, latest deals, item price
+checks, qualified quantity estimates and dated history, an actual
    app URL and permitted data recipients.
 5. Check whether it supports Python execution or a suitable stored-read client.
    This bundle does not install a remote connector. If unavailable, follow the
@@ -38,7 +38,7 @@ dated history, an accepted store/topic, actual
 No provider API key, model SDK, `agents/openai.yaml` or particular model is
 required. Discovery/import across assistant hosts has not been universally tested.
 
-### 3. Establish the URL, permissions and exact store/topic
+### 3. Establish the URL and permissions
 
 1. Get the app base URL from the operator, including its folder path and ending
    slash, such as the synthetic local example
@@ -48,14 +48,13 @@ required. Discovery/import across assistant hosts has not been universally teste
    model provider that receives results. Read `references/source-permissions.md`
    in full. Asking for help or passing an acknowledgement flag does not grant
    source/recipient rights. Underlying agreements remain private.
-3. Supply an already accepted complete eight-character store ID, preserving any
-   leading zeros. If you need to select a store, choose one yourself in the
-   human web app using its full name/address/ID, then supply the accepted ID
-   through your permitted channel. The stored service currently has no store
-   directory. The assistant does not run a live ZIP lookup.
-4. For latest deals, obtain the exact approved collection topic from the operator,
-   for example an operator-confirmed `milk`. It is a collection label, not an
-   arbitrary live product search. There is no assumed default starter sample.
+3. Give the assistant a five-digit ZIP to find stored store choices, or a complete
+   store ID you have already confirmed. It will ask which exact returned
+   name/address you want before checking the store's collected topics. You do
+   not need a separate visit to the human page when stored data is usable.
+4. Directory metadata and product/history data have separate permissions. A
+   permitted store directory does not establish price access. Use the actual
+   operation's result; a promotion-status gap does not by itself block the directory.
 
 Missing recipient permission blocks source-record output. The assistant can
 still explain installation and fixed status without loading disallowed records.
@@ -76,8 +75,9 @@ still explain installation and fixed status without loading disallowed records.
    ```
 
    Replace the address with your actual app URL. `available` exits 0;
-   `permission_required` or `unavailable` exits 3. That missing prerequisite
-   is different from an empty database or a completed collection.
+   `permission_required` or `unavailable` exits 3 for that product/history
+   capability. Directory access is checked separately by its stored lookup.
+   Missing permission is different from an empty completed collection.
 
 The app must run before this client can connect. The tool makes no private file
 or database reads, follows no redirects, uses no ambient proxy/cookies, retries
@@ -85,7 +85,53 @@ nothing automatically and saves no results. Machine mode prints one JSON object
 and never prompts. Python 3.14 was used for local deterministic qualification;
 other platforms/runtime versions need their own execution checks.
 
-### 5. Read latest collected deals
+### 5. Choose your store and available collected topics
+
+You can ask: "Use the stored service to find Kroger choices for my ZIP. Ask me
+which location I want, then show what fresh collected topics are available."
+Supply your ZIP through a channel permitted by your privacy rules.
+
+1. Preview with a synthetic ZIP:
+
+   ```text
+   python scripts/promotions.py stores --zip 00000 --summary-only --dry-run --json --no-input
+   ```
+
+   Replace 00000 with your five digits and supply the actual `--base-url`.
+   The preview makes no network request. To read the saved directory after
+   recipient permission is established, remove `--dry-run` and replace
+   `--summary-only` with `--data-use-approved`. Full output includes store choices;
+   summary output deliberately omits ZIP, names, addresses and IDs.
+2. Check the directory's observation date and freshness. Choose the exact store
+   by its returned name and address. The assistant waits for your choice; it
+   does not pick the first result. These are saved results from a limited
+   ten-mile/up-to-ten-location query, not live distances or every nearby store.
+   Missing names/addresses must not be invented.
+3. Discover completed topics using the confirmed ID:
+
+   ```text
+   python scripts/promotions.py topics --store TEST0001 --data-use-approved --json --no-input
+   ```
+
+   Replace TEST0001 with the exact returned ID and supply your app URL. Each
+   returned topic has a collection date, fresh/stale state and product count.
+   Zero can mean a completed empty topic. Only fresh relevant topics support
+   current-price recommendations. They are saved collection labels, not live
+   grocery search words or a complete store catalog.
+4. Explain which groceries or budget question you want help with. The assistant
+   uses relevant returned fresh topics for the following deal/price/estimate
+   steps. If the intended category is unclear, it asks rather than choosing the
+   first topic. Dated-history-only requests need the confirmed store, not a
+   current topic.
+
+An empty fresh directory means that saved query returned no stores. `no_data`
+means the required saved directory or named completed topics are missing;
+saved topics without readable names cannot be guessed. `stale` means the
+saved facts are too old. Permission or connection failures remain separate.
+The assistant explains the operator/data gap and never calls Kroger or starts
+collection to fill it.
+
+### 6. Read latest collected deals
 
 A useful assistant request is: "Use our stored service for my accepted store
 and approved milk topic. What's a good discount, and what has a low package
@@ -134,7 +180,7 @@ how many returned deals it selected. Raw IDs and technical fields are not the
 default answer. Rankings cover fresh returned deals only; unnamed or incomplete
 rows are not given invented names or unsupported recommendations.
 
-### 6. Check a price and estimate requested quantities
+### 7. Check a price and estimate requested quantities
 
 The tool also reads regular-only prices and estimates selected quantities using
 actual stored item prices. Neither operation calls Kroger, changes a cart or saves
@@ -183,7 +229,7 @@ qualified estimate, not an invented total. Compare prices with history only when
 item/package, currency and basis match. `evaluatedAt` records estimate check time;
 source observation dates still say when its prices were collected.
 
-### 7. Search dated history or retrieve one observation
+### 8. Search dated history or retrieve one observation
 
 Use this separate route when you actually want earlier retained observations,
 not as an automatic substitute for missing/stale latest data.
@@ -217,7 +263,7 @@ History begins empty unless the operator has separately collected approved data.
 Neither this tool nor human shopper searches populate it. Failed collection,
 pending permission and empty retained history remain different results.
 
-### 8. Recover without exposing private settings
+### 9. Recover without exposing private settings
 
 Available data, complete/partial estimates and previews exit 0. A partial or
 unqualified estimate still needs its stated limits. Exit 1 means a request/format failure, 2 means invalid inputs and 3 means a
@@ -247,7 +293,8 @@ collection, cart changes or source inquiries.
 | Assistant reads latest collected deals | Stored latest route with accepted store/topic. |
 | Assistant examines past observations | Separate history search/retrieve route. |
 | Check item prices or requested quantities | Stored prices and source-backed estimate route; preserve qualifications/partial amounts. |
-| Select a store or shop directly | Human page and collected human guide. |
+| Choose a store/topics for an assistant | Stored ZIP snapshot, exact person choice and completed-topic discovery. |
+| Shop directly in the browser | Separate human page and collected human guide. |
 | Run your own app/service | Collected self-hosting/private-service manuals. |
 | Missing source authority or client | Setup/status explanation and human instructions without raw model exposure. |
 

@@ -14,6 +14,10 @@ read `research/official_docs/pages/HISTORY.md` section "1. Understand the source
 
 The app makes no built-in request to an external AI service. The companion
 queries only our database service, never Kroger or a live product/store route.
+Stored directory collection/display/agent access and product-history access are
+separate source purposes. Check the actual requested operation's grant and
+result; a product-history permission gap does not reject an independently
+permitted stored ZIP directory. A directory grant does not grant price access.
 Its HTTP tool can nevertheless send stored source records to the tool operator, agent
 host, model provider, logs or retained conversation. Determine that actual path
 before the first catalog request. A trusted local agent and a remote model are

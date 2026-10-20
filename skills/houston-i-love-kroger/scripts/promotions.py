@@ -60,6 +60,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def request(base, operation, body=None, timeout=15):
     paths = {'status': 'api/v1/promotions/status', 'latest': 'api/v1/promotions/latest',
+             'stores': 'api/v1/promotions/stores', 'topics': 'api/v1/promotions/topics',
              'prices': 'api/v1/promotions/prices', 'estimate': 'api/v1/promotions/estimate', 'search': 'api/v1/promotions/search',
              'retrieve': 'api/v1/promotions/retrieve'}
     headers = {'Accept': 'application/json', 'User-Agent': 'HoustonILoveKroger-PromotionsTool/1.0'}
@@ -117,6 +118,19 @@ def timestamp(value, name):
 
 
 def build_body(args):
+    discovery_fields = ('topic', 'term', 'product_id', 'item_id', 'from_date', 'to_date', 'observation_id', 'cursor', 'basket_items')
+    if args.operation == 'stores':
+        if (args.store is not None or any(getattr(args, name) is not None for name in discovery_fields) or args.limit != 20 or
+                not isinstance(args.zip_code, str) or not re.fullmatch(r'[0-9]{5}', args.zip_code)):
+            invalid('Stored stores takes only --zip with the complete five-digit ZIP. Radius and first-page limit belong to the stored query.')
+        return {'zipCode': args.zip_code}
+    if args.zip_code is not None:
+        invalid('--zip belongs only to stored stores discovery.')
+    if args.operation == 'topics':
+        if (not isinstance(args.store, str) or not re.fullmatch(r'[A-Za-z0-9]{8}', args.store) or
+                any(getattr(args, name) is not None for name in discovery_fields) or args.limit != 20):
+            invalid('Collected topics takes only --store with the complete eight-character store ID.')
+        return {'locationId': args.store}
     if args.operation == 'status':
         if any(getattr(args, name) is not None for name in ('store', 'topic', 'term', 'product_id', 'item_id', 'from_date', 'to_date', 'observation_id', 'cursor', 'basket_items')):
             invalid('Status does not take store or search fields.')
@@ -520,7 +534,118 @@ def latest_result(args, payload):
                         'Discard the result and ask the operator to check the stored-read API. No live fallback was made.') from None
 
 
+def discovery_result(args, payload):
+    """Strictly bind stored discovery; never follow a live-source fallback."""
+    try:
+        stores = args.operation == 'stores'
+        binding, expected = ('zipCode', args.zip_code) if stores else ('locationId', args.store)
+        if payload.get(binding) != expected:
+            raise ValueError()
+        status = payload['status']
+        if status == 'unavailable':
+            if (set(payload) - {'ok', 'apiVersion', 'status', binding, 'reason', 'message'} or
+                    payload.get('reason') not in {'promotion_service_not_configured', 'history_environment_mismatch'}):
+                raise ValueError()
+            return {'ok': True, 'apiVersion': 1, 'status': status, 'reason': payload['reason']}, EXIT_UNAVAILABLE
+        common = {'ok', 'apiVersion', 'status', binding, 'coverage'}
+        required = common | ({'stores', 'snapshot', 'latestAttempt'} if stores else {'topics'})
+        if (not required.issubset(payload) or set(payload) - required - {'reason', 'message'} or
+                status not in {'available', 'stale', 'no_data', 'permission_required'}):
+            raise ValueError()
+        if 'reason' in payload and payload['reason'] not in {
+                'directory_permission_required', 'directory_scope_not_approved', 'source_permission_required',
+                'source_scope_not_approved', 'no_completed_directory', 'no_completed_topics', 'snapshot_not_readable', 'snapshot_stale'}:
+            raise ValueError()
+        if 'message' in payload:
+            text(payload['message'], 'message', 1000)
+        coverage = payload['coverage']
+        if not isinstance(coverage, dict):
+            raise ValueError()
+        text(coverage['message'], 'coverage.message', 1000)
+
+        def attempt(value):
+            if value is None:
+                return
+            if (not isinstance(value, dict) or set(value) != {'status', 'startedAt', 'finishedAt'} or
+                    value['status'] not in {'running', 'completed', 'failed', 'blocked'}):
+                raise ValueError()
+            start = response_time(value['startedAt'])
+            if value['finishedAt'] is not None and response_time(value['finishedAt']) < start:
+                raise ValueError()
+
+        rows = payload['stores' if stores else 'topics']
+        if not isinstance(rows, list) or len(rows) > 10:
+            raise ValueError()
+        seen = set()
+        if stores:
+            if (set(coverage) != {'type', 'zipCode', 'radiusMiles', 'limitPerQuery', 'returnedStoreCount', 'completeNearbyStores', 'message'} or
+                    coverage['type'] != 'bounded_zip_directory' or coverage['zipCode'] != expected or
+                    type(coverage['radiusMiles']) is not int or coverage['radiusMiles'] != 10 or
+                    type(coverage['limitPerQuery']) is not int or coverage['limitPerQuery'] != 10 or coverage['completeNearbyStores'] is not False):
+                raise ValueError()
+            attempt(payload['latestAttempt'])
+            if status == 'permission_required' and payload['latestAttempt'] is not None:
+                raise ValueError()
+            snapshot = payload['snapshot']
+            if status in {'available', 'stale'}:
+                verify_snapshot(snapshot)
+                if ((status == 'available') != (snapshot['ageSeconds'] < snapshot['maxAgeSeconds']) or
+                        type(coverage['returnedStoreCount']) is not int or not 0 <= coverage['returnedStoreCount'] <= 10):
+                    raise ValueError()
+            elif snapshot is not None or coverage['returnedStoreCount'] is not None:
+                raise ValueError()
+            if (status != 'available' and rows) or (status == 'available' and len(rows) != coverage['returnedStoreCount']):
+                raise ValueError()
+            for row in rows:
+                if (not isinstance(row, dict) or set(row) != {'locationId', 'name', 'address'} or
+                        not isinstance(row['locationId'], str) or not re.fullmatch(r'[A-Za-z0-9]{8}', row['locationId']) or row['locationId'] in seen):
+                    raise ValueError()
+                seen.add(row['locationId'])
+                if row['name'] is not None:
+                    text(row['name'], 'name', 200)
+                if not isinstance(row['address'], dict) or set(row['address']) != {'addressLine1', 'addressLine2', 'city', 'county', 'state', 'zipCode'}:
+                    raise ValueError()
+                for value in row['address'].values():
+                    if value is not None:
+                        text(value, 'address', 512)
+        else:
+            if (set(coverage) != {'type', 'completeCatalog', 'message'} or coverage['type'] != 'completed_store_topics' or coverage['completeCatalog'] is not False):
+                raise ValueError()
+            for row in rows:
+                if not isinstance(row, dict) or set(row) != {'topic', 'status', 'snapshot', 'latestAttempt', 'returnedProductCount'}:
+                    raise ValueError()
+                label = collection_topic(row['topic'])
+                if label in seen or row['status'] not in {'available', 'stale'}:
+                    raise ValueError()
+                seen.add(label)
+                verify_snapshot(row['snapshot']); attempt(row['latestAttempt'])
+                if ((row['status'] == 'available') != (row['snapshot']['ageSeconds'] < row['snapshot']['maxAgeSeconds']) or
+                        type(row['returnedProductCount']) is not int or not 0 <= row['returnedProductCount'] <= 50):
+                    raise ValueError()
+            expected_status = ('permission_required' if status == 'permission_required' else 'no_data') if not rows else (
+                'available' if any(row['status'] == 'available' for row in rows) else 'stale')
+            if status != expected_status:
+                raise ValueError()
+        if args.summary_only:
+            result = {'ok': True, 'apiVersion': 1, 'status': status, 'returned': len(rows)}
+            if stores:
+                result['snapshot'] = None if payload['snapshot'] is None else {
+                    key: payload['snapshot'][key] for key in ('observedAt', 'completedAt', 'ageSeconds', 'maxAgeSeconds')}
+                result['latestAttempt'] = payload['latestAttempt']
+            else:
+                result['freshTopicCount'] = sum(row['status'] == 'available' for row in rows)
+                result['staleTopicCount'] = sum(row['status'] == 'stale' for row in rows)
+        else:
+            result = payload
+        return result, EXIT_OK if status == 'available' else EXIT_UNAVAILABLE
+    except (ValueError, KeyError, TypeError, ToolError):
+        raise ToolError('invalid_response', 'Stored discovery did not match the requested ZIP/store or documented format.',
+                        'Discard the result and ask the operator to check the installation. No live request was made.') from None
+
+
 def result_for(args, payload):
+    if args.operation in {'stores', 'topics'}:
+        return discovery_result(args, payload)
     if args.operation in {'latest', 'prices'}:
         return latest_result(args, payload)
     if args.operation == 'estimate':
@@ -572,15 +697,18 @@ def result_for(args, payload):
 def parser():
     p = argparse.ArgumentParser(allow_abbrev=False, description='Read stored deals/prices, estimate requested quantities or inspect dated history. No live Kroger requests, collection or purchases.',
         epilog='Examples: promotions.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json\n'
+        'promotions.py stores --zip 00000 --summary-only --dry-run --json\n'
+        'promotions.py topics --store TEST0001 --summary-only --dry-run --json\n'
         'promotions.py latest --store TEST0001 --topic milk --summary-only --json\n'
         'promotions.py prices --store TEST0001 --topic milk --summary-only --json\n'
         'promotions.py estimate --store TEST0001 --item milk PRODUCT_ID ITEM_ID 2 --summary-only --dry-run --json\n'
         'promotions.py search --store TEST0001 --term milk --summary-only --json\n'
         'promotions.py retrieve --store TEST0001 --observation-id 1 --data-use-approved --json\n'
         'Set HOUSTON_APP_URL or --base-url. Use --data-use-approved only after actual source/recipient permission is established; this flag grants no rights. Exit 0: available/complete/partial/preview; 1: request failure; 2: input; 3: permission required/unavailable/no data/stale/not found. Complete means arithmetic line coverage, never checkout total.')
-    p.add_argument('operation', choices=['status', 'latest', 'prices', 'estimate', 'search', 'retrieve'])
+    p.add_argument('operation', choices=['status', 'stores', 'topics', 'latest', 'prices', 'estimate', 'search', 'retrieve'])
     p.add_argument('--base-url', default=os.environ.get('HOUSTON_APP_URL', 'http://localhost:4173/apps/houston-i-love-kroger/'))
     p.add_argument('--store'); p.add_argument('--topic', help='Exact approved operator collection topic for latest/prices; no live search.')
+    p.add_argument('--zip', dest='zip_code', help='Five-digit ZIP for stored directory discovery only; no live Kroger request.')
     p.add_argument('--item', dest='basket_items', nargs=4, action='append', metavar=('TOPIC', 'PRODUCT_ID', 'ITEM_ID', 'QUANTITY'),
                    help='Repeat for 1–10 source-backed estimate lines with whole quantities 1–99; never caller prices.')
     p.add_argument('--term'); p.add_argument('--product-id'); p.add_argument('--item-id')
@@ -616,7 +744,7 @@ def main(argv=None):
     human = sys.stdout.isatty() and not (args.json or args.no_input or args.quiet)
     color = human and not args.no_color and not os.environ.get('NO_COLOR')
     if human:
-        print('Houston I Love Kroger — stored prices, deals and cost estimates\nRead dated collections; this tool never contacts Kroger or starts collection.')
+        print('Houston I Love Kroger — stored stores, prices, deals and estimates\nRead dated collections; this tool never contacts Kroger or starts collection.')
     try:
         result, code = run(args)
     except ToolError as error:

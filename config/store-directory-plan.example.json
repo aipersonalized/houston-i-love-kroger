@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "sourceId": "kroger-public-locations",
+  "enabled": false,
+  "intervalMinutes": 1440,
+  "maxRequestsPerDay": 40,
+  "zipCodes": []
+}

@@ -417,12 +417,14 @@ volume access/free space; never use volume deletion as a restart or upgrade.
 4. Install the reviewed update with `npm ci --ignore-scripts`, or rebuild the
    container from the exact committed source. Run checks and evaluate actual
    supported interfaces before release.
-5. Schema version **5** preserves the description/brand and paging additions from
+5. Schema version **6** preserves the description/brand and paging additions from
    version 3 and adds completed-snapshot permission, retention, target and product
    availability facts introduced in version 4, then adds private collector lease,
-   rolling request reservations and backoff. Stop all collectors and services
+   rolling request reservations and backoff, then adds directory rights,
+   ZIP-query snapshots/store metadata and explicit labels for new completed
+   product jobs. Existing topic hashes stay unnamed. Stop all collectors and services
    before upgrading; do not run mixed-version collectors against one file.
-   Verified version 1/2/3/4 databases upgrade transactionally
+   Verified version 1/2/3/4/5 databases upgrade transactionally
    after checksum/schema checks. Legacy missing text or snapshot provenance is
    never guessed: latest-deal reads cannot use unqualified old snapshots, while
    dated reads still require valid row provenance and rights. Unknown or modified
@@ -430,7 +432,7 @@ volume access/free space; never use volume deletion as a restart or upgrade.
 6. Recheck listener status, exact-store products, list calculations and permitted
    history search/retrieval. Record the exact source/image, actual checks and
    untested paths. Liveness alone does not qualify the upgrade.
-7. An older version cannot open schema 5. For rollback, stop services and restore
+7. An older version cannot open schema 6. For rollback, stop services and restore
    a compatible, still-authorized backup with its matching version. There is no
    in-place schema downgrade. Account for new observations since the backup and
    reconcile expiry, scope and revocation before serving any restored data.
@@ -440,3 +442,50 @@ WAL, backups or devices. Qualify a separate erasure process if your agreement
 requires one. No production backup service or successful recovery rehearsal is
 established by these instructions. See [history maintenance](HISTORY.md) and
 [service recovery](PROMOTION_SERVICE.md#7-upgrade-recover-and-troubleshoot).
+
+## 8. Optional stored ZIP and topic discovery
+
+An assistant can discover stores and collected topics through our database
+without using the live human store-search endpoint. This requires independent
+directory collection/display/agent rights, explicit operator-chosen ZIPs and a
+completed directory collection. Product API access or a product-history policy
+does not supply these directory rights.
+
+1. Finish the private service setup in [section 4a](#4a-native-private-promotion-service).
+   Keep its token private. The public app needs no new credentials, database
+   mount or AI-provider adapter; it proxies the new fixed read operations.
+2. Read [the directory operator guide](HISTORY.md#collect-a-stored-zip-directory-separately)
+   and obtain the actual source/recipient grant before enabling anything.
+3. Copy the disabled `config/store-directory-plan.example.json` into the private
+   directory plan. Enter only explicit approved ZIPs. Prepare the separate
+   reviewed directory-policy metadata privately; never put private agreements,
+   credentials or personal details into Git or assistant chat.
+4. Use `npm run stores:collect -- --help` and its dry run first. A dry run makes
+   no network/database/policy operation and reports its inspection limits.
+   Default pending/disabled plans make zero source requests and store no results.
+5. After the grant/configuration are qualified, run the bounded operator job once
+   against the service's authoritative database. Keep scheduling external and
+   finite. The runtime container includes `scripts/collect-stores.js` and the
+   disabled example; private live plans/policies must be supplied privately,
+   like the existing history operator task. Do not initialize a separate web
+   database and assume the service sees it.
+6. Ask the companion for `stores --zip ZIP`, using the actual app address and
+   established recipient authority. It returns stored name/address/ID facts,
+   observation time and fixed ten-mile/first-ten query limits. Choose the exact
+   store, then use `topics --store STORE_ID` to discover readable completed scope.
+   These reads never contact Kroger. The full human/CLI steps are in the
+   [user guide](USER_GUIDE.md).
+7. Check fresh-empty, no-data, stale, denied and service-failure recovery before
+   offering this workflow. No failure should become an empty-directory claim
+   or a live fallback. New source collection must remain disabled without rights.
+
+The service's existing `PROMOTION_MAX_AGE_SECONDS` controls the stored directory
+and topic freshness threshold too, default 86,400 seconds. This is an operator
+policy, not a supplier availability promise. A source first page is not all
+nearby stores or full promotion coverage. Clear old selections when the ZIP,
+store, snapshot, permission or installation changes.
+
+Schema 6 is required. Follow the stop-all-processes/consistent-backup procedure
+above before upgrading. An older file's topic hashes remain unknown until new
+permitted completed collections retain labels; no backfill or private-plan
+guessing occurs. Separate rights still gate real collection and public output.

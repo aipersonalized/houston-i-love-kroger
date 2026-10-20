@@ -1,8 +1,8 @@
 # Companion tools
 
-`promotions.py` helps humans and assistants read the latest collected deals or
-dated promotion history, check item prices and estimate requested quantities from
-our service through the app. It never contacts
+`promotions.py` helps humans and assistants find stored store choices and collected
+topics, read deals or dated history, check prices and estimate requested quantities
+from our service through the app. It never contacts
 Kroger, starts collection or needs a database mount or supplier key. The other
 commands maintain bundled documentation and do not query the app.
 
@@ -25,17 +25,22 @@ python scripts/promotions.py status --base-url http://localhost:4173/apps/housto
 ```
 
 The status command can report permission_required with exit 3; that is a
-successful connection with missing data authority. Replace the address with your
-actual installation. For an approved synthetic example, preview a request:
+successful connection with missing product/history authority. Directory permission
+is checked separately by `stores`. Replace the address with your actual
+installation. Preview the starting path using synthetic examples:
 
 ```text
+python scripts/promotions.py stores --zip 00000 --summary-only --dry-run --json --no-input
+python scripts/promotions.py topics --store TEST0001 --summary-only --dry-run --json --no-input
 python scripts/promotions.py latest --store TEST0001 --topic milk --summary-only --dry-run --json --no-input
 ```
 
-Expect preview status with network/writes false. For an actual read, replace
-TEST0001 with the accepted full store ID and milk with the exact approved
-operator collection topic. Supply the actual --base-url. Human store selection
-is separate; this client has no live ZIP/store lookup. After actual source and
+Expect preview status with network/writes false. For an actual read, supply the
+actual `--base-url` and use `stores --zip ZIP_CODE` for saved directory choices.
+Ask the person which exact name/address they want, then use `topics --store
+STORE_ID` for completed fresh/stale scopes. Replace synthetic TEST0001/milk in
+the deal example with that accepted full store ID and relevant fresh topic.
+These are database reads, never live ZIP lookups. After actual source and
 recipient permission is established, omit --dry-run and use --data-use-approved
 for records, or --summary-only for fixed state/count/freshness facts.
 
@@ -56,10 +61,13 @@ Retrieve a specific permitted observation with `retrieve --store STORE_ID
 --observation-id OBSERVATION_ID`; use IDs returned by your own search, the same
 base URL and the same data-output choice. See
 [the user guide](../references/user-guide.md)
-for installation, complete steps and recovery. No command prompts or writes data.
+for installation, complete steps and recovery. The promotion client never
+prompts or writes data.
 
 ## What It Does
 
+- Read dated ZIP directory choices and completed topic states; the person
+  confirms the exact store, and stale/missing data never causes a live lookup.
 - Read bounded latest store/topic snapshots, search dated history and retrieve
   selected observations with no automatic retry, collection or local cache.
 - Check stored regular/promo prices and estimate source-verified whole-unit
