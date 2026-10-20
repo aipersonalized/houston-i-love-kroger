@@ -1,0 +1,19 @@
+metadata:
+  scope: ""
+SKILL.md:
+  _purpose: "Terms that change integration decisions"
+  "Public API": "Self-service API offering after developer/app registration; not anonymous access."
+  "Partner API": "Separate eligibility and contractual access, even when documentation is visible."
+  "Documented": "Supported by an attributed official source, not necessarily tested live."
+  "Qualified": "Observed acceptance evidence for the exact interface, environment and operation."
+playbooks:
+  _purpose: "Procedure and private-execution boundaries"
+  "Bounded adapter": "A separately verified tool that keeps protected inputs local and emits only agreed fixed results."
+references:
+  _purpose: "Response interpretation"
+  "Store context": "Selected location identifying product evidence, without asserting customer presence."
+  "Stock signal": "Optional categorical inventory evidence, not a reservation or checkout guarantee."
+scripts:
+  _purpose: "Source-maintenance contracts"
+  "Mirror": "Attributed local public source copies and explicit inventory/status/hash accounting."
+  "Offline audit": "Local integrity validation with no network freshness claim."

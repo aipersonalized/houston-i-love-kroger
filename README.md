@@ -12,6 +12,12 @@ database service never fills that gap with sample prices.
 [Setup](docs/SELF_HOSTING.md) · [Shopping guide](docs/USER_GUIDE.md) ·
 [HTTP API](docs/API.md) · [Companion skill](skills/houston-i-love-kroger/SKILL.md)
 
+For integration work, the optional [Kroger API reference skill](skills/kroger-api/SKILL.md)
+includes a [step-by-step setup guide](skills/kroger-api/references/user-guide.md).
+It collects public documentation locally; it is separate from the shopping app
+and supplies no credentials or grocery API access. Supplier documents are
+excluded from this project's source distribution.
+
 [Open the hosted app](https://aipersonalized.io/apps/houston-i-love-kroger/)
 or run your own installation below. A hosted operator controls its enabled
 features and source permissions.
