@@ -8,6 +8,7 @@ import { IMAGE_HOSTS } from './catalog.js';
 import { CartSessions } from './cart.js';
 import { validPriceSearchRequest, validEstimateRequest } from './stored-pricing.js';
 import { validDirectoryRequest, validTopicsRequest } from './store-directory.js';
+import { productPageContinuation } from './product-pagination.js';
 
 const PUBLIC_FILES = new Map([
   ['', ['index.html', 'text/html; charset=utf-8']],
@@ -234,9 +235,31 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
           const perQueryLimit = input.term === null ? SAMPLE_QUERY_LIMIT : SEARCH_QUERY_LIMIT;
           const products = [];
           const queries = [];
-          // No pagination, catalog crawl, result cache or durable search history.
+          let page = null;
+          // One explicit page per request. No traversal, accumulation or storage.
           for (const term of topics) {
-            const found = await client.searchProducts(input.locationId, term, { signal: abort.signal, limit: perQueryLimit });
+            let found;
+            if (input.term !== null && typeof client.searchProductPage === 'function') {
+              const response = await client.searchProductPage(input.locationId, term, {
+                signal: abort.signal, limit: perQueryLimit,
+                ...(input.start === undefined ? {} : { start: input.start }),
+              });
+              const reported = response?.pagination;
+              if (!reported || typeof reported !== 'object' || Array.isArray(reported) ||
+                  !['start', 'limit', 'total'].every(key => reported[key] === null || Number.isSafeInteger(reported[key]) && reported[key] >= 0) ||
+                  input.start !== undefined && reported.start !== null && reported.start !== input.start) {
+                throw new AppError('upstream_format', 'The returned page did not match this search. Try a new search.', 502);
+              }
+              found = response.products;
+              page = { requestedStart: input.start ?? null,
+                reported: { start: reported.start, limit: reported.limit, total: reported.total },
+                continuation: productPageContinuation(reported, found?.length) };
+            } else {
+              if (input.start !== undefined) throw new AppError('pagination_unavailable', 'This installation cannot load another page. Start a more specific search.', 503);
+              found = await client.searchProducts(input.locationId, term, { signal: abort.signal, limit: perQueryLimit });
+              if (input.term !== null) page = { requestedStart: null,
+                reported: { start: null, limit: null, total: null }, continuation: { status: 'unknown', nextStart: null } };
+            }
             if (!Array.isArray(found) || found.length > perQueryLimit) throw new AppError('upstream_format', 'Kroger returned an unsupported result. Try again later.', 502);
             products.push(...found);
             queries.push({ term, returnedProducts: found.length });
@@ -263,7 +286,7 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
                 ? 'A bounded sample of up to 15 products each for milk, bread and eggs. This does not cover all store promotions.'
                 : 'Up to 50 products matching this search. This does not cover all matching products or all store promotions.' },
             offers: orderOffers(result.offers, input.sort), summary: result.summary,
-            sourceEvidence: result.sourceEvidence,
+            sourceEvidence: result.sourceEvidence, page,
             ...(path.endsWith('/products/search') ? {
               products: orderProducts(input.includeAll ? result.products : result.offers, input.sort),
             } : {}),

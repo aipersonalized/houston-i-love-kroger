@@ -170,7 +170,7 @@ test('a short explicit search remains limited to the first matching results and 
     summary: { products: 4, usablePriced: 2, qualifyingPromotions: 1 },
   });
   assert.equal(view.summary, '4 product results checked. 2 priced items loaded; 1 qualifying promotion.');
-  assert.match(view.selection, /up to the first 50 matching results for synthetic/u);
+  assert.match(view.selection, /up to 50 matching results for synthetic on this page/u);
   assert.match(view.coverage, /limited selection for this store\. More promotions may be available/u);
   assert.doesNotMatch(view.coverage + view.selection, /all promotions found|full coverage|load more/iu);
 });

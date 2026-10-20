@@ -7,6 +7,7 @@ import * as catalog from '../public/catalog.js';
 import * as ordering from '../public/ordering.js';
 import { compareOffers } from '../src/deals.js';
 import { product as syntheticProduct, NOW } from './fixtures.js';
+import { productPageContinuation } from '../src/product-pagination.js';
 
 // Run the real page actions, request guards and event handlers. Only the DOM,
 // clock's display timezone and fetch transport are substituted. These checks
@@ -96,9 +97,200 @@ function sourceSalePage() {
     syntheticProduct({ productId: 'date', promo: 2.555,
       price: { effectiveDate: { value: '2026-10-19', timezone: 'UTC' } } }),
   ], { now: NOW });
-  return { ...result, scope: { locationId: 'TEST0001', mode: 'search', topics: ['milk'],
+  return { ...result, scope: { locationId: 'TEST0001', mode: 'search', term: 'milk', topics: ['milk'],
     productLimit: 50, perQueryLimit: 50, exhaustive: false }, retrievedAt: new Date(NOW).toISOString() };
 }
+
+function pagedProducts({ start = null, term = 'milk bread', locationId = 'TEST0001', reported, rows } = {}) {
+  const products = rows ?? [syntheticProduct({ productId: `page-${start ?? 'initial'}` }),
+    syntheticProduct({ productId: `fractional-${start ?? 'initial'}`, promo: 1.555 })];
+  const result = compareOffers(products, { now: NOW });
+  const pagination = reported ?? { start: start ?? 0, limit: 50, total: 1000 };
+  return { ...result, retrievedAt: new Date(NOW).toISOString(),
+    scope: { locationId, term, mode: 'search', topics: [term], productLimit: 50, perQueryLimit: 50, exhaustive: false },
+    page: { requestedStart: start, reported: pagination, continuation: productPageContinuation(pagination, products.length) } };
+}
+
+function readyProductSearch(page, term = ' milk   bread ') {
+  page.run(`state.connection = 'ready'; state.configured = true; ui['search-term'].value = ${JSON.stringify(term)};`);
+}
+
+test('next results explicitly replaces one page while retaining the store, basket and unrankable source sale access', async () => {
+  const page = shopperPage(async call => response(pagedProducts({ start: call.body.start ?? null })));
+  readyProductSearch(page);
+  await page.run('loadDeals()');
+  assert.equal(page.calls.length, 1, 'Loading a page must not start automatic traversal.');
+  assert.equal(page.calls[0].body.term, 'milk bread', 'Repeated whitespace uses the same canonical confirmed query as the server.');
+  assert.equal(Object.hasOwn(page.calls[0].body, 'start'), false);
+  assert.equal(page.node('next-products').hidden, false);
+  assert.match(page.node('product-page-context').textContent, /1000 matching products/u);
+  assert.match(page.node('product-page-context').textContent, /not promotion totals/u);
+  page.run("state.basket = [{ key: 'kept', product: state.results.products[0], quantity: 2, locationId: state.selectedStore.locationId }];");
+  const basketBefore = page.run('JSON.stringify(state.basket)');
+  await page.run('loadDeals({ next: true })');
+  assert.equal(page.calls.length, 2);
+  assert.equal(page.calls[1].body.start, 2);
+  assert.equal(page.calls[1].body.locationId, 'TEST0001');
+  assert.equal(page.calls[1].body.term, 'milk bread');
+  assert.equal(page.run('state.results.products.length'), 2, 'Pages replace, never accumulate.');
+  assert.equal(page.run('state.results.products[0].source.productId'), 'page-2');
+  assert.equal(page.run('state.results.sourceEvidence.records.length'), 2);
+  assert.equal(page.node('reported-sales-list').children.length, 1);
+  assert.equal(page.run('JSON.stringify(state.basket)'), basketBefore);
+  assert.equal(page.run('state.selectedStore.locationId'), 'TEST0001');
+  assert.match(page.node('deal-status').textContent, /Results page replaced/u);
+});
+
+test('page captions show one-based raw-product ranges for first and replacement pages', async () => {
+  const page = shopperPage(async call => {
+    const start = call.body.start ?? null;
+    const rows = Array.from({ length: 50 }, (_, index) => syntheticProduct({ productId: `range-${start ?? 0}-${index}` }));
+    return response(pagedProducts({ start, rows }));
+  });
+  readyProductSearch(page);
+  await page.run('loadDeals()');
+  assert.match(page.node('product-page-context').textContent, /Product results 1–50\./u);
+  assert.doesNotMatch(page.node('product-page-context').textContent, /reported starting position/u);
+  await page.run('loadDeals({ next: true })');
+  assert.equal(page.calls[1].body.start, 50);
+  assert.match(page.node('product-page-context').textContent, /Product results 51–100\./u);
+  assert.match(page.node('product-page-context').textContent, /50 product results before filters and price checks/u);
+  assert.match(page.node('product-page-context').textContent, /1000 matching products.*not promotion totals/u);
+  assert.match(page.node('product-page-status').textContent, /products may repeat or be skipped/u);
+});
+
+test('unknown positions, empty pages and unsafe arithmetic omit the displayed product range', async () => {
+  for (const [reported, rows] of [
+    [{ start: null, limit: 50, total: null }, [syntheticProduct()]],
+    [{ start: 0, limit: 50, total: 0 }, []],
+    [{ start: Number.MAX_SAFE_INTEGER, limit: 50, total: null }, [syntheticProduct()]],
+  ]) {
+    const page = shopperPage(async () => response(pagedProducts({ reported, rows })));
+    readyProductSearch(page);
+    await page.run('loadDeals()');
+    assert.notEqual(page.run('state.results'), null, 'The valid returned page remains accessible.');
+    const caption = page.node('product-page-context').textContent;
+    assert.doesNotMatch(caption, /Product results \d+–\d+/u);
+    assert.doesNotMatch(caption, /reported starting position/u);
+    assert.match(caption, new RegExp(`This page returned ${rows.length} product results before filters and price checks`, 'u'));
+    assert.match(caption, /not promotion totals/u);
+    if (reported.total === null) assert.match(caption, /matching-product total is not reported/u);
+  }
+});
+
+test('missing-item accounting uses singular and plural product-result grammar', async () => {
+  for (const count of [1, 2]) {
+    const rows = Array.from({ length: count }, (_, index) => ({ productId: `missing-${index}`, description: 'Details unavailable', items: [] }));
+    const page = shopperPage(async () => response(pagedProducts({ rows })));
+    readyProductSearch(page);
+    await page.run('loadDeals()');
+    assert.notEqual(page.run('state.results'), null);
+    const caption = page.node('source-accounting').textContent;
+    assert.match(caption, count === 1 ? /1 product result has no item details/u : /2 product results have no item details/u);
+    assert.doesNotMatch(caption, /1 product results have/u);
+    assert.match(caption, /sale status is unknown/u);
+  }
+});
+
+test('a failed or cancelled next page keeps the current page and retries the exact confirmed offset', async () => {
+  for (const failure of ['network', 'cancel']) {
+    const waiting = deferred();
+    let calls = 0;
+    const page = shopperPage(async call => {
+      calls++;
+      if (calls === 2) {
+        if (failure === 'network') throw new Error('Synthetic page failure.');
+        return waiting.promise; // Ignore abort to exercise the late-response guard.
+      }
+      return response(pagedProducts({ start: call.body.start ?? null }));
+    });
+    readyProductSearch(page);
+    await page.run('loadDeals()');
+    const before = page.run('JSON.stringify(state.results)');
+    const pending = page.run('loadDeals({ next: true })');
+    await page.run('loadDeals({ next: true })');
+    assert.equal(page.calls.length, 2, 'A repeated click during a pending page must not dispatch another request.');
+    if (failure === 'cancel') {
+      assert.equal(page.node('next-products').disabled, true);
+      page.node('cancel-deals').dispatch('click');
+      assert.equal(page.calls[1].signal.aborted, true);
+      waiting.resolve(response(pagedProducts({ start: 2 })));
+    }
+    await pending;
+    assert.equal(page.run('JSON.stringify(state.results)'), before);
+    assert.equal(page.node('next-products').hidden, false);
+    assert.equal(page.node('next-products').disabled, false);
+    assert.match(page.node('deal-status').textContent, /current page/iu);
+    await page.run('loadDeals({ next: true })');
+    assert.equal(page.calls[2].body.start, page.calls[1].body.start);
+    assert.equal(page.run('state.results.page.requestedStart'), 2);
+  }
+});
+
+test('input and store changes invalidate page context and late responses cannot replace a newer search', async () => {
+  for (const change of ['term', 'store']) {
+    const waiting = deferred();
+    let calls = 0;
+    const page = shopperPage(async call => {
+      if (++calls === 2) return waiting.promise;
+      return response(pagedProducts({ start: call.body.start ?? null, term: call.body.term, locationId: call.body.locationId }));
+    });
+    readyProductSearch(page);
+    await page.run('loadDeals()');
+    const pending = page.run('loadDeals({ next: true })');
+    if (change === 'term') page.run("ui['search-term'].value = 'salt'; ui['search-term'].dispatch('input');");
+    else page.run("clearSelection(); state.selectedStore = { locationId: 'TEST0002', name: 'Other synthetic store', address: {} }; ui['search-term'].value = 'salt';");
+    assert.equal(page.run('state.results'), null);
+    assert.equal(page.node('next-products').hidden, true);
+    await page.run('loadDeals({ next: true })');
+    assert.equal(page.calls.length, 2, 'Reset context cannot continue the old page.');
+    await page.run('loadDeals()');
+    assert.equal(Object.hasOwn(page.calls[2].body, 'start'), false);
+    waiting.resolve(response(pagedProducts({ start: 2 })));
+    await pending;
+    assert.equal(page.run('state.results.scope.term'), 'salt');
+    assert.equal(page.run('state.results.scope.locationId'), change === 'store' ? 'TEST0002' : 'TEST0001');
+    assert.equal(page.run('state.results.page.requestedStart'), null);
+  }
+});
+
+test('wrong-context or malformed next pages fail visibly without replacing the confirmed page', async () => {
+  for (const corrupt of [value => { value.scope.term = 'different'; }, value => { value.scope.locationId = 'TEST0002'; },
+    value => { value.page.requestedStart = 3; }, value => { value.page.reported.start = 0; },
+    value => { value.page.continuation.nextStart = 2; }, value => { value.page.reported.total = '1000'; },
+    value => { value.summary.products = 0; }]) {
+    let calls = 0;
+    const page = shopperPage(async call => {
+      const payload = pagedProducts({ start: call.body.start ?? null });
+      if (++calls === 2) corrupt(payload);
+      return response(payload);
+    });
+    readyProductSearch(page);
+    await page.run('loadDeals()');
+    const before = page.run('JSON.stringify(state.results)');
+    await page.run('loadDeals({ next: true })');
+    assert.equal(page.run('JSON.stringify(state.results)'), before);
+    assert.match(page.node('deal-status').textContent, /could not load/u);
+    assert.equal(page.node('next-products').hidden, false);
+  }
+});
+
+test('unknown, source-limit and reported-end page states never guess a next page or a store promotion total', async () => {
+  for (const [start, reported, expected] of [
+    [null, { start: null, limit: null, total: null }, /cannot be confirmed/u],
+    [null, { start: 250, limit: 50, total: 1000 }, /more specific/u],
+    [null, { start: 0, limit: 50, total: 2 }, /end of the matching products/u],
+  ]) {
+    const page = shopperPage(async () => response(pagedProducts({ start, reported })));
+    readyProductSearch(page);
+    await page.run('loadDeals()');
+    assert.equal(page.node('next-products').hidden, true);
+    assert.match(page.node('product-page-status').textContent, expected);
+    assert.match(page.node('product-page-context').textContent, /not promotion totals/u);
+    await page.run('loadDeals({ next: true })');
+    assert.equal(page.calls.length, 1);
+  }
+});
 
 test('a shopper can inspect unrankable sale amounts with exact precision, qualifiers and source filters', async () => {
   const page = shopperPage(async () => response(sourceSalePage()));

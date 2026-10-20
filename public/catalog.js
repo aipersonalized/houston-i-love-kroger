@@ -3,6 +3,39 @@ export function currentCents(product) {
   return Number.isSafeInteger(cents) && cents > 0 ? cents : null;
 }
 
+export function validProductPage(page, scope, returnedCount, request) {
+  if (request && (scope?.locationId !== request.locationId || scope.term !== request.term ||
+      scope.mode !== (request.term === null ? 'sample' : 'search'))) return false;
+  // Older installations can still return a first bounded page without page
+  // metadata. They cannot acknowledge an explicit continuation request.
+  if (page === undefined) return request?.start === undefined;
+  if (scope?.mode === 'sample') return page === null && request?.start === undefined;
+  if (!page || scope?.mode !== 'search' || !Number.isSafeInteger(returnedCount) || returnedCount < 0 || returnedCount > 50 ||
+      !(page.requestedStart === null || Number.isInteger(page.requestedStart) && page.requestedStart >= 1 && page.requestedStart <= 250) ||
+      request && page.requestedStart !== (request.start ?? null)) return false;
+  const reported = page.reported;
+  const continuation = page.continuation;
+  const fact = value => value === null || Number.isSafeInteger(value) && value >= 0;
+  if (!reported || !['start', 'limit', 'total'].every(key => fact(reported[key])) || !continuation ||
+      page.requestedStart !== null && reported.start !== null && page.requestedStart !== reported.start) return false;
+  const { start, limit, total } = reported;
+  const next = start === null ? null : start + returnedCount;
+  let status = 'unknown';
+  let nextStart = null;
+  if (start !== null && Number.isSafeInteger(next) &&
+      (limit === null || limit >= 1 && limit <= 50 && returnedCount <= limit) &&
+      (total === null || returnedCount === 0 || next <= total)) {
+    if (total !== null && next >= total) status = 'reported_end';
+    else if (returnedCount > 0) {
+      if (next > 250) status = 'source_limit';
+      else if (next >= 1 && (page.requestedStart === null || next > page.requestedStart)) {
+        status = 'available'; nextStart = next;
+      }
+    }
+  }
+  return continuation.status === status && continuation.nextStart === nextStart;
+}
+
 export function filterProducts(products, { view = 'all', snap = 'all', declaration = '' } = {}) {
   return products.filter(product => {
     if (view === 'promotions' && product.pricing?.status !== 'promotion') return false;

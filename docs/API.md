@@ -177,7 +177,7 @@ routing service.
 
 ## Browse all priced products
 
-`POST api/v1/products/search` accepts the same store, optional term and sort as
+`POST api/v1/products/search` accepts the same store, optional term, page start and sort as
 the promotion endpoint below, plus optional boolean `includeAll` (default `true`).
 Unknown fields, `null`/non-boolean `includeAll` and invalid inputs are rejected.
 
@@ -279,6 +279,7 @@ with a separate unknown group. It does not calculate a walking route.
 | `locationId` | Yes | Exact eight-character alphanumeric store ID; keep leading zeros. |
 | `term` | No | A search with 3–80 characters and at most eight words. Omit it for the starter sample. |
 | `sort` | No | `savings` (default), `percent` or `price`. |
+| `start` | No | Integer 1–250, only with an explicit term. Omit it for the supplier's default page. Zero, strings, fractions and sample pagination are rejected. |
 
 An omitted term immediately loads the selected store's starter sample:
 
@@ -306,6 +307,63 @@ Every product request includes the chosen store and the in-store fulfillment
 filter `ais`. No nationwide price is substituted when local pricing is missing.
 The response always echoes the store under `scope.locationId`; clients must
 discard a response if it belongs to a previously selected store.
+
+### Explicit product pages
+
+Each current search response adds `page`. The three-query starter sample has
+`page: null`; it has no next-page operation. An explicit term response has:
+
+```json
+{
+  "page": {
+    "requestedStart": null,
+    "reported": { "start": 0, "limit": 50, "total": 1000 },
+    "continuation": { "status": "available", "nextStart": 50 }
+  }
+}
+```
+
+This synthetic example assumes fifty returned products. `requestedStart: null`
+means no start parameter was sent. `reported` preserves supplier-reported safe
+nonnegative integers or `null` when unavailable; request defaults and returned
+counts never substitute for missing source facts. Reported `total` counts
+matching raw products, not qualifying promotions or all store promotions.
+Reported zero-based starts are retained; explicit requests still require 1–250.
+The human page caption converts a known reported start and positive raw-product
+count to a one-based range, such as **Product results 1–50**. Unknown starts,
+empty pages and unsafe range arithmetic omit that caption; requested starts
+never substitute for missing reported positions. The range does not promise
+stable ordering or distinct products across pages.
+
+| Continuation status | Meaning and next action |
+| :--- | :--- |
+| `available` | `nextStart` is a bounded candidate based on the reported start plus returned raw-product count. Send it only in an explicit new request with the same exact store and canonical term. |
+| `reported_end` | The reported matching-product boundary has been reached. This is no guarantee of a stable, exhaustive search or every promotion. `nextStart` is `null`. |
+| `source_limit` | The next candidate exceeds the documented start cap of 250. Refine the term; no bypass or automatic partitioning occurs. `nextStart` is `null`. |
+| `unknown` | Source facts do not establish safe continuation, including unexplained empty pages. No offset or total is guessed. `nextStart` is `null`. |
+
+For example, explicitly send `{ "locationId": "01400001", "term": "whole milk",
+"start": 50 }` after accepting the corresponding candidate. Both current search
+routes make one bounded product-page call, normalize that page independently and
+return its own evidence/counts. They never accumulate, traverse automatically,
+cache results, write history or invoke collection. Fuzzy order can change;
+repeated/skipped products and changing totals remain possible.
+
+An explicit requested/reported start disagreement is an upstream-format failure,
+not rewritten metadata or an actionable looping cursor. Malformed page adapter
+responses also fail visibly. Existing injected single-array clients remain
+supported for default requests with null reported facts and unknown continuation;
+they cannot accept an explicit start and return `pagination_unavailable` (503).
+The real client uses its accepted `searchProductPage` interface for term pages;
+the sample and collector retain their existing single-array interface.
+
+The human **Next results page** button replaces the current result page and keeps
+the selected store/shopping list. Failures and cancellation keep the confirmed
+page and same retry candidate. Term/store changes invalidate continuation; stale
+responses cannot replace a newer search. Response validation binds canonical
+term, exact store and requested start, checks raw-count/evidence agreement and
+derives continuation from reported facts. Sorting/source filters apply only to
+the loaded page; source-evidence inspection remains available.
 
 ### Response example
 

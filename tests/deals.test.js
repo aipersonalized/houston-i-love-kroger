@@ -68,6 +68,18 @@ test('products search defaults to all priced products and rejects invented brows
   assert.throws(() => validateProductSearch({ locationId: STORE_ID, page: 2 }));
 });
 
+test('explicit term pages accept only integer starts from 1 to 250 and never page the starter sample', () => {
+  assert.deepEqual(validateDealSearch({ locationId: STORE_ID, term: '  milk   bread  ', start: 50 }),
+    { locationId: STORE_ID, term: 'milk bread', sort: 'savings', start: 50 });
+  assert.equal(validateProductSearch({ locationId: STORE_ID, term: 'milk', start: 250 }).start, 250);
+  for (const start of [0, -1, 251, 1.5, '50', null, [], true]) {
+    assert.throws(() => validateDealSearch({ locationId: STORE_ID, term: 'milk', start }));
+    assert.throws(() => validateProductSearch({ locationId: STORE_ID, term: 'milk', start }));
+  }
+  assert.throws(() => validateProductSearch({ locationId: STORE_ID, start: 1 }));
+  assert.equal(Object.hasOwn(validateProductSearch({ locationId: STORE_ID, term: 'milk' }), 'start'), false);
+});
+
 test('source facts, fractional per-unit estimates and soldBy stay unchanged', () => {
   const input = product({ description: '<b>Example® milk</b>', item: { size: '16 oz / 2 pk', soldBy: 'Weight',
     price: { regular: 4.99, promo: 3.49, regularPerUnitEstimate: 0.311875, promoPerUnitEstimate: 0.218125 } } });

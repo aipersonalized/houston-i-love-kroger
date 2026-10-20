@@ -81,6 +81,33 @@ Clear the field and select **Search** for the starter sample. Editing text clear
 the old results; it does not search on every keystroke. Your existing list stays
 while you search the same store.
 
+After an explicit grocery search, read the page information below the results.
+It distinguishes this page's returned products from Kroger's reported count of
+matching products. These counts are not the number of promotions at your store.
+When Kroger reports a usable starting position, a label such as **Product results
+1–50** shows this page's range before filters and price checks. Empty pages and
+pages without a usable starting position omit the range. An unavailable total
+stays unknown.
+
+When **Next results page** is available:
+
+1. Select it to replace these results with another bounded page for the same
+   confirmed search and store. It keeps your selected store and shopping list.
+2. Wait for the page to finish. It does not load more pages automatically or
+   accumulate a catalog. Your existing results remain while it loads.
+3. Read the new page and its **Checked** time. Sorting and filters apply to the
+   loaded page, including **Other reported sale prices**. Search order can
+   change; products may repeat or be skipped between pages.
+
+If the next page fails or you cancel it, the current page remains. Select
+**Next results page** again to retry the same page. Editing the search or changing
+stores clears the old page context; submit the new search to begin again.
+At the available paging limit, use a more specific grocery or brand. A reported
+end means the matching-product results for this search reached Kroger's reported
+boundary; it does not establish full store-promotion coverage. If another page
+cannot be confirmed, no next offset is guessed. The starter sample has no next
+page button.
+
 **Products to show** starts at **All priced products**. Usable regular-price
 groceries stay visible alongside qualifying promotions. A reported price without
 a usable regular comparison can appear without a savings claim. A zero or
