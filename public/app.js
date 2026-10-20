@@ -1,6 +1,6 @@
 import { orderProducts } from './ordering.js';
 import { addBasketItem, setBasketQuantity, estimateBasket, groupBasketByAisle, productKey, reportedAisles, cartItems } from './basket.js';
-import { currentCents, filterProducts, declarationsFor, productDeclarations, validKrogerLink, productImage, exclusionText, historicalPrice, reportedProductDetails } from './catalog.js';
+import { currentCents, filterProducts, otherReportedSales, validSourceEvidence, declarationsFor, productDeclarations, validKrogerLink, productImage, exclusionText, historicalPrice, reportedProductDetails } from './catalog.js';
 
 const byId = id => document.getElementById(id);
 const ui = Object.fromEntries([
@@ -12,6 +12,7 @@ const ui = Object.fromEntries([
   'search-error', 'deal-status', 'cancel-deals', 'results-region', 'result-count',
   'result-summary', 'retrieved-at', 'sort-order', 'sample-coverage', 'query-coverage', 'empty-results',
   'offers-list', 'excluded-summary', 'history-title', 'history-message',
+  'reported-sales', 'reported-sales-title', 'reported-sales-count', 'reported-sales-list', 'source-accounting',
   'store-details', 'store-details-content', 'product-view', 'snap-filter-field', 'snap-filter',
   'declaration-filter-field', 'declaration-filter', 'empty-results-title', 'empty-results-message',
   'list-count', 'basket-store', 'clear-basket', 'basket-status', 'basket-empty', 'basket-content',
@@ -234,6 +235,11 @@ function clearResults() {
   state.results = null;
   ui['results-region'].hidden = true;
   ui['offers-list'].replaceChildren();
+  ui['reported-sales'].hidden = true;
+  ui['reported-sales'].open = false;
+  ui['reported-sales-list'].replaceChildren();
+  ui['reported-sales-count'].textContent = '';
+  ui['source-accounting'].textContent = '';
   for (const id of ['result-count', 'result-summary', 'retrieved-at', 'sample-coverage', 'query-coverage', 'excluded-summary']) ui[id].textContent = '';
   ui['sort-order'].value = 'savings';
   ui['snap-filter'].value = 'all';
@@ -361,6 +367,8 @@ async function searchStores(event) {
 
 function validProducts(payload) {
   return payload.scope?.locationId === state.selectedStore?.locationId &&
+    (payload.sourceEvidence === undefined || typeof payload.retrievedAt === 'string' &&
+      validSourceEvidence(payload.sourceEvidence, payload.offers, payload.retrievedAt)) &&
     ['sample', 'search'].includes(payload.scope?.mode) &&
     Array.isArray(payload.scope.topics) && payload.scope.topics.every(topic => typeof topic === 'string') &&
     Array.isArray(payload.products) && payload.products.length <= 500 &&
@@ -390,12 +398,13 @@ async function loadDeals() {
     if (!payload) return;
     if (!validProducts(payload)) throw new SearchError('invalid_response');
     state.results = payload;
-    const declarations = declarationsFor(payload.products);
+    const filterSources = [...payload.products, ...(payload.sourceEvidence?.records ?? [])];
+    const declarations = declarationsFor(filterSources);
     ui['declaration-filter'].replaceChildren(...['', ...declarations].map(value => {
       const option = element('option', '', value || 'Any declaration'); option.value = value; return option;
     }));
     ui['declaration-filter-field'].hidden = declarations.length === 0;
-    ui['snap-filter-field'].hidden = !payload.products.some(product => typeof product.source.snapEligible === 'boolean');
+    ui['snap-filter-field'].hidden = !filterSources.some(product => typeof product.source.snapEligible === 'boolean');
     setDataBanner(payload.dataSource);
     ui['results-region'].hidden = false;
     renderResults();
@@ -610,6 +619,62 @@ function renderHistorySummary(history) {
   ui['history-message'].textContent = message;
 }
 
+const reportedSaleReasons = {
+  out_of_stock: 'Reported temporarily out of stock.',
+  not_in_store: 'Reported as not sold in store.',
+  missing_regular_price: 'Regular amount not supplied; savings cannot be compared.',
+  unsupported_price: 'A savings comparison is unavailable for this reported price.',
+  not_discounted: 'The reported sale amount is not lower than the regular amount.',
+  unqualified_dates: 'The reported dates do not establish a current sale.',
+  missing_description: 'The product name was not supplied.',
+  identity_conflict: 'Differing facts were returned for this item. Neither version is confirmed here.',
+  duplicate: 'Repeated result; also returned earlier in this search.',
+};
+
+function renderReportedSale(record) {
+  const item = element('li', 'reported-sale');
+  const source = record.source;
+  item.append(element('h4', '', source.description || 'Product name not supplied'));
+  if (source.brand) item.append(element('p', 'field-hint', `Brand: ${source.brand}`));
+  if (source.size) item.append(element('p', 'field-hint', `Reported package: ${source.size}`));
+  // Preserve numeric source precision; the ordinary two-decimal price formatter
+  // would change fractional source amounts. No current price is selected here.
+  item.append(element('p', 'reported-sale-amount', `Reported sale amount: ${String(source.price.promo)}`));
+  item.append(element('p', 'field-hint', `Reported regular amount: ${source.price.regular == null ? 'not supplied' : String(source.price.regular)}`));
+  if (source.soldBy) item.append(element('p', 'field-hint', `Reported sold by: ${source.soldBy}`));
+  for (const key of ['effectiveDate', 'expirationDate']) {
+    const date = source.price[key];
+    if (date?.value != null) item.append(element('p', 'field-hint',
+      `Reported ${key === 'effectiveDate' ? 'effective date' : 'expiration date'}: ${date.value}${date.timezone ? ` (${date.timezone})` : ' (timezone not supplied)'}`));
+  }
+  for (const [key, label] of [['regularPerUnitEstimate', 'Regular unit estimate'], ['promoPerUnitEstimate', 'Sale unit estimate']]) {
+    if (source.price[key] != null) item.append(element('p', 'field-hint', `${label}: ${String(source.price[key])}; unit basis not supplied.`));
+  }
+  item.append(element('p', 'field-hint', 'Currency is not identified in these displayed amounts. No savings or purchase eligibility is confirmed here.'));
+  const reasons = record.dispositions.map(reason => reportedSaleReasons[reason]).filter(Boolean);
+  if (reasons.length) {
+    const list = element('ul', 'reported-sale-reasons');
+    for (const reason of reasons) list.append(element('li', '', reason));
+    item.append(list);
+  }
+  return item;
+}
+
+function renderSourceEvidence(payload) {
+  const evidence = payload.sourceEvidence;
+  const records = otherReportedSales(evidence, {
+    snap: ui['snap-filter'].value, declaration: ui['declaration-filter'].value,
+  });
+  ui['reported-sales'].hidden = records.length === 0;
+  ui['reported-sales-list'].replaceChildren(...records.map(renderReportedSale));
+  ui['reported-sales-title'].textContent = `Other reported sale prices (${records.length})`;
+  ui['reported-sales-count'].textContent = `${records.length} returned ${records.length === 1 ? 'result matches' : 'results match'} these filters, in source order. Repeated or differing results remain separate.`;
+  ui['source-accounting'].textContent = evidence
+    ? `Kroger returned ${evidence.summary.returnedProducts} product ${evidence.summary.returnedProducts === 1 ? 'result' : 'results'}. ${evidence.summary.reportedPromotions} returned ${evidence.summary.reportedPromotions === 1 ? 'price shows' : 'prices show'} a sale amount before your filters, including repeated results.${evidence.summary.missingItemLists ? ` ${evidence.summary.missingItemLists} product results have no item details, so their sale status is unknown.` : ''} This is not a count of all store promotions.`
+    : '';
+  return records.length;
+}
+
 function renderResults() {
   const payload = state.results;
   if (!payload) return;
@@ -643,6 +708,10 @@ function renderResults() {
   ui['empty-results'].hidden = count !== 0;
   ui['empty-results-title'].textContent = promoted ? 'No qualifying promotions match this view.' : 'No priced products match this view.';
   ui['offers-list'].replaceChildren(...offers.map(renderOffer));
+  const otherCount = renderSourceEvidence(payload);
+  ui['empty-results-message'].textContent = otherCount
+    ? 'Other reported sale prices below match these filters, but cannot be included in this list. This search covers a limited selection.'
+    : 'Try another grocery or brand, or change the view and filters. This search covers a limited selection; an empty list does not establish that your store has no sales.';
   ui['excluded-summary'].textContent = exclusionText(payload.summary);
   renderHistorySummary(payload.history);
   updateControls();

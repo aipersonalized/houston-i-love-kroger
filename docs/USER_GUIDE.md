@@ -90,8 +90,23 @@ in-store fulfillment and unusable prices can exclude a result. Read **Result
 details** for the reasons; counts can overlap.
 
 Choose **Promotions only** for positive regular and lower promo prices with
-qualified supplied dates. No matching promotion describes this returned sample,
-not the whole store.
+qualified supplied dates in the main list. This view also keeps the separate
+reported sale prices described below. No matching promotion describes this
+returned sample, not the whole store.
+
+When available, open **Other reported sale prices** below the main results.
+These are sale amounts Kroger returned that could not enter the savings-ranked
+list, for example because stock is unavailable, dates are uncertain, a regular
+price is missing, or differing details were returned. Read each explanation and
+the exact reported amounts. Fractional amounts are not rounded into a different
+price. Currency and unit bases may be unknown. A reported sale amount alone does
+not establish a current price, savings or purchase eligibility.
+
+These rows cannot be added to the shopping list from this panel. Repeated and
+differing results remain separate; neither conflicting version is confirmed.
+The panel count follows your filters, while the returned-record note describes
+the whole loaded search before filters. Missing item details leave sale status
+unknown. Neither count is the number of all promotions at your store.
 
 When relevant source facts exist in the loaded results, these filters appear:
 
@@ -101,7 +116,8 @@ When relevant source facts exist in the loaded results, these filters appear:
   This is source wording, not the app's certification of a diet or allergy
   requirement. Missing claims remain unknown.
 
-These labels come from Kroger. Filters work on the groceries already shown.
+These labels come from Kroger. Filters work on the loaded groceries and the
+separate reported sale prices, including when **Promotions only** is selected.
 Relax them or change views if nothing matches. Check the package for ingredients
 and allergens; these fields do not establish allergen safety.
 

@@ -4,10 +4,63 @@ import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
 import { createApp } from '../src/app.js';
 import { CartSessions } from '../src/cart.js';
+import { validSourceEvidence } from '../public/catalog.js';
 import { NOW, STORE_ID, product, store, tokenResponse } from './fixtures.js';
 
 const config = { port: 4173, basePath: '/apps/houston-i-love-kroger/', publicOrigin: '' };
 const base = config.basePath;
+
+test('HTTP qualification, history context and response time agree at a millisecond expiry boundary', async () => {
+  for (const path of ['api/v1/deals/search', 'api/v1/products/search']) {
+    for (const [expiresAt, expectedOffers] of [[NOW + 1, 1], [NOW, 0]]) {
+      let clockReads = 0;
+      let historyAsOf;
+      // Separate admission and qualification reads occur at NOW. A subsequent
+      // response-only clock read would cross the real offer's expiry boundary.
+      const server = await createApp({ config, now: () => ++clockReads <= 2 ? NOW : NOW + 1,
+        client: fakeClient({ searchProducts: async () => [product({ price: {
+          expirationDate: { value: new Date(expiresAt).toISOString(), timezone: 'UTC' },
+        } })] }),
+        historyProvider: ({ asOf, offers }) => {
+          historyAsOf = asOf;
+          return { status: 'available', histories: offers.map(() => ({ status: 'no_observations' })) };
+        } });
+      try {
+        const { status, body } = await invoke(server, { path, body: { locationId: STORE_ID, term: 'milk' } });
+        assert.equal(status, 200);
+        assert.equal(body.offers.length, expectedOffers);
+        assert.equal(body.retrievedAt, new Date(NOW).toISOString());
+        assert.equal(historyAsOf, body.retrievedAt);
+        assert.equal(validSourceEvidence(body.sourceEvidence, body.offers, body.retrievedAt), true);
+        assert.equal(clockReads, 2, 'Admission keeps its own clock read; qualification and response share one.');
+      } finally { server.emit('close'); }
+    }
+  }
+});
+
+test('HTTP searches return source evidence without widening strict offers or priced-product semantics', async () => {
+  const rows = [product({ productId: 'oos', item: { inventory: { stockLevel: 'TEMPORARILY_OUT_OF_STOCK' } } }),
+    product({ productId: 'fractional', promo: 1.555 }),
+    product({ productId: 'no-name', description: null }),
+    { productId: 'no-items', items: [] }];
+  const server = await createApp({ config, now: () => NOW,
+    client: fakeClient({ searchProducts: async () => rows }) });
+  try {
+    for (const path of ['api/v1/deals/search', 'api/v1/products/search']) {
+      const result = await invoke(server, { path, body: { locationId: STORE_ID, term: 'milk' } });
+      assert.equal(result.status, 200);
+      assert.equal(result.body.offers.length, 0);
+      assert.equal(result.body.scope.exhaustive, false);
+      assert.equal(result.body.sourceEvidence.records.length, 4);
+      assert.equal(result.body.sourceEvidence.summary.reportedPromotions, 3);
+      assert.equal(result.body.sourceEvidence.records[1].source.price.promo, 1.555);
+      assert.equal(result.body.sourceEvidence.records[2].source.description, null);
+      assert.equal(result.body.summary.incompleteProducts, 2);
+      assert.equal(result.body.summary.outOfStock, 1);
+      if (result.body.products) assert.equal(result.body.products.length, 1);
+    }
+  } finally { server.emit('close'); }
+});
 
 function fakeClient(overrides = {}) {
   return { configured: true, environment: 'production',

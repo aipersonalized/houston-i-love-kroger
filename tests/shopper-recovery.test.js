@@ -5,6 +5,8 @@ import vm from 'node:vm';
 import * as basket from '../public/basket.js';
 import * as catalog from '../public/catalog.js';
 import * as ordering from '../public/ordering.js';
+import { compareOffers } from '../src/deals.js';
+import { product as syntheticProduct, NOW } from './fixtures.js';
 
 // Run the real page actions, request guards and event handlers. Only the DOM,
 // clock's display timezone and fetch transport are substituted. These checks
@@ -84,6 +86,87 @@ function observation(id) {
     observedAt: '2026-10-01T12:00:00Z', promotionStatus: 'reported_promotion',
     price: { regular: 5, promo: 3 }, currency: 'USD', sourceLabel: 'Synthetic fixture' };
 }
+
+function sourceSalePage() {
+  const result = compareOffers([
+    syntheticProduct({ productId: 'fractional', description: '<script>not markup</script>', promo: 1.555,
+      snapEligible: true, manufacturerDeclarations: ['Organic'] }),
+    syntheticProduct({ productId: 'oos', description: null, snapEligible: false,
+      item: { inventory: { stockLevel: 'TEMPORARILY_OUT_OF_STOCK' } } }),
+    syntheticProduct({ productId: 'date', promo: 2.555,
+      price: { effectiveDate: { value: '2026-10-19', timezone: 'UTC' } } }),
+  ], { now: NOW });
+  return { ...result, scope: { locationId: 'TEST0001', mode: 'search', topics: ['milk'],
+    productLimit: 50, perQueryLimit: 50, exhaustive: false }, retrievedAt: new Date(NOW).toISOString() };
+}
+
+test('a shopper can inspect unrankable sale amounts with exact precision, qualifiers and source filters', async () => {
+  const page = shopperPage(async () => response(sourceSalePage()));
+  page.run("state.connection = 'ready'; ui['search-term'].value = 'milk'; ui['snap-filter'].value = 'all';");
+  await page.run('loadDeals()');
+  assert.equal(page.node('reported-sales').hidden, false);
+  assert.equal(page.node('reported-sales-list').children.length, 3);
+  const text = page.node('reported-sales-list').textContent;
+  assert.match(text, /Reported sale amount: 1\.555/u);
+  assert.match(text, /<script>not markup<\/script>/u, 'Source text stays text; the renderer uses textContent.');
+  assert.match(text, /Product name not supplied/u);
+  assert.match(text, /2026-10-19 \(UTC\)/u);
+  assert.match(text, /temporarily out of stock/u);
+  assert.match(text, /Currency is not identified in these displayed amounts/u);
+  assert.doesNotMatch(text, /Add to shopping list|Save |Current price/u);
+  page.run("ui['product-view'].value = 'promotions'; renderResults();");
+  assert.equal(page.node('offers-list').children.length, 0);
+  assert.equal(page.node('reported-sales-list').children.length, 3);
+  assert.match(page.node('empty-results-message').textContent, /Other reported sale prices below/u);
+  page.run("ui['snap-filter'].value = 'yes'; ui['declaration-filter'].value = 'Organic'; renderResults();");
+  assert.equal(page.node('reported-sales-list').children.length, 1);
+  assert.match(page.node('reported-sales-count').textContent, /1 returned result matches these filters/u);
+  assert.equal(page.node('snap-filter-field').hidden, false, 'Source-only eligibility must expose its filter.');
+  page.run('clearResults()');
+  assert.equal(page.node('reported-sales').hidden, true);
+  assert.equal(page.node('reported-sales-list').children.length, 0);
+});
+
+test('a malformed evidence response fails visibly and cannot preserve an earlier sale panel', async () => {
+  let calls = 0;
+  const page = shopperPage(async () => {
+    const payload = sourceSalePage();
+    if (++calls === 2) payload.sourceEvidence.records[0].source.price.promo = 'invented';
+    return response(payload);
+  });
+  page.run("state.connection = 'ready'; ui['search-term'].value = 'milk'; ui['snap-filter'].value = 'all';");
+  await page.run('loadDeals()');
+  assert.equal(page.node('reported-sales').hidden, false);
+  await page.run('loadDeals()');
+  assert.equal(page.run('state.results'), null);
+  assert.equal(page.node('reported-sales').hidden, true);
+  assert.equal(page.node('reported-sales-list').children.length, 0);
+  assert.match(page.node('deal-status').textContent, /unexpected|unsupported|could not/iu);
+});
+
+test('an included flag cannot turn an out-of-stock source sale into a hidden successful empty result', async () => {
+  const page = shopperPage(async () => {
+    const result = compareOffers([syntheticProduct({ item: { inventory: { stockLevel: 'TEMPORARILY_OUT_OF_STOCK' } } })], { now: NOW });
+    result.sourceEvidence.records[0].includedInOffers = true;
+    result.sourceEvidence.summary.otherReportedPromotions = 0;
+    return response({ ...sourceSalePage(), ...result });
+  });
+  page.run("state.connection = 'ready'; ui['search-term'].value = 'milk'; ui['snap-filter'].value = 'all';");
+  await page.run('loadDeals()');
+  assert.equal(page.run('state.results'), null);
+  assert.equal(page.node('results-region').hidden, true);
+  assert.match(page.node('deal-status').textContent, /unexpected|unsupported|could not/iu);
+});
+
+test('differing prices from a missing-name variant cannot produce a qualified shopping row', async () => {
+  const result = compareOffers([syntheticProduct({ description: null, promo: 2 }), syntheticProduct({ promo: 1 })], { now: NOW });
+  const page = shopperPage(async () => response({ ...sourceSalePage(), ...result }));
+  page.run("state.connection = 'ready'; ui['search-term'].value = 'milk'; ui['snap-filter'].value = 'all';");
+  await page.run('loadDeals()');
+  assert.equal(page.node('offers-list').children.length, 0);
+  assert.equal(page.node('reported-sales-list').children.length, 2);
+  assert.match(page.node('reported-sales-list').textContent, /Neither version is confirmed/u);
+});
 
 function historyPage(id = 'first', nextCursor = 'synthetic-next-page') {
   return { status: 'available', locationId: 'TEST0001', observations: [observation(id)],

@@ -14,6 +14,159 @@ export function filterProducts(products, { view = 'all', snap = 'all', declarati
   });
 }
 
+export function otherReportedSales(evidence, filters = {}) {
+  // Ranking, price sorting and a sale-only view must not erase reported sale
+  // facts. Apply the same source-label filters, preserving response order.
+  return filterProducts(evidence?.records ?? [], { ...filters, view: 'all' })
+    .filter(record => record.reportedPromotion && !record.includedInOffers);
+}
+
+const EVIDENCE_DISPOSITIONS = new Set(['missing_items', 'missing_description', 'not_in_store',
+  'out_of_stock', 'missing_regular_price', 'unsupported_price', 'no_positive_promo',
+  'not_discounted', 'unqualified_dates', 'duplicate', 'identity_conflict']);
+
+const EVIDENCE_SOURCE_FIELDS = ['productId', 'itemId', 'description', 'brand', 'size', 'soldBy',
+  'price', 'stockLevel', 'fulfillment', 'categories', 'snapEligible', 'manufacturerDeclarations',
+  'organicClaimName', 'nonGmo', 'nonGmoClaimName'];
+
+function evidenceSourceKey(source) {
+  // Object property order is not source meaning. Array order, omitted fields
+  // and explicit nulls remain distinct. Only the shared projection can match
+  // an evidence row to the fuller offer source.
+  const canonical = value => Array.isArray(value) ? value.map(canonical)
+    : value !== null && typeof value === 'object'
+      ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+  return JSON.stringify(canonical(Object.fromEntries(EVIDENCE_SOURCE_FIELDS.map(key => [key, source[key]]))));
+}
+
+function evidenceCents(value) {
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const result = Math.round(value * 100);
+  return Number.isSafeInteger(result) && Math.abs(result / 100 - value) <= 1e-8 ? result : null;
+}
+
+function evidenceDatesUnqualified(price, asOf) {
+  for (const key of ['effectiveDate', 'expirationDate']) {
+    if (!Object.hasOwn(price, key)) continue;
+    const value = price[key]?.value;
+    if (typeof value !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,9})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(value)) return true;
+    const calendar = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+    const instant = Date.parse(value);
+    if (!Number.isFinite(calendar.valueOf()) || calendar.toISOString().slice(0, 10) !== value.slice(0, 10) ||
+        !Number.isFinite(instant) || asOf !== null && (key === 'effectiveDate' ? instant > asOf : instant <= asOf)) return true;
+  }
+  return false;
+}
+
+export function validSourceEvidence(evidence, offers, retrievedAt) {
+  if (!evidence || !Array.isArray(evidence.records) || evidence.records.length > 500 ||
+      !evidence.summary || evidence.summary.records !== evidence.records.length ||
+      !Array.isArray(offers) || offers.length > 500) return false;
+  const nullableText = value => value === null || typeof value === 'string';
+  const strings = value => Array.isArray(value) && value.every(entry => typeof entry === 'string');
+  const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const asOf = retrievedAt === undefined ? null : Date.parse(retrievedAt);
+  if (asOf !== null && !Number.isFinite(asOf)) return false;
+  const groups = new Map();
+  const productItems = new Map();
+  if (!evidence.records.every((record, index) => {
+    const source = record?.source;
+    if (record?.recordIndex !== index || !Number.isInteger(record.productIndex) || record.productIndex < 0 ||
+        record.productIndex >= 50 || !(record.itemIndex === null || Number.isInteger(record.itemIndex) && record.itemIndex >= 0 && record.itemIndex < 10) ||
+        typeof record.savingsArithmeticAvailable !== 'boolean' || typeof record.includedInOffers !== 'boolean' || typeof record.reportedPromotion !== 'boolean' ||
+        !Array.isArray(record.dispositions) || record.dispositions.some(value => !EVIDENCE_DISPOSITIONS.has(value)) ||
+        new Set(record.dispositions).size !== record.dispositions.length ||
+        !(record.duplicateOf === null || Number.isInteger(record.duplicateOf) && record.duplicateOf >= 0 && record.duplicateOf < index) ||
+        !object(source) || !object(source.price)) return false;
+    if (!['description', 'productId', 'itemId', 'brand', 'size', 'soldBy', 'stockLevel', 'organicClaimName', 'nonGmoClaimName']
+      .every(key => nullableText(source[key])) || !strings(source.categories) || !strings(source.manufacturerDeclarations)) return false;
+    if (!['snapEligible', 'nonGmo'].every(key => source[key] === null || typeof source[key] === 'boolean')) return false;
+    if (!(source.fulfillment === null || object(source.fulfillment) && Object.entries(source.fulfillment).every(([key, value]) =>
+      ['curbside', 'delivery', 'instore', 'shiptohome'].includes(key) && (value === null || typeof value === 'boolean')))) return false;
+    for (const key of ['regular', 'promo', 'regularPerUnitEstimate', 'promoPerUnitEstimate']) {
+      if (source.price[key] != null && !Number.isFinite(source.price[key])) return false;
+    }
+    for (const key of ['effectiveDate', 'expirationDate']) {
+      const date = source.price[key];
+      if (date != null && (typeof date !== 'object' || Array.isArray(date) ||
+          (date.value !== undefined && !nullableText(date.value)) || (date.timezone !== undefined && !nullableText(date.timezone)))) return false;
+    }
+    const regular = evidenceCents(source.price.regular);
+    const promo = evidenceCents(source.price.promo);
+    const reported = typeof source.price.promo === 'number' && source.price.promo > 0;
+    if (record.reportedPromotion !== reported ||
+        record.savingsArithmeticAvailable !== (regular !== null && promo !== null && promo < regular)) return false;
+    const has = code => record.dispositions.includes(code);
+    for (const [code, applies] of [['missing_items', record.itemIndex === null],
+      ['missing_description', !source.description], ['not_in_store', source.fulfillment?.instore === false],
+      ['out_of_stock', source.stockLevel === 'TEMPORARILY_OUT_OF_STOCK'],
+      ['missing_regular_price', source.price.regular == null], ['no_positive_promo', !reported],
+      ['unsupported_price', source.price.regular != null && regular === null || reported && promo === null],
+      ['not_discounted', reported && regular !== null && promo !== null && promo >= regular]]) {
+      if (has(code) !== applies) return false;
+    }
+    if (asOf !== null || !Object.hasOwn(source.price, 'effectiveDate') && !Object.hasOwn(source.price, 'expirationDate') ||
+        evidenceDatesUnqualified(source.price, null)) {
+      if (has('unqualified_dates') !== evidenceDatesUnqualified(source.price, asOf)) return false;
+    }
+    if (record.includedInOffers && (!reported || !record.savingsArithmeticAvailable || record.dispositions.length)) return false;
+    const previous = evidence.records[index - 1];
+    if (record.productIndex !== (previous?.productIndex ?? 0) && record.productIndex !== previous?.productIndex + 1) return false;
+    const itemPositions = productItems.get(record.productIndex) ?? [];
+    if (itemPositions.includes(null) || record.itemIndex === null && itemPositions.length ||
+        record.itemIndex !== null && record.itemIndex !== itemPositions.length) return false;
+    itemPositions.push(record.itemIndex);
+    productItems.set(record.productIndex, itemPositions);
+    if (record.itemIndex === null && (source.itemId !== null || source.size !== null || source.soldBy !== null ||
+        source.stockLevel !== null || source.fulfillment !== null || Object.keys(source.price).length || record.duplicateOf !== null)) return false;
+    if (has('duplicate') !== (record.duplicateOf !== null)) return false;
+    const knownIdentity = Boolean(source.productId && source.itemId && record.itemIndex !== null);
+    if ((has('duplicate') || has('identity_conflict')) && !knownIdentity) return false;
+    if (record.duplicateOf !== null) {
+      const earlier = evidence.records[record.duplicateOf];
+      if (earlier.itemIndex === null || earlier.duplicateOf !== null || source.productId !== earlier.source.productId ||
+          source.itemId !== earlier.source.itemId || evidenceSourceKey(source) !== evidenceSourceKey(earlier.source)) return false;
+    }
+    if (knownIdentity) {
+      const key = JSON.stringify([source.productId, source.itemId]);
+      const group = groups.get(key) ?? [];
+      group.push(record);
+      groups.set(key, group);
+    }
+    return true;
+  })) return false;
+  for (const group of groups.values()) {
+    const conflicts = group.filter(record => record.dispositions.includes('identity_conflict')).length;
+    const variants = new Set(group.map(record => evidenceSourceKey(record.source))).size;
+    // Full source metadata is larger than the shared projection, so two equal
+    // projections may legitimately be flagged as differing full observations.
+    if (conflicts && (group.length < 2 || conflicts !== group.length) || variants > 1 && conflicts !== group.length) return false;
+    if (!conflicts && group.slice(1).some(record => record.duplicateOf === null)) return false;
+  }
+  const membership = new Map();
+  for (const offer of offers) {
+    if (!object(offer?.source) || offer.pricing?.status !== 'promotion') return false;
+    const key = evidenceSourceKey(offer.source);
+    membership.set(key, (membership.get(key) ?? 0) + 1);
+  }
+  for (const record of evidence.records) if (record.includedInOffers) {
+    const key = evidenceSourceKey(record.source);
+    const remaining = membership.get(key) ?? 0;
+    if (!remaining) return false;
+    membership.set(key, remaining - 1);
+  }
+  if ([...membership.values()].some(remaining => remaining !== 0)) return false;
+  const { records, summary } = evidence;
+  return summary.returnedProducts >= 0 && summary.returnedProducts <= 50 && Number.isInteger(summary.returnedProducts) &&
+    productItems.size === summary.returnedProducts &&
+    summary.returnedItems === records.filter(record => record.itemIndex !== null).length &&
+    summary.missingItemLists === records.filter(record => record.itemIndex === null).length &&
+    summary.reportedPromotions === records.filter(record => record.reportedPromotion).length &&
+    summary.withoutSavingsArithmetic === records.filter(record => record.reportedPromotion && !record.savingsArithmeticAvailable).length &&
+    summary.otherReportedPromotions === records.filter(record => record.reportedPromotion && !record.includedInOffers).length;
+}
+
 export function productDeclarations(product) {
   const source = product.source || {};
   const declarations = Array.isArray(source.manufacturerDeclarations) ? source.manufacturerDeclarations.filter(value => typeof value === 'string' && value) : [];
