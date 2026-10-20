@@ -411,9 +411,66 @@ For a term search, `scope.mode` is `search`, `scope.term` is the normalized term
 `scope.exhaustive` remains `false`. Query counts include returned products before
 duplicate removal and promotion qualification.
 
+### Returned source evidence
+
+Both current `deals/search` and `products/search` responses add `sourceEvidence`
+independently of `offers`, `products`, `includeAll` and their existing summary.
+Those existing fields retain their strict price, date, availability and identity
+rules. Source evidence accounts for this returned page or starter sample only;
+it does not enumerate the store or establish complete promotion coverage.
+
+`sourceEvidence.records` preserves response order, with one record per returned
+item and one placeholder for a product without an item list. Fifty products with
+at most ten items each produce at most 500 evidence records; missing-item
+placeholders remain inside this bound. Malformed source types still fail the
+request rather than becoming invented evidence.
+
+| Field | Meaning |
+| :--- | :--- |
+| `recordIndex` | Zero-based locator within this response, never a product identity. |
+| `productIndex`, `itemIndex` | Positions in the combined returned products and their items. `itemIndex: null` identifies a missing-item placeholder. |
+| `source` | Supplied product/item IDs, description, brand, size, sold-by basis, price fields, stock, fulfillment, categories, SNAP and dietary claims. Missing source text/IDs remain `null`; no fallback name becomes source data. |
+| `reportedPromotion` | A finite positive `source.price.promo` was returned. This does not prove currency, validity, availability, eligibility or savings. Missing/zero/nonpositive promo values do not establish a free offer or absence of store sales. |
+| `savingsArithmeticAvailable` | Pure arithmetic: both item amounts are usable positive whole hundredths and promo is lower. It ignores dates, stock, names and identity conflicts; it is not a validated offer. No calculated current price or savings is added to evidence. |
+| `includedInOffers` | Literal membership of this particular row, once, in the unchanged strict `offers` list. It is not a source-truth or eligibility flag; inspect dispositions independently. |
+| `dispositions` | All applicable fixed codes below, independently of source promotion presence. |
+| `duplicateOf` | Earlier record index for an exact duplicate with known product/item identity; otherwise `null`. Missing identities are not synthesized or deduplicated. |
+
+Disposition codes are `missing_items`, `missing_description`, `not_in_store`,
+`out_of_stock`, `missing_regular_price`, `unsupported_price`,
+`no_positive_promo`, `not_discounted`, `unqualified_dates`, `duplicate` and
+`identity_conflict`. Conflicting variants are all retained and flagged; neither
+version is chosen as truth. One intentional correction applies the existing
+conflict rule before description eligibility: if a missing-name row has the
+same exact product/item identity and differing price/details, neither variant
+enters `offers` or `products`. The conflict and incomplete-product counters keep
+their meanings. A product with no item identity stays unknown; no identity is
+invented to group it with another item.
+
+`sourceEvidence.summary` contains `records`, `returnedProducts`, `returnedItems`,
+`missingItemLists`, `reportedPromotions`, `withoutSavingsArithmetic` (no usable
+arithmetic pair), and `otherReportedPromotions` (positive reported promo outside
+strict offers). Counts refer to returned records before shopper filters and
+include repeats. Missing item lists are unknown sale status, not empty offers.
+
+The browser's **Other reported sale prices** panel shows positive reported
+promos outside strict offers, in source order, with the same SNAP/dietary filters.
+It preserves numeric precision and raw date/timezone facts; it supplies no
+shopping-list/cart action or guessed current price. Older responses without
+`sourceEvidence` remain supported; a present malformed evidence object fails
+visibly rather than being replaced with a successful empty list.
+At that response boundary, included rows must match the literal `offers` array
+exactly once through their shared source fields, with usable arithmetic and no
+disqualifying dispositions. The browser recomputes numeric and date qualification
+against `retrievedAt`, checks contiguous product/item coverage and missing-item
+placeholders, and validates known-identity duplicate relationships. Unknown
+product/item IDs remain permitted independent observations.
+
 ### Source values, calculations and missing information
 
-Current source prices do not supply a currency field. The human page formats
+The normalized displayed current prices retain no currency identifier. The
+selected public schema defines none; that is not a claim that a raw supplier
+response cannot contain additional fields. The human page formats
 numeric amounts without assuming USD or another currency symbol and labels that
 gap beside results and the shopping-list subtotal. Reported arithmetic is not a
 qualified monetary or payable checkout total. Fields named `regularCents`,
@@ -463,7 +520,7 @@ offer conditions.
 | Field | Meaning |
 | --- | --- |
 | `products` | Total product records returned across this request's queries. |
-| `items` | Item records examined in products with displayable details. |
+| `items` | Returned item records examined, including those whose product description is missing. Products without an item list contribute no items; their placeholders are counted separately in source evidence. |
 | `unpriced` | Legacy count of items lacking one or both usable positive whole-cent comparison prices, including zero promos. A regular-price product can still be displayed. |
 | `notDiscounted` | Items whose usable promo price is not below regular price. |
 | `unqualifiedDates` | Otherwise qualifying items with ambiguous, invalid, future or expired reported windows. |

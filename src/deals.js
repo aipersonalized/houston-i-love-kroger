@@ -127,6 +127,92 @@ function perUnit(price) {
   };
 }
 
+function itemSource(product, item, detail) {
+  if (!isObject(item) || (item.inventory != null && !isObject(item.inventory)) ||
+      (item.fulfillment != null && !isObject(item.fulfillment))) throw invalidUpstream();
+  return {
+    productId: textField(product.productId, 64), itemId: textField(item.itemId, 64),
+    description: textField(product.description, 512), brand: textField(product.brand, 200),
+    size: textField(item.size, 100), soldBy: textField(item.soldBy, 40),
+    price: copyPrice(item.price), stockLevel: textField(item.inventory?.stockLevel, 80),
+    ...detail, fulfillment: fulfillment(item.fulfillment),
+    nationalPrice: item.nationalPrice == null ? null : copyPrice(item.nationalPrice),
+  };
+}
+
+// Evidence accounts for returned source rows independently of shopping/ranking
+// eligibility. Indices locate this response only; they are not product IDs.
+function sourceEvidence(products, offers, now) {
+  const records = [];
+  const groups = new Map();
+  const ranked = new Set(offers.map(offer => JSON.stringify(offer.source)));
+  products.forEach((product, productIndex) => {
+    const detail = productDetails(product);
+    const hasItems = Boolean(product.items?.length);
+    const items = hasItems ? product.items : [null];
+    items.forEach((item, itemIndex) => {
+      if (hasItems && !isObject(item)) throw invalidUpstream();
+      const fullSource = itemSource(product, item ?? {}, detail);
+      const { productId, itemId, description, brand, size, soldBy, price, stockLevel,
+        fulfillment: availability, categories, snapEligible, manufacturerDeclarations,
+        organicClaimName, nonGmo, nonGmoClaimName } = fullSource;
+      const source = { productId, itemId, description, brand, size, soldBy, price, stockLevel,
+        fulfillment: availability, categories, snapEligible, manufacturerDeclarations,
+        organicClaimName, nonGmo, nonGmoClaimName };
+      const dispositions = [];
+      if (item === null) dispositions.push('missing_items');
+      if (!description) dispositions.push('missing_description');
+      if (availability?.instore === false) dispositions.push('not_in_store');
+      if (stockLevel === 'TEMPORARILY_OUT_OF_STOCK') dispositions.push('out_of_stock');
+      const regular = cents(price.regular);
+      const promo = cents(price.promo);
+      const reportedPromotion = typeof price.promo === 'number' && price.promo > 0;
+      if (price.regular == null) dispositions.push('missing_regular_price');
+      else if (regular === null) dispositions.push('unsupported_price');
+      if (!reportedPromotion) dispositions.push('no_positive_promo');
+      else if (promo === null) dispositions.push('unsupported_price');
+      else if (regular !== null && promo >= regular) dispositions.push('not_discounted');
+      if (!datesAllowComparison(price, now)) dispositions.push('unqualified_dates');
+      const record = { recordIndex: records.length, productIndex,
+        itemIndex: item === null ? null : itemIndex, source, reportedPromotion,
+        // Arithmetic capability is independent of stock, dates and whether a
+        // source row is included in the strict offer list.
+        savingsArithmeticAvailable: regular !== null && promo !== null && promo < regular,
+        includedInOffers: item !== null && Boolean(description) && ranked.has(JSON.stringify(fullSource)),
+        dispositions: [...new Set(dispositions)], duplicateOf: null };
+      records.push(record);
+      if (!productId || !itemId || item === null) return;
+      const key = JSON.stringify([productId, itemId]);
+      const fingerprint = JSON.stringify(fullSource);
+      const group = groups.get(key);
+      if (!group) groups.set(key, { fingerprints: new Map([[fingerprint, record.recordIndex]]), records: [record], conflict: false });
+      else {
+        if (group.fingerprints.has(fingerprint)) {
+          record.dispositions.push('duplicate');
+          record.duplicateOf = group.fingerprints.get(fingerprint);
+          record.includedInOffers = false;
+        } else {
+          group.conflict = true;
+          group.fingerprints.set(fingerprint, record.recordIndex);
+        }
+        group.records.push(record);
+      }
+    });
+  });
+  for (const group of groups.values()) if (group.conflict) {
+    for (const record of group.records) {
+      record.dispositions.push('identity_conflict');
+    }
+  }
+  return { records, summary: { records: records.length,
+    returnedProducts: products.length,
+    returnedItems: records.filter(record => record.itemIndex !== null).length,
+    reportedPromotions: records.filter(record => record.reportedPromotion).length,
+    withoutSavingsArithmetic: records.filter(record => record.reportedPromotion && !record.savingsArithmeticAvailable).length,
+    otherReportedPromotions: records.filter(record => record.reportedPromotion && !record.includedInOffers).length,
+    missingItemLists: records.filter(record => record.itemIndex === null).length } };
+}
+
 export function compareOffers(products, { now = Date.now() } = {}) {
   if (!Array.isArray(products) || products.length > SEARCH_QUERY_LIMIT) throw invalidUpstream();
   const summary = { products: products.length, items: 0, unpriced: 0, notDiscounted: 0,
@@ -141,19 +227,14 @@ export function compareOffers(products, { now = Date.now() } = {}) {
     const brand = textField(product.brand, 200);
     const detail = productDetails(product);
     if (product.items != null && (!Array.isArray(product.items) || product.items.length > MAX_ITEMS_PER_PRODUCT)) throw invalidUpstream();
-    if (!description || !product.items?.length) { summary.incompleteProducts++; continue; }
+    if (!description || !product.items?.length) summary.incompleteProducts++;
+    if (!product.items?.length) continue;
     for (const item of product.items) {
       summary.items++;
       if (!isObject(item)) throw invalidUpstream();
       if ((item.inventory != null && !isObject(item.inventory)) || (item.fulfillment != null && !isObject(item.fulfillment))) throw invalidUpstream();
       if (item.fulfillment?.instore != null && typeof item.fulfillment.instore !== 'boolean') throw invalidUpstream();
-      const source = {
-        productId, itemId: textField(item.itemId, 64), description, brand,
-        size: textField(item.size, 100), soldBy: textField(item.soldBy, 40),
-        price: copyPrice(item.price), stockLevel: textField(item.inventory?.stockLevel, 80),
-        ...detail, fulfillment: fulfillment(item.fulfillment),
-        nationalPrice: item.nationalPrice == null ? null : copyPrice(item.nationalPrice),
-      };
+      const source = itemSource(product, item, detail);
       const inStore = item.fulfillment?.instore ?? null;
       const fingerprint = JSON.stringify([source, inStore]);
       // Unknown identities remain separate. Conflicting observations of one
@@ -169,6 +250,9 @@ export function compareOffers(products, { now = Date.now() } = {}) {
   const pricedProducts = [];
   for (const { source, inStore, conflict } of groups.values()) {
     if (conflict) { summary.conflictingItems++; continue; }
+    // Missing names do not qualify a shopping row, but their exact identities
+    // and differing price facts must participate in conflict detection first.
+    if (!source.description) continue;
     if (inStore === false) { summary.notInStore++; continue; }
     if (source.stockLevel === 'TEMPORARILY_OUT_OF_STOCK') { summary.outOfStock++; continue; }
     const regular = cents(source.price.regular);
@@ -202,5 +286,6 @@ export function compareOffers(products, { now = Date.now() } = {}) {
   }
   summary.usablePriced = pricedProducts.length;
   summary.qualifyingPromotions = offers.length;
-  return { offers, products: pricedProducts, summary };
+  return { offers, products: pricedProducts, summary,
+    sourceEvidence: sourceEvidence(products, offers, now) };
 }

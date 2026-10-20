@@ -337,3 +337,13 @@ details[open] > summary { margin-bottom: 12px; }
   .action-row .button { width: 100%; }
   .cart-panel { padding: 12px; }
 }
+/* Source-reported sale facts stay visually separate from ranked, priced cards. */
+.reported-sales { margin-block: 1.5rem; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--card); }
+.reported-sales > summary { cursor: pointer; font-weight: 700; }
+.reported-sales > summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 4px; }
+.reported-sales-list { padding-inline-start: 1.5rem; }
+.reported-sale { padding-block: 1rem; border-block-end: 1px solid currentColor; overflow-wrap: anywhere; }
+.reported-sale:last-child { border-block-end: 0; }
+.reported-sale h4 { margin-block: 0 .5rem; }
+.reported-sale-amount { font-weight: 700; }
+.reported-sale-reasons { padding-inline-start: 1.25rem; font-size: .9rem; }

@@ -241,8 +241,9 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
             products.push(...found);
             queries.push({ term, returnedProducts: found.length });
           }
-          const result = compareOffers(products, { now: now() });
-          const retrievedAt = new Date(now()).toISOString();
+          const qualifiedAt = now();
+          const result = compareOffers(products, { now: qualifiedAt });
+          const retrievedAt = new Date(qualifiedAt).toISOString();
           const { histories, ...history } = await readHistory(historyProvider, {
             locationId: input.locationId, offers: result.offers, asOf: retrievedAt,
           }, client.environment);
@@ -262,6 +263,7 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
                 ? 'A bounded sample of up to 15 products each for milk, bread and eggs. This does not cover all store promotions.'
                 : 'Up to 50 products matching this search. This does not cover all matching products or all store promotions.' },
             offers: orderOffers(result.offers, input.sort), summary: result.summary,
+            sourceEvidence: result.sourceEvidence,
             ...(path.endsWith('/products/search') ? {
               products: orderProducts(input.includeAll ? result.products : result.offers, input.sort),
             } : {}),

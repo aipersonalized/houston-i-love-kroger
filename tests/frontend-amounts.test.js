@@ -127,8 +127,8 @@ test('currency limits are explained at result and subtotal decisions while the s
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   const results = html.slice(html.indexOf('id="results-region"'), html.indexOf('class="product-filters"'));
   const subtotal = html.slice(html.indexOf('id="shopping-list"'), html.indexOf('id="cart-panel"'));
-  assert.match(results, /Currency not supplied\. Confirm the currency and final price at Kroger\./u);
-  assert.match(subtotal, /Currency not supplied\. This estimate adds reported amounts/u);
+  assert.match(results, /Currency is not identified in these displayed amounts\. Confirm the currency and final price at Kroger\./u);
+  assert.match(subtotal, /Currency is not identified in these displayed amounts\. This estimate adds reported amounts/u);
   assert.match(subtotal, /Before tax and coupons/u);
   assert.match(subtotal, /unknown prices or variable weights are left out/u);
   assert.match(html, /<option value="savings">Largest price drop<\/option>/u);
