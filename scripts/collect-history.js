@@ -33,13 +33,15 @@ Examples:
   node scripts/collect-history.js --watch --max-runs 2 --no-color
 
 Exit codes: 0 completed, already collected, or dry run; 1 collection/storage
-failure; 2 invalid arguments/configuration; 3 prerequisites blocked; 130 cancelled.
+failure; 2 invalid arguments/configuration; 3 blocked/deferred; 130 cancelled.
 
 The source must permit historical collection, display, and agent access, within
 finite approved stores/topics and current retention/expiry limits. The default
 Kroger public API source has no such permission. API credentials alone do not
 enable collection. One request per topic, at most 10 topics and 50 products each;
-no catalog crawl, shopper search history, automatic retries, or price backfill.
+no catalog crawl, shopper search history, or price backfill. Retries are disabled
+by default; an operator plan may enable at most three safe-read attempts.
+Durable quota reservations, source leases and backoff survive process restarts.
 See README for the complete policy format and local credential setup.
 `;
 
@@ -57,7 +59,7 @@ function readJsonFile(filename) {
   return JSON.parse(readFileSync(full, 'utf8'));
 }
 function resultCode(result) {
-  return result.status === 'blocked' ? 3 : result.status === 'failed' ? 1 : result.status === 'cancelled' ? 130 : 0;
+  return ['blocked', 'deferred'].includes(result.status) ? 3 : result.status === 'failed' ? 1 : result.status === 'cancelled' ? 130 : 0;
 }
 export async function main(args = process.argv.slice(2), env = process.env) {
   let values;

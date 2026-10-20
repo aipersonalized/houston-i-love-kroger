@@ -5,5 +5,8 @@
   "intervalMinutes": 1440,
   "maxRuns": 1,
   "limit": 20,
+  "maxRequestsPerDay": 40,
+  "maxAttempts": 1,
+  "retryBaseSeconds": 1,
   "targets": []
 }

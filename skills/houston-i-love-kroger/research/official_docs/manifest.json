@@ -4,7 +4,7 @@
   "inventoryUrl": "repo:/",
   "appVersion": "0.2.0",
   "sourceRevision": "working-tree-snapshot",
-  "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+  "retrievedAt": "2026-10-19T22:32:41.127282+00:00",
   "inventorySha256": "870746c1f8b90c3ae955930ead90e5ba4f347e556899c454553db29368cd927b",
   "counts": {
     "indexed": 6,
@@ -21,7 +21,7 @@
       "status": "saved",
       "sha256": "b9f7a58a0e0450a90e64a90e31f4968be91568eb67269d8f2f1cadfab8d7a42c",
       "bytes": 54564,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "retrievedAt": "2026-10-19T22:32:41.127282+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -32,7 +32,7 @@
       "status": "saved",
       "sha256": "fe2db438e9815d4527302098ce79b1d97df3eec412134fadf37d0f8fe2c9c15d",
       "bytes": 18013,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "retrievedAt": "2026-10-19T22:32:41.127282+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -41,9 +41,9 @@
       "title": "App installation and configuration",
       "url": "repo:/docs/SELF_HOSTING.md",
       "status": "saved",
-      "sha256": "7abc547002ae8343622ddbe7145ecc7f26c70360e418e3f2f421d52dd1e0d8d7",
-      "bytes": 23705,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "sha256": "f8cf89e3a61328d46435416e6289e2b030058cc2d5236ca4fa25f8427b297f7f",
+      "bytes": 23922,
+      "retrievedAt": "2026-10-19T22:32:41.127282+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -52,9 +52,9 @@
       "title": "History prerequisites and operator boundary",
       "url": "repo:/docs/HISTORY.md",
       "status": "saved",
-      "sha256": "09546b434f2075534afa67838567d842787a7c016fcabfac25d4c6afbdeed33a",
-      "bytes": 18951,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "sha256": "a2c4f74239c8016a3cf393076e26c4a87c82a7a44924b4411245d9922d1d069e",
+      "bytes": 24170,
+      "retrievedAt": "2026-10-19T22:32:41.127282+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -63,9 +63,9 @@
       "title": "Private promotions service and permission-aware reads",
       "url": "repo:/docs/PROMOTION_SERVICE.md",
       "status": "saved",
-      "sha256": "e3d8a4eb01117d1a1926109d01c560322136fc8073bbea7885c9db6237f16e92",
-      "bytes": 19332,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "sha256": "545b40137ac177c12b243f03363f13f41f2b516946a04ee14d7d68a966325a0d",
+      "bytes": 19803,
+      "retrievedAt": "2026-10-19T22:32:41.127282+00:00",
       "discovery": "reviewed first-party inventory"
     },
     {
@@ -76,7 +76,7 @@
       "status": "saved",
       "sha256": "55644461f1384cf564404ed6ac2e8d0e0a54328f38b19c5c1030ee6d5aeac598",
       "bytes": 2423,
-      "retrievedAt": "2026-10-19T21:43:02.186109+00:00",
+      "retrievedAt": "2026-10-19T22:32:41.127282+00:00",
       "discovery": "reviewed first-party inventory"
     }
   ]

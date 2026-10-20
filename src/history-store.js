@@ -7,7 +7,7 @@ import { validPriceSearchRequest, validEstimateRequest, storedAvailability, stor
   priceQualificationGaps, estimateStoredLine, storedEstimateTotals } from './stored-pricing.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
-const MIGRATIONS = ['001-history.sql', '002-history-scope.sql', '003-observation-description.sql', '004-latest-deals.sql'].map((filename, index) => {
+const MIGRATIONS = ['001-history.sql', '002-history-scope.sql', '003-observation-description.sql', '004-latest-deals.sql', '005-collection-control.sql'].map((filename, index) => {
   const sql = readFileSync(new URL(`../migrations/${filename}`, import.meta.url), 'utf8');
   return { version: index + 1, sql, checksum: createHash('sha256').update(sql).digest('hex') };
 });
@@ -202,7 +202,8 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
       const version = db.pragma('user_version', { simple: true });
       if (appId !== APPLICATION_ID || !Number.isInteger(version) || version < 1 || version > SCHEMA_VERSION) fail('history_schema_unknown', 'This is not a supported history database. Choose a new file or use the matching app version.');
       const tables = db.prepare("SELECT name FROM sqlite_schema WHERE type = 'table'").all().map(row => row.name);
-      if (tables.length !== REQUIRED_TABLES.length || !REQUIRED_TABLES.every(table => tables.includes(table))) fail('history_schema_unknown');
+      const requiredTables = version >= 5 ? [...REQUIRED_TABLES, 'collection_control', 'collection_reservations'] : REQUIRED_TABLES;
+      if (tables.length !== requiredTables.length || !requiredTables.every(table => tables.includes(table))) fail('history_schema_unknown');
       const applied = db.prepare('SELECT version, checksum FROM schema_migrations ORDER BY version').all();
       if (applied.length !== version || applied.some((row, index) => row.version !== index + 1 ||
           row.checksum !== MIGRATIONS[index].checksum)) fail('history_schema_unknown');
@@ -612,8 +613,9 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
       .run(runId, sourceId, instant(startedAt), targetCount, limit, targets === undefined ? null : targetScope(targets));
   }
 
-  const complete = db.transaction(({ runId, sourceId, finishedAt, jobs }) => {
+  const complete = db.transaction(({ runId, sourceId, finishedAt, jobs, leaseOwner }) => {
     const finished = instant(finishedAt);
+    if (permission(sourceId, finishedAt).status !== 'permitted') fail('source_permission_required');
     const run = db.prepare("SELECT * FROM collection_runs WHERE run_id = ? AND source_id = ? AND status = 'running'").get(runId, sourceId);
     if (!run || !Array.isArray(jobs) || jobs.length !== run.target_count || jobs.length > 10 || finished < run.started_at) fail();
     let observationCount = 0;
@@ -675,11 +677,57 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
     }
     const scope = targetScope(jobs.map(job => ({ locationId: job.locationId, term: job.term })));
     if (run.target_scope !== null && run.target_scope !== scope) fail();
+    // Check ownership at the transaction's publication boundary. Any rows above
+    // roll back on a lost lease; original/current rights failures remain explicit.
+    if (leaseOwner !== undefined) requireLease(sourceId, leaseOwner, finished);
     db.prepare("UPDATE collection_runs SET status = 'completed', finished_at = ?, observation_count = ?, target_scope = ? WHERE run_id = ?")
       .run(finished, observationCount, scope, runId);
     return { observationCount, completedJobs };
   });
 
+  // The source-wide lease prevents concurrent collectors from resetting quota or
+  // racing publication. An expired worker must never publish after a takeover.
+  const LEASE_MS = 120_000;
+  function requireLease(sourceId, owner, at) {
+    const row = db.prepare('SELECT * FROM collection_control WHERE source_id = ?').get(text(sourceId, 80, true));
+    if (!row || row.lease_owner !== text(owner, 100, true) || row.lease_until <= at) fail('collection_lease_lost');
+    return row;
+  }
+  const acquireCollection = db.transaction(({ sourceId, owner, now }) => {
+    const at = instant(now); text(sourceId, 80, true); text(owner, 100, true);
+    db.prepare('INSERT INTO collection_control(source_id) VALUES (?) ON CONFLICT(source_id) DO NOTHING').run(sourceId);
+    const row = db.prepare('SELECT * FROM collection_control WHERE source_id = ?').get(sourceId);
+    if (row.lease_owner !== null && row.lease_until > at) return { status: 'busy', retryAt: new Date(row.lease_until).toISOString() };
+    if (row.cooldown_until > at) return { status: 'backoff', retryAt: new Date(row.cooldown_until).toISOString() };
+    // A terminated process cannot finish its buffered observations. Mark that
+    // attempt failed before the replacement run starts; completed jobs survive.
+    db.prepare("UPDATE collection_runs SET status = 'failed', finished_at = max(started_at, ?), failure_category = 'collection_failed' WHERE source_id = ? AND status = 'running'")
+      .run(at, sourceId);
+    db.prepare('UPDATE collection_control SET lease_owner = ?, lease_until = ? WHERE source_id = ?').run(owner, at + LEASE_MS, sourceId);
+    return { status: 'acquired' };
+  });
+  const reserveCollection = db.transaction(({ sourceId, owner, now, maxRequests }) => {
+    const at = instant(now); const row = requireLease(sourceId, owner, at);
+    if (!Number.isInteger(maxRequests) || maxRequests < 4 || maxRequests > 1000) fail();
+    if (row.cooldown_until > at) return { status: 'backoff', retryAt: new Date(row.cooldown_until).toISOString() };
+    // Four is the implemented adapter's conservative upper bound for one search:
+    // token + Products + one token renewal + one Products retry. Failed calls
+    // retain their reservations, including across process restarts.
+    db.prepare('DELETE FROM collection_reservations WHERE source_id = ? AND reserved_at <= ?').run(sourceId, at - DAY);
+    // Keep individual reservations in the actual preceding 24 hours. A fixed
+    // first-call reset would allow almost twice the budget at its boundary.
+    // Future timestamps also remain counted if the local clock moves backward.
+    const count = db.prepare('SELECT count(*) AS n FROM collection_reservations WHERE source_id = ?').get(sourceId).n;
+    if ((count + 1) * 4 > maxRequests) {
+      const slots = Math.floor(maxRequests / 4);
+      const next = db.prepare('SELECT reserved_at FROM collection_reservations WHERE source_id = ? ORDER BY reserved_at,reservation_id LIMIT 1 OFFSET ?')
+        .get(sourceId, Math.max(0, count - slots));
+      return { status: 'quota', retryAt: new Date(next.reserved_at + DAY).toISOString() };
+    }
+    db.prepare('INSERT INTO collection_reservations(source_id,reserved_at) VALUES (?,?)').run(sourceId, at);
+    db.prepare('UPDATE collection_control SET lease_until = ? WHERE source_id = ?').run(at + LEASE_MS, sourceId);
+    return { status: 'reserved', reservedRequests: (count + 1) * 4 };
+  });
   return {
     close() { if (db.open) db.close(); },
     getComparisons, searchPromotions, retrievePromotion, getSourcePermission: permission,
@@ -697,6 +745,21 @@ export function openHistoryStore({ filename = process.env.HISTORY_DB_PATH || joi
       return { status: row?.status ?? 'unknown' };
     },
     recordSourcePolicy(policy, { now = new Date().toISOString() } = {}) { return savePolicy.immediate(policy, now); },
+    acquireCollection(input) { return acquireCollection.immediate(input); },
+    reserveCollection(input) { return reserveCollection.immediate(input); },
+    setCollectionBackoff({ sourceId, owner, now, retryAt }) {
+      const at = instant(now); const until = instant(retryAt);
+      if (until < at) fail();
+      return db.transaction(() => {
+        requireLease(sourceId, owner, at);
+        db.prepare('UPDATE collection_control SET cooldown_until = max(cooldown_until, ?), lease_until = ? WHERE source_id = ?')
+          .run(until, at + LEASE_MS, sourceId);
+      }).immediate();
+    },
+    releaseCollection({ sourceId, owner }) {
+      db.prepare('UPDATE collection_control SET lease_owner = NULL, lease_until = 0 WHERE source_id = ? AND lease_owner = ?')
+        .run(text(sourceId, 80, true), text(owner, 100, true));
+    },
     startRun,
     hasCompletedJob(sourceId, jobKey) { return Boolean(db.prepare('SELECT 1 FROM collection_jobs WHERE source_id = ? AND job_key = ?').get(sourceId, jobKey)); },
     completeRun(input) { return complete.immediate(input); },

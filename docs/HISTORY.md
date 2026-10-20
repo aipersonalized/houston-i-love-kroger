@@ -39,7 +39,7 @@ Forwarding data to an external model service needs its own applicable permission
    npm run history:init -- --json --no-input
    ```
 
-4. Expect `status: ready`, schema version 4 and an observation count. On first
+4. Expect `status: ready`, schema version 5 and an observation count. On first
    use it should be zero. Repeating initialization preserves existing history.
 5. Protect this folder with your operating system's access controls. Unix
    directory mode requests do not establish Windows ACL protection. Keep the
@@ -49,7 +49,7 @@ The SQLite adapter uses foreign keys, WAL journaling, full synchronization,
 prepared queries and transactional writes. Opening an unrelated or incompatible
 database, a changed migration or linked database path is refused. Do not change
 the migration files after creating a database and expect an automatic upgrade.
-Verified version-1/2/3 schemas upgrade transactionally to version 4 after schema
+Verified version-1/2/3/4 schemas upgrade transactionally to version 5 after schema
 and migration-checksum checks. Earlier migration files remain unchanged.
 Version 2 added each operator topic's hash for later scope narrowing. Version 3
 adds nullable description/brand and a paging index for store-specific reads.
@@ -60,6 +60,14 @@ Missing legacy descriptions/brands remain null, and missing topic provenance is
 never guessed from a product or plan. Rows without approved collection provenance
 are excluded and eligible for purge. Legacy rows with valid rights/provenance can
 still be found by exact IDs, even when words cannot match missing text.
+
+Version 5 adds private source-wide collector lease, request-budget reservations
+and backoff state. It changes no supplier observations or source permissions.
+Stop every collector and service before upgrading the authoritative file; do not
+mix schema-4 collectors with schema-5 processes. An already-open older writer
+does not acquire the new lease. Older versions refuse to open a schema-5 file.
+Keep the original consistent schema-4 backup with its matching application for
+rollback; a schema-5 file has no in-place downgrade.
 
 In separate-service mode, set the operator command's `HISTORY_DB_PATH` to the
 service's authoritative file in its private storage environment. Do not initialize
@@ -88,6 +96,9 @@ access only; it does not establish permission to retain or display source data.
 | `intervalMinutes` | 60–10,080; default 1,440, not a recommendation overriding the grant |
 | `maxRuns` | 1–100; default 1 |
 | `limit` | 1–50 products per target; default 20 |
+| `maxRequestsPerDay` | 4–1,000 conservative HTTP-attempt reservations per rolling 24 hours; default 40, shared by collectors using this database/source |
+| `maxAttempts` | 1–3 Products-search attempts per target; default 1 disables collection retries |
+| `retryBaseSeconds` | 1–60; default 1, doubled for the next retry, subject to a longer provider wait |
 | `targets` | At most 10 unique store/topic pairs; no pagination |
 
 One target makes one bounded Products search, using the API's in-store `ais`
@@ -142,6 +153,9 @@ the workspace's publication review before exposing the resulting service.
 3. Read the result. `completed` includes observation and request counts.
    `already_collected` means those jobs were already completed in the current
    interval. `blocked` means zero source requests and lists missing prerequisites.
+   `deferred` means a collector lease, persisted backoff or local request budget
+   prevented completion. Read its fixed category and `retryAt`; it may follow
+   source calls earlier in an uncompleted run. No partial observations are saved.
 4. For later runs the reviewed policy is stored; omit `--source-policy` unless
    recording a newly reviewed policy. Do not edit a prior policy's identity to
    disguise a changed scope or expiry.
@@ -156,7 +170,7 @@ the workspace's publication review before exposing the resulting service.
 
 Run `npm run history:collect -- --help` for the complete command. The direct
 collector exits 0 for completion/already-collected/dry-run, 1 for collection or
-storage failure, 2 for invalid setup, 3 for blocked prerequisites and 130 for
+storage failure, 2 for invalid setup, 3 for blocked/deferred collection and 130 for
 cancellation. npm may add its own failure wrapper. Neither output nor logs
 include raw catalog payloads or credentials.
 
@@ -168,12 +182,70 @@ After a successful authorized run, an operator may run:
 npm run history:collect -- --plan config/collection-plan.json --watch --max-runs 2 --json --no-input
 ```
 
-This runs at most twice using the plan's interval, and exits immediately when
-blocked, failed or cancelled. Stop it with Ctrl+C. There is no always-on service,
+This runs at most twice using the plan's interval after each completed cycle,
+and exits immediately when blocked, deferred, failed or cancelled. Stop it with
+Ctrl+C. There is no always-on service,
 operating-system task or cloud scheduler installed by these commands. A separate
 supervisor must honor permissions, expiry, quota and duplicate-job behavior.
-Do not run overlapping collectors against the same plan. Completed-job keys
-limit duplicate storage; they are not a distributed network-work lease.
+
+### Limits and recovery
+
+1. Allocate `maxRequestsPerDay` from the installation's actual permitted quota.
+   Each Products-search attempt reserves four HTTP attempts **before** starting,
+   covering the current adapter's worst case: token, Products, one token renewal,
+   and one Products retry. `requests` counts search attempts;
+   `reservedHttpAttempts` counts conservative reservations, not measured HTTP
+   traffic. Failed and uncertain attempts consume reservations. Restarting the
+   process, changing topics or changing plans does not reset that source's budget.
+   Every reservation remains counted for 24 hours after it was made, including
+   across the first reservation's anniversary. A new attempt is admitted only
+   when the preceding 24 hours have room for another four attempts. A lower
+   operator budget still counts earlier reservations. This is a local safety
+   limit; shopper requests, other databases/installations and other
+   applications are not counted. Allocate their usage separately. It is not a
+   statement of supplier quota or reset behavior.
+2. Leave `maxAttempts: 1` unless retries fit the agreement and quota. Only safe
+   read availability/transport failures and provider limits retry; rejected
+   credentials/permissions, malformed data and unknown errors stop. Up to three
+   attempts use exponential delay and the longer valid provider `Retry-After`
+   (seconds or HTTP date). Provider limits wait at least 60 seconds. Waits over
+   60 seconds are persisted and stop the run, rather than sleeping indefinitely
+   or shortening the wait. A future start before `retryAt` makes no source calls.
+   Permission is rechecked before each attempt and before publication.
+3. Do not start overlapping collectors. A second process sees
+   `collection_busy` and makes no source requests while the source's 120-second
+   lease is valid. Each reservation refreshes the lease. The supplied adapter
+   uses bounded HTTP deadlines; do not substitute an unbounded custom adapter.
+   After a process terminates, wait for its lease to expire, then restart the
+   same finite plan. The replacement marks abandoned attempts failed and starts
+   again. A late worker whose lease expired cannot publish buffered results.
+   A suspended process or uncertain network outcome can still duplicate source
+   work; the lease does not promise exactly-once network delivery. Reservations
+   remain consumed and completed bucket keys prevent duplicate stored jobs.
+4. If quota is exhausted after some targets succeeded, the entire run remains
+   unpublished. Wait until `retryAt`, then rerun the plan under current rights.
+   Do not change the database, clock, source identity or budget to evade a limit.
+   If a source or storage failure persists, stop the supervisor and investigate
+   its fixed failure category. Never turn it into an empty or refreshed sample.
+5. Restart the service against the same authoritative database. Completed
+   snapshots survive a restart; buffered partial results do not. An empty
+   completed target intentionally replaces its older sample. A failed refresh
+   leaves the last complete sample with its original observation time and failed
+   attempt status; stale or expired samples are not offered as current deals.
+
+### Check the pipeline without supplier data
+
+`npm test` uses temporary synthetic databases and source responses; it does not
+read operator settings, call Kroger or authorize retention. The pipeline test
+exercises the native source adapter, collector, SQLite and running private/public
+HTTP services. To include all six operations of the actual Python companion,
+install Python 3.12 or newer, set `COMPANION_PYTHON` to that interpreter's command
+or full executable path, then run `node --test tests/collection-pipeline.test.js`.
+For example, in PowerShell use `$env:COMPANION_PYTHON = 'python'`; in a POSIX
+shell use `COMPANION_PYTHON=python3 node --test tests/collection-pipeline.test.js`.
+Use the interpreter installed on your machine. The companion subprocess check
+is included only when that setting is present; ordinary Node-only tests exercise
+the same public read contract. Python 3.14 on Windows has been exercised here.
 
 ### Optional Compose operator jobs
 

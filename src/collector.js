@@ -1,20 +1,25 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import { HistoryError } from './history-store.js';
 
 export const DEFAULT_COLLECTION_PLAN = Object.freeze({ version: 1, sourceId: 'kroger-public', enabled: false,
-  intervalMinutes: 1440, maxRuns: 1, limit: 20, targets: [] });
+  intervalMinutes: 1440, maxRuns: 1, limit: 20, maxRequestsPerDay: 40, maxAttempts: 1, retryBaseSeconds: 1, targets: [] });
 
 function invalid() {
   throw new HistoryError('collection_plan_invalid', 'The collection plan is invalid. Use the documented bounded plan format.');
 }
 export function validateCollectionPlan(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
-      Object.keys(input).some(key => !['version', 'sourceId', 'enabled', 'intervalMinutes', 'maxRuns', 'limit', 'targets'].includes(key))) invalid();
+      Object.keys(input).some(key => !['version', 'sourceId', 'enabled', 'intervalMinutes', 'maxRuns', 'limit', 'maxRequestsPerDay', 'maxAttempts', 'retryBaseSeconds', 'targets'].includes(key))) invalid();
   const p = { ...DEFAULT_COLLECTION_PLAN, ...input };
   if (p.version !== 1 || typeof p.sourceId !== 'string' || !/^[a-z][a-z0-9-]{0,79}$/u.test(p.sourceId) ||
       typeof p.enabled !== 'boolean' || !Number.isInteger(p.intervalMinutes) || p.intervalMinutes < 60 || p.intervalMinutes > 10080 ||
       !Number.isInteger(p.maxRuns) || p.maxRuns < 1 || p.maxRuns > 100 ||
-      !Number.isInteger(p.limit) || p.limit < 1 || p.limit > 50 || !Array.isArray(p.targets) || p.targets.length > 10) invalid();
+      !Number.isInteger(p.limit) || p.limit < 1 || p.limit > 50 ||
+      !Number.isInteger(p.maxRequestsPerDay) || p.maxRequestsPerDay < 4 || p.maxRequestsPerDay > 1000 ||
+      !Number.isInteger(p.maxAttempts) || p.maxAttempts < 1 || p.maxAttempts > 3 ||
+      !Number.isInteger(p.retryBaseSeconds) || p.retryBaseSeconds < 1 || p.retryBaseSeconds > 60 ||
+      !Array.isArray(p.targets) || p.targets.length > 10) invalid();
   const seen = new Set();
   p.targets = p.targets.map(target => {
     if (!target || typeof target !== 'object' || Array.isArray(target) ||
@@ -94,7 +99,7 @@ const BLOCKERS = {
 
 export async function runCollection({ store, client, plan = DEFAULT_COLLECTION_PLAN, planProvided = true,
   configured = client?.configured === true, now = () => new Date().toISOString(), runId = randomUUID(),
-  dryRun = false, signal } = {}) {
+  dryRun = false, signal, wait = (ms, options) => delay(ms, undefined, options) } = {}) {
   const startedAt = timeValue(now);
   let accepted;
   let planInvalid = false;
@@ -115,7 +120,18 @@ export async function runCollection({ store, client, plan = DEFAULT_COLLECTION_P
   let requests = 0;
   let skippedJobs = 0;
   let runStarted = false;
+  let leaseHeld = false;
+  let reservedHttpAttempts = 0;
+  let published;
+  let retryAt;
+  function deferred(control) {
+    retryAt = control.retryAt;
+    throw new HistoryError(`collection_${control.status}`, 'Collection is deferred by a local concurrency, backoff or request-budget limit.');
+  }
   try {
+    const lease = store.acquireCollection({ sourceId: accepted.sourceId, owner: runId, now: startedAt });
+    if (lease.status !== 'acquired') deferred(lease);
+    leaseHeld = true;
     const pending = accepted.targets.map(target => ({ target, key: jobKey(accepted, target, startedAt) }))
       .filter(({ key }) => {
         if (store.hasCompletedJob(accepted.sourceId, key)) { skippedJobs++; return false; }
@@ -128,31 +144,70 @@ export async function runCollection({ store, client, plan = DEFAULT_COLLECTION_P
     const jobs = [];
     for (const { target, key } of pending) {
       if (signal?.aborted) throw new HistoryError('cancelled', 'Collection was cancelled.');
-      const currentAccess = store.getSourcePermission(accepted.sourceId, timeValue(now), [target]);
-      if (currentAccess.status !== 'permitted') throw new HistoryError('source_permission_required', 'Source permission is no longer valid.');
-      requests++;
-      const products = await client.searchProducts(target.locationId, target.term, { signal, limit: accepted.limit });
+      let products;
+      let currentAccess;
+      for (let attempt = 1; attempt <= accepted.maxAttempts; attempt++) {
+        if (signal?.aborted) throw new HistoryError('cancelled', 'Collection was cancelled.');
+        const at = timeValue(now);
+        currentAccess = store.getSourcePermission(accepted.sourceId, at, [target]);
+        if (currentAccess.status !== 'permitted') throw new HistoryError('source_permission_required', 'Source permission is no longer valid.');
+        const budget = store.reserveCollection({ sourceId: accepted.sourceId, owner: runId, now: at, maxRequests: accepted.maxRequestsPerDay });
+        if (budget.status !== 'reserved') deferred(budget);
+        reservedHttpAttempts += 4;
+        requests++;
+        try {
+          products = await client.searchProducts(target.locationId, target.term, { signal, limit: accepted.limit });
+          break;
+        } catch (error) {
+          // Only known safe-read transport/availability and provider limits retry.
+          // Rejected credentials, scope, invalid data and unknown errors stop.
+          if (!['upstream_unavailable', 'provider_limit'].includes(error.code) || signal?.aborted) throw error;
+          const backoff = Math.max(accepted.retryBaseSeconds * 2 ** (attempt - 1),
+            error.code === 'provider_limit' ? 60 : 0, Number.isFinite(error.retryAfter) ? error.retryAfter : 0);
+          const failedAt = timeValue(now);
+          retryAt = new Date(Date.parse(failedAt) + backoff * 1000).toISOString();
+          store.setCollectionBackoff({ sourceId: accepted.sourceId, owner: runId, now: failedAt, retryAt });
+          // Long provider waits are persisted for a later operator start, never
+          // truncated into an early retry or hidden in a sleeping process.
+          if (attempt === accepted.maxAttempts || backoff > 60) throw error;
+          await wait(backoff * 1000, { signal });
+        }
+      }
       const observedAt = timeValue(now);
       jobs.push({ jobKey: key, locationId: target.locationId, term: target.term, observedAt, rightsId: currentAccess.rightsId,
         returnedProductCount: products.length, offers: observationsFromProducts(products, target, accepted.limit) });
     }
     // All network work finishes before one synchronous SQLite transaction. A
     // failed target never turns an incomplete run into apparently valid history.
+    if (signal?.aborted) throw new HistoryError('cancelled', 'Collection was cancelled.');
     const finishedAt = timeValue(now);
-    const written = store.completeRun({ runId, sourceId: accepted.sourceId, finishedAt, jobs });
+    const written = store.completeRun({ runId, sourceId: accepted.sourceId, finishedAt, jobs, leaseOwner: runId });
+    published = written;
     return { status: 'completed', requests, observationsWritten: written.observationCount, completedJobs: written.completedJobs,
-      skippedJobs, observedAt: finishedAt, coverage };
+      skippedJobs, reservedHttpAttempts, observedAt: finishedAt, coverage };
   } catch (error) {
+    const controlCategory = ['collection_busy', 'collection_backoff', 'collection_quota'].includes(error.code) ? error.code : null;
     const category = signal?.aborted || error.code === 'cancelled' ? 'cancelled' :
       error.code === 'source_permission_required' ? 'source_permission_required' :
+        error.code === 'collection_lease_lost' ? 'collection_failed' :
         ['unsupported_response', 'history_input_invalid'].includes(error.code) ? 'unsupported_response' :
           error instanceof HistoryError || String(error.code).startsWith('SQLITE_') ? 'storage_failed' : 'upstream_failed';
     if (runStarted) {
-      try { store.failRun({ runId, finishedAt: timeValue(now), category }); }
+      try { store.failRun({ runId, finishedAt: timeValue(now), category: controlCategory ? 'collection_failed' : category }); }
       catch { return { status: 'failed', category: 'storage_failed', requests, observationsWritten: 0, coverage,
         message: 'Collection failed and the run status could not be updated. No completed history was reported.' }; }
     }
-    return { status: category === 'cancelled' ? 'cancelled' : 'failed', category, requests, observationsWritten: 0, coverage,
+    return { status: controlCategory ? 'deferred' : category === 'cancelled' ? 'cancelled' : 'failed', category: controlCategory ?? category,
+      requests, reservedHttpAttempts, observationsWritten: 0, ...(retryAt ? { retryAt } : {}), coverage,
       message: 'Collection did not complete. No observations from this run were saved; check the fixed failure category before retrying.' };
+  } finally {
+    if (leaseHeld) {
+      try { store.releaseCollection({ sourceId: accepted.sourceId, owner: runId }); }
+      catch {
+        return { status: 'failed', category: 'storage_failed', requests, reservedHttpAttempts,
+          observationsWritten: published?.observationCount ?? 0, completedJobs: published?.completedJobs ?? 0, coverage,
+          message: 'The collector lease could not be released. Completed counts above reflect any committed snapshot. Stop scheduling, check storage, and allow the lease to expire before retrying.' };
+      }
+    }
   }
 }
