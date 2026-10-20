@@ -1,7 +1,8 @@
 # HTTP API
 
-The human page can look up stores and current products through the site's
-Kroger connection. The companion skill has a different read path: it gets latest
+The human page and an explicit live-shopping procedure can look up stores and
+current products through this site's API and its server-side Kroger connection.
+The stored companion procedures have a separate read path: they get latest
 stored ZIP-query locations, completed collection topics, collected deals, regular prices, quantity estimates and dated history from this installation's promotion database
 service. Companion requests do not call Kroger, refresh products or run the
 collector. No empty or stale database result falls back to a supplier request.
@@ -40,6 +41,8 @@ to the configured `APP_BASE_PATH`. For example, the status URL at that address i
 | `POST` | `api/v1/promotions/stores` | Read a completed permission-approved stored ZIP query; no supplier call. |
 | `POST` | `api/v1/promotions/topics` | Discover readable completed named collection topics for an exact store. |
 | `POST` | `api/v1/products/search` | Browse usable store prices, including regular-only products. |
+| `POST` | `api/v1/products/retrieve` | Freshly recheck one exact product at the selected store. |
+| `POST` | `api/v1/basket/estimate` | Freshly recheck selected exact products and calculate requested whole-package quantities. |
 | `POST` | `api/v1/deals/search` | Promotion-only comparison interface. |
 | `GET` | `api/v1/promotions/status` | Check the separate private history-service capability. |
 | `POST` | `api/v1/promotions/latest` | Read latest completed, permission-approved deal snapshots; never fetch Kroger data. |
@@ -269,6 +272,144 @@ or wrong-store lines stay unresolved and excluded; a partial subtotal is labelle
 as such. Tax, coupons and checkout conditions are not included. Aisle grouping
 uses the first supplied position while retaining all positions on the line,
 with a separate unknown group. It does not calculate a walking route.
+
+## Recheck an exact product
+
+`POST api/v1/products/retrieve` accepts exactly:
+
+```json
+{ "locationId": "01400001", "productId": "0000000000001" }
+```
+
+These identifiers are synthetic examples. Use the complete eight-character
+alphanumeric store ID and thirteen-digit product ID actually returned by search.
+Preserve leading zeros. A product ID is not reconstructed from a UPC or a name.
+The operator's server calls Kroger `GET /v1/products/{id}` with the exact
+`filter.locationId`; it does not substitute a fuzzy search or another product.
+The returned data must be one object with that exact `productId`. A different
+identity or malformed response fails with `upstream_format` (502). A supplier
+404 remains `upstream_not_found` (502), rather than an invented empty product.
+An installation without exact retrieval support returns
+`product_retrieval_unavailable` (503).
+
+The normal response has `ok`, `apiVersion`, `dataSource`, `retrievedAt`,
+`scope`, `products`, `offers`, `summary`, `sourceEvidence`, `page` and `history`.
+The existing product/offer/source-evidence field definitions apply unchanged.
+`scope` is `{locationId, mode: "product", productId, exhaustive: false, coverage}`;
+`coverage` states that only one product was rechecked. `page` is `null`.
+All returned item variants participate in normalization and conflict detection;
+the endpoint does not silently choose one variant or guarantee in-store stock.
+History uses the existing permission-aware comparison read for qualifying
+promotions only. It never writes observations or starts collection. Current
+prices survive an explicitly reported history-read failure.
+
+## Estimate selected products from fresh checks
+
+`POST api/v1/basket/estimate` accepts exactly a store and selected items:
+
+```json
+{
+  "locationId": "01400001",
+  "items": [
+    { "productId": "0000000000001", "itemId": "0000000000001", "quantity": 2 }
+  ]
+}
+```
+
+The example identifiers are synthetic. Supply one to ten distinct exact
+product/item pairs from returned source facts. Each `productId` is a
+thirteen-digit string. Each `itemId` is an unchanged nonempty source string of
+at most 64 characters, without surrounding whitespace or control/format
+characters. Quantities are whole numbers from 1 to 99. Combine duplicate pairs
+before requesting. Other fields, including caller prices, currency, coupon,
+tax, topic and product substitutions, are rejected. The existing 4 KB body limit
+still applies.
+
+The server sequentially rechecks each unique product once, at the exact store,
+through the exact-product operation. At most ten product lookups occur; token
+renewal and its bounded safe-read retry still count against the installation's
+existing supplier request budget. Two selected variants of one product share
+that product read. The server matches every requested `itemId` to the returned
+variant and performs arithmetic itself. It does not reuse a client-submitted
+price or silently substitute a package. This operation saves no shopping list,
+writes no history, performs no Cart action and invokes no collection or stored
+promotion service.
+
+The response fields are:
+
+| Field | Meaning |
+| --- | --- |
+| `ok`, `apiVersion`, `dataSource` | The normal application envelope and actual source label. Certification or synthetic data is not a verified live offer. |
+| `status` | `complete` when every requested line has arithmetic, otherwise `partial`. This does not establish payable checkout cost. |
+| `locationId` | The exact selected store, including leading zeros. |
+| `retrievedAt`, `evaluatedAt` | The same final UTC instant, used for all date qualification and final arithmetic. Reads are sequential, not an atomic supplier snapshot. |
+| `lines` | Every requested selection, in request order, including unresolved lines. |
+| `totals` | The same subtotal and currency-qualification representation as stored estimates, described below. |
+| `coverage` | `{type: "selected_products", requestedLineCount, recheckedProductCount, exhaustive: false, message}`. Counts mean requested distinct pairs and unique rechecked product IDs. This is not complete catalog/promotion coverage. |
+| `exclusions` | `tax`, `fees`, `coupons`, `eligibility_verification`, `checkout_changes`. |
+
+Each line contains exactly `productId`, `itemId`, `quantity`, `status`, `reason`,
+`unitPriceCents`, `lineTotalCents`, `currency`, `retrievedAt`, `source`, `pricing`,
+`sourceEvidence` and `qualificationGaps`. `status` is `estimated` or `unresolved`;
+`reason` is `null` only for an estimated line. Line `retrievedAt` is that
+product-recheck completion time, at or before the final evaluation instant.
+Estimated unit/line amounts are positive safe integer hundredths; the line
+amount is the unit amount times the requested whole quantity. Unresolved
+amounts are `null` and never count as zero.
+
+`source` preserves the normalized selected item's facts, or is `null` for a
+missing/conflicting variant. `pricing` is the corresponding normalized priced
+row when available, otherwise `null`; its presence alone does not mean the line
+is estimable. `sourceEvidence` is an array of all returned records matching the
+requested product/item, at most ten records. It keeps original response indices,
+duplicate relationships, price values and dispositions; it is not a complete
+product evidence envelope. Conflicting variants remain in evidence and
+`source` is `null`, rather than choosing the cheapest or first price.
+
+Unresolved reason codes are `product_not_found`, `item_not_found`,
+`identity_conflict`, `incomplete_product`, `not_in_store`, `out_of_stock`,
+`unqualified_dates`, `missing_regular_price`, `unsupported_price`,
+`missing_price`, `variable_or_unknown_quantity_basis` and `arithmetic_overflow`.
+A genuine supplier 404 produces `product_not_found` for that product's lines.
+Malformed/mismatched responses, permission failures, 429 limits, timeouts and
+cancellation fail the whole request with their existing actionable error; they
+are never recast as successful missing-price lines. Aborting stops subsequent
+product reads. Invalid, future or expired supplied date windows, unsupported
+prices and source conflicts remain qualified as above. A missing date window
+does not establish offer validity. A usable promo-only current price can support
+explicitly unqualified numeric quantity arithmetic for a known whole-unit item.
+Its normalized `pricing.status` stays `unqualified_promotion`, `pricing.reason`
+stays `missing_regular_price`, and no regular-price savings are invented. A
+missing regular price prevents a discount comparison, rather than multiplying
+an otherwise usable reported current amount. When no usable current price is
+available, the line remains unresolved. Known whole-unit pricing is required;
+variable-weight and unknown sold-by
+bases remain unresolved.
+
+`qualificationGaps` preserves unknown purchase context, using
+`currency_unreported`, `price_basis_unreported`, `eligibility_unreported`,
+`modality_unreported` and, when applicable,
+`in_store_fulfillment_unreported` and `stock_unreported`. Missing stock is an
+explicit gap, not proof of availability. The current normalized Public Products
+model does not establish currency, price basis, loyalty/coupon eligibility or
+modality; this operation does not infer them from the store or package.
+
+`totals` contains `reportedSubtotalCents`, `qualifiedSubtotalCents`, `currency`,
+`currencyQualification`, `estimatedLineCount`, `unresolvedLineCount` and
+`qualificationGaps`, with the same meanings as stored estimates. A subtotal of
+resolved numeric amounts can be reported with `currency: null` and
+`currencyQualification: "unreported"`; no currency symbol or verified monetary
+total follows. The current live model's missing context means
+`qualifiedSubtotalCents` remains `null`. No resolved lines or unsafe subtotal
+arithmetic gives a `null` reported subtotal. Total gaps can additionally include
+`unresolved_lines`, `no_resolved_prices`, `arithmetic_overflow` or
+`currency_incomparable`. Report unresolved items beside any partial subtotal.
+
+These two live operations extend the app API for deliberate shopping requests.
+They do not change the stored database service, its no-refresh contract, source
+retention permissions or agent-recipient requirements. A skill must explicitly
+select an applicable live-shopping procedure; an empty stored result is never
+an implicit permission to call these routes.
 
 ## Find and rank promotions at a store
 

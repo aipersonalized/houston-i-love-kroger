@@ -219,6 +219,16 @@ export class KrogerClient {
     return (await this.searchProductPage(locationId, term, { signal, limit })).products;
   }
 
+  async getProduct(locationId, productId, { signal } = {}) {
+    if (typeof locationId !== 'string' || !/^[a-zA-Z0-9]{8}$/u.test(locationId) ||
+        typeof productId !== 'string' || !/^\d{13}$/u.test(productId)) {
+      throw new AppError('invalid_request', 'Use the exact store and thirteen-digit product ID returned by product search.');
+    }
+    const payload = await this.#get(`/v1/products/${productId}`, { 'filter.locationId': locationId }, signal);
+    if (!payload?.data || typeof payload.data !== 'object' || Array.isArray(payload.data) || payload.data.productId !== productId) throw formatError();
+    return payload.data;
+  }
+
   async searchProductPage(locationId, term, { signal, limit = 50, start } = {}) {
     if (typeof locationId !== 'string' || !/^[a-zA-Z0-9]{8}$/.test(locationId) ||
         typeof term !== 'string' || term.trim().length < 3 || term.length > 80 ||

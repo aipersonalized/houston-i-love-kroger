@@ -9,6 +9,7 @@ import { CartSessions } from './cart.js';
 import { validPriceSearchRequest, validEstimateRequest } from './stored-pricing.js';
 import { validDirectoryRequest, validTopicsRequest } from './store-directory.js';
 import { productPageContinuation } from './product-pagination.js';
+import { validateProductRetrieve, validateLiveEstimate, readSelectedProduct, estimateLiveBasket } from './live-shopping.js';
 
 const PUBLIC_FILES = new Map([
   ['', ['index.html', 'text/html; charset=utf-8']],
@@ -163,7 +164,7 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
         catch (error) { if (error.code === 'cart_setup_required') throw error; }
         response.writeHead(303, { Location: config.basePath }); response.end(); return;
       }
-      if (!['api/v1/stores/search', 'api/v1/deals/search', 'api/v1/products/search',
+      if (!['api/v1/stores/search', 'api/v1/deals/search', 'api/v1/products/search', 'api/v1/products/retrieve', 'api/v1/basket/estimate',
         'api/v1/promotions/search', 'api/v1/promotions/retrieve', 'api/v1/promotions/latest',
         'api/v1/promotions/prices', 'api/v1/promotions/estimate', 'api/v1/promotions/stores', 'api/v1/promotions/topics', 'api/v1/cart/connect',
         'api/v1/cart/add', 'api/v1/cart/disconnect'].includes(path)) throw new AppError('not_found', 'This operation does not exist.', 404);
@@ -222,6 +223,31 @@ export async function createApp({ config, client, dataSource = 'kroger-api', now
             throw new AppError('promotion_service_unavailable', 'The promotions service could not be read. Try again later.', 503);
           }
           json(response, 200, { ok: true, apiVersion: 1, ...result }); return;
+        }
+        if (path === 'api/v1/products/retrieve' || path === 'api/v1/basket/estimate') {
+          const estimate = path === 'api/v1/basket/estimate';
+          const input = estimate ? validateLiveEstimate(body) : validateProductRetrieve(body);
+          if (!client.configured) throw new AppError('setup_required', 'This installation needs a Kroger API connection. Ask its operator to finish setup.', 503);
+          if (estimate) {
+            const result = await estimateLiveBasket(client, input, { signal: abort.signal, now });
+            json(response, 200, { ok: true, apiVersion: 1, ...result, dataSource }); return;
+          }
+          const product = await readSelectedProduct(client, input, { signal: abort.signal });
+          const qualifiedAt = now();
+          const result = compareOffers([product], { now: qualifiedAt });
+          const retrievedAt = new Date(qualifiedAt).toISOString();
+          const { histories, ...history } = await readHistory(historyProvider, {
+            locationId: input.locationId, offers: result.offers, asOf: retrievedAt,
+          }, client.environment);
+          result.offers.forEach((offer, index) => { offer.history = histories[index]; });
+          for (const priced of result.products) if (priced.pricing.status !== 'promotion') priced.history = {
+            status: 'unavailable', reason: 'current_promotion_unqualified',
+            message: 'This item has no qualifying current promotion for a historical promotion comparison.',
+          };
+          json(response, 200, { ok: true, apiVersion: 1,
+            scope: { locationId: input.locationId, mode: 'product', productId: input.productId, exhaustive: false,
+              coverage: 'One exact product rechecked at the selected store; no complete catalog or promotion coverage.' },
+            ...result, page: null, history, dataSource, retrievedAt }); return;
         }
         const input = path.endsWith('/stores/search') ? validateStoreSearch(body)
           : path.endsWith('/products/search') ? validateProductSearch(body) : validateDealSearch(body);
