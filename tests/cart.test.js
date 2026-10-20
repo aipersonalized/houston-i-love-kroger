@@ -141,3 +141,70 @@ test('cart validation excludes arbitrary fields, fractional quantities, duplicat
   assert.match(res.headers['set-cookie'], /Max-Age=0$/);
   await assert.rejects(cart.add(request, response(), { items: [{ upc, quantity: 1 }], csrfToken }), { code: 'cart_session_required' });
 });
+
+test('status retires an expired authorization attempt and a fresh attempt uses new state and PKCE', async t => {
+  let time = NOW; let exchanges = 0;
+  const cart = new CartSessions({ config, now: () => time, fetchImpl: async () => {
+    exchanges++; return tokenResponse();
+  } }); t.after(() => cart.close());
+  const first = visit(cart);
+  const oldAuthorization = new URL(first.result.authorizationUrl);
+  time += 10 * 60_000;
+  const expired = cart.status(first.request, response());
+  assert.equal(expired.status, 'authorization_failed');
+  assert.equal(expired.connected, false);
+  await assert.rejects(cart.callback(first.request, response(), new URLSearchParams({
+    state: oldAuthorization.searchParams.get('state'), code: 'fixture-expired-code',
+  })), { code: 'cart_state_invalid' });
+  assert.equal(exchanges, 0);
+  const res = response();
+  const next = cart.connect(first.request, res);
+  const authorization = new URL(next.authorizationUrl);
+  for (const field of ['state', 'code_challenge']) {
+    assert.notEqual(authorization.searchParams.get(field), oldAuthorization.searchParams.get(field));
+  }
+  assert.notEqual(next.cart.csrfToken, expired.csrfToken);
+  assert.notEqual(res.headers['set-cookie'], first.res.headers['set-cookie']);
+});
+
+test('an unknown add stays blocked after token expiry while the session survives', async t => {
+  let time = NOW; let writes = 0;
+  const cart = new CartSessions({ config, now: () => time, fetchImpl: async url => {
+    if (url.endsWith('/token')) return tokenResponse({ expires_in: 60 });
+    writes++; throw new Error('Synthetic dropped acknowledgement');
+  } }); t.after(() => cart.close());
+  const { request, csrfToken } = await connected(cart);
+  const input = { items: [{ upc, quantity: 2 }], csrfToken };
+  await assert.rejects(cart.add(request, response(), input), { code: 'cart_write_outcome_unknown' });
+  time += 60_000;
+  const status = cart.status(request, response());
+  assert.equal(status.connected, false);
+  assert.equal(status.status, 'write_outcome_unknown');
+  assert.equal(status.csrfToken, csrfToken);
+  await assert.rejects(cart.add(request, response(), input), { code: 'cart_write_outcome_unknown', status: 409 });
+  assert.equal(writes, 1);
+  cart.disconnect(request, response(), { csrfToken });
+  assert.equal(cart.status(request, response()).status, 'authorization_required');
+});
+
+test('an in-flight add excludes another write, reconnect and disconnect; pre-send cancellation sends nothing', async t => {
+  let finish; let writes = 0;
+  const cart = new CartSessions({ config, fetchImpl: async url => {
+    if (url.endsWith('/token')) return tokenResponse();
+    writes++;
+    return new Promise(resolve => { finish = () => resolve(new Response(null, { status: 204 })); });
+  } }); t.after(() => cart.close());
+  const { request, csrfToken } = await connected(cart);
+  const input = { items: [{ upc, quantity: 1 }], csrfToken };
+  await assert.rejects(cart.add(request, response(), input, { signal: AbortSignal.abort() }), { code: 'cart_cancelled' });
+  assert.equal(writes, 0);
+  const addition = cart.add(request, response(), input);
+  try {
+    await assert.rejects(cart.add(request, response(), input), { code: 'cart_write_outcome_unknown' });
+    assert.throws(() => cart.connect(request, response()), { code: 'cart_busy' });
+    assert.throws(() => cart.disconnect(request, response(), { csrfToken }), { code: 'cart_busy' });
+    assert.equal(writes, 1);
+  } finally { finish(); }
+  assert.equal((await addition).acknowledged, true);
+  assert.equal(cart.status(request, response()).status, 'connected');
+});

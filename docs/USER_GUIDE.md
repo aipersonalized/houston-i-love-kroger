@@ -203,8 +203,11 @@ If Cart is available:
 2. Select **Connect a Kroger cart**, then **Continue to Kroger sign-in** to open
    a new tab. Sign in only at Kroger and decide whether to authorize Cart access.
 3. Return to the original app tab and select **Check cart connection**. Your
-   list stays in that tab. Failed/expired sign-in can be started again; sign-in
-   adds no items.
+   list stays in that tab. If you cancel sign-in, it fails, or more than ten
+   minutes pass before it finishes, check the connection and select **Connect
+   a Kroger cart** again. Use the new **Continue to Kroger sign-in** link; the
+   previous link expires. Sign-in adds no items. Keep cookies enabled for this
+   site and complete sign-in in the same browser where you opened the app.
 4. Review the list. Select **Add listed quantities to Kroger cart** only when
    you want to add those quantities. Each add sends the full listed quantities
    and may increase existing cart quantities; it does not replace the cart. The
@@ -220,6 +223,17 @@ If an add times out, disconnects or reports an **unknown** result, it may have
 reached Kroger. Do not replay it. Inspect the actual cart first. The app blocks
 another add in that uncertain session. Disconnect/reconnect only after checking
 the outcome. Disconnect does not undo changes.
+
+An expired connection is not proof that an earlier add failed. Once this page
+has seen an unknown result, **Check cart connection** keeps that warning even
+if the connection later expires or the operator restarts the site. Review the
+actual Kroger cart, then select **Disconnect cart** before starting a new
+connection if another add is needed. Closing this page loses its warning and
+list; it does not determine or undo the earlier result.
+
+If the connection still fails after starting again, keep using the visit-only
+list and contact the site's operator. Describe the visible message without
+sending sign-in links, callback addresses, cookies, passwords or account details.
 
 Optional Cart uses a secure, HttpOnly visit cookie and keeps authorization only
 in server memory. The session expires within 30 minutes and the token may expire
