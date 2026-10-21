@@ -6,7 +6,22 @@ test('portable defaults bind locally and leave credentials unconfigured', () => 
   assert.deepEqual(readConfig({}), { host: '127.0.0.1', port: 4173,
     basePath: '/apps/houston-i-love-kroger/', publicOrigin: '', environment: 'production',
     clientId: '', clientSecret: '', historyDbPath: undefined,
-    cartEnabled: false, cartGranted: false, cartRedirectUri: '', promotionServiceUrl: '', promotionServiceToken: '' });
+    cartEnabled: false, cartGranted: false, cartRedirectUri: '', promotionServiceUrl: '', promotionServiceToken: '',
+    shoppingServiceUrl: '', localShoppingMode: false });
+});
+
+test('shared-service URLs allow a service prefix while local supplier mode requires explicit private loopback use', () => {
+  assert.equal(readConfig({ SHOPPING_SERVICE_URL: 'https://example.com/api/groceries/' }).shoppingServiceUrl, 'https://example.com/api/groceries/');
+  assert.equal(readConfig({ SHOPPING_SERVICE_URL: 'http://shopping:4174/' }).localShoppingMode, false);
+  assert.equal(readConfig({ SHOPPING_SERVICE_URL: 'http://127.0.0.1:4174/',
+    PROMOTION_SERVICE_TOKEN: 'synthetic-service-token-for-native-shared-env' }).shoppingServiceUrl, 'http://127.0.0.1:4174/');
+  assert.equal(readConfig({ LOCAL_SHOPPING_MODE: 'true' }).localShoppingMode, true);
+  for (const env of [{ LOCAL_SHOPPING_MODE: 'yes' }, { LOCAL_SHOPPING_MODE: 'true', HOST: '0.0.0.0' },
+    { LOCAL_SHOPPING_MODE: 'true', PUBLIC_ORIGIN: 'https://example.com' },
+    { LOCAL_SHOPPING_MODE: 'true', SHOPPING_SERVICE_URL: 'http://127.0.0.1:4174/' },
+    { SHOPPING_SERVICE_URL: 'https://example.com/no-trailing-slash' },
+    { SHOPPING_SERVICE_URL: 'https://user:secret@example.com/' }, { SHOPPING_SERVICE_URL: 'https://example.com/?token=x' },
+    { SHOPPING_SERVICE_URL: 'file:///private/' }]) assert.throws(() => readConfig(env));
 });
 
 test('cart requires explicit opt-in flags and a same-origin registered HTTPS callback', () => {

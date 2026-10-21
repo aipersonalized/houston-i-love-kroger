@@ -2,8 +2,9 @@
 
 The human page and the companion's explicit current-shopping tools can look up
 stores, search current products, recheck selected products and estimate selected
-quantities through this installation's API. The installation's trusted server
-handles its Kroger connection; the companion needs no supplier credentials.
+quantities through one shared shopping service. The web app delegates shopping
+to it, and the independent companion calls it directly without opening the web
+page. The service handles Kroger reads; the companion needs no supplier credentials.
 
 The companion's separate stored-data tools get saved ZIP-query locations,
 completed collection topics, collected deals, regular prices, quantity estimates
@@ -22,10 +23,12 @@ data to an assistant provider. The installation's source permissions,
 [Kroger Acceptable Use](https://developer.kroger.com/documentation/public/getting-started/acceptable-use)
 and [Kroger Terms](https://developer.kroger.com/terms) still apply.
 
-Before using a live installation, read its **Privacy** and **Use notes** links
-on the app page. They are available without running a search, at the configured
-base page followed by `#privacy-notice` and `#use-notes`. They explain the
-operator, search handling and hosting logs. Use the API for ordinary store and
+Before using a live installation, read the privacy and use disclosure supplied
+with your client or by its service operator. It must describe that installation's
+operator, search handling, recipients and hosting logs. The independent companion
+includes its own [shared-service disclosure](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/skills/houston-i-love-kroger/references/user-guide.md#shared-service-privacy-and-use);
+it never needs a web-app visit. Other operators must describe their actual
+deployment rather than adopting another operator's policy. Use the API for ordinary store and
 product browsing. Do not bulk-collect, archive, alter or resell API content,
 track customer searches or locations, or compare Kroger prices with other
 retailers. An assistant's ability to call this API does not grant permission
@@ -33,10 +36,25 @@ to forward its results to that assistant's provider.
 
 ## Address and request rules
 
-The default local app address is
-`http://localhost:4173/apps/houston-i-love-kroger/`. Every path below is relative
-to the configured `APP_BASE_PATH`. For example, the status URL at that address is
-`http://localhost:4173/apps/houston-i-love-kroger/api/v1/status`.
+The default local service base is `http://127.0.0.1:4174/`; its status URL is
+`http://127.0.0.1:4174/api/v1/status`. `SHOPPING_SERVICE_BASE_PATH` optionally
+mounts the same suffixes under a service prefix. A public deployment can expose
+a separate base such as `https://groceries.example/api/houston-i-love-kroger/`.
+This is a configuration example, not evidence that an address is deployed.
+
+The web page remains at `http://localhost:4173/apps/houston-i-love-kroger/`.
+Its existing relative `api/v1/*` shopping routes delegate to the configured
+`SHOPPING_SERVICE_URL` and preserve the response schemas below. Cart paths
+exist only at the web app base. The dedicated service serves no page, assets,
+Cart actions, OAuth callback or collection operation.
+
+Dedicated public API responses, including errors, identify their transport with
+`X-Houston-Service: houston-i-love-kroger-shopping`. Its status also includes
+`"service":{"name":"houston-i-love-kroger-shopping","apiVersion":1}`.
+Other success schemas are unchanged. The web app deliberately omits both that
+header and status discriminator. Clients must verify the dedicated header and
+status identity, so an old web-page URL cannot silently replace the service.
+The token-authenticated `/v1/*` storage API is separate and has neither identity.
 
 | Method | Relative path | Purpose |
 | --- | --- | --- |
@@ -83,7 +101,10 @@ environment data must not be presented as verified live shopping offers.
 ## Check status
 
 `GET api/v1/status` takes no query parameters or body. It does not contact Kroger.
-In remote-history mode it makes one bounded private-service status request.
+The service reads storage capability locally. The web app makes one bounded
+shared-service request and adds its own Cart readiness. Its status example
+below remains web-facing; dedicated status adds `service`, keeps
+`capabilities.cart: false` and omits the web-only `cart` object.
 
 Illustrative response for an installation with no configured credentials and no
 reviewed history permission:
@@ -127,7 +148,7 @@ contain credentials, database paths, source permission documents or shopper data
 
 `capabilities.products` and `basket` identify implemented interfaces, not verified
 live access or source grants. `cart` identifies configured Cart capability and
-`promotionService` whether a private service client is configured. Top-level
+`promotionService` whether the storage provider is configured. Top-level
 `cart` is installation readiness, not a particular shopper's connection; use
 `api/v1/cart/status` for that. Capability status does not enable collection.
 
@@ -760,10 +781,13 @@ result, not proof that the store has no promotions.
 
 ## Historical comparisons
 
-With `PROMOTION_SERVICE_URL` and its matching private token configured, the web
-server uses the separate service and never opens a local history database.
-Without them it retains the single-process local comparison mode; that mode
-does not supply the stored-observation search endpoints. Search requests do not
+With `SHOPPING_SERVICE_URL` configured, the web server uses the shared service
+for all shopping and never opens a history database or creates a supplier
+shopping client. The service reads its own permission-checked storage. Explicit
+`LOCAL_SHOPPING_MODE=true` is a loopback-only development alternative; it is
+rejected with a public origin, nonlocal listener or shared-service URL. Only
+that mode can optionally use the older private `PROMOTION_SERVICE_URL` and token
+for history, or local SQLite comparisons without stored-search endpoints. Search requests do not
 add snapshots, ZIPs, search terms, shopper
 profiles or customer behavior to that database. Historical collection is a
 separate operator workflow with reviewed source permissions and retention
@@ -1012,10 +1036,10 @@ conditions, refresh source prices, read a customer's cart or place an order.
 
 ## Stored promotion search and retrieval
 
-These public app operations proxy only the configured private service, in the
-production environment. The app backend supplies its private service token;
-shoppers/assistant clients must never receive or send that token. No service is
-configured by default in native local mode. Certification returns `unavailable`
+These public service operations read the owned database in the production
+environment. The web app delegates them to the same shared service. Shoppers and
+assistants never receive or send the private `/v1/*` token. Explicit local
+development without a stored provider reports unavailable. Certification returns `unavailable`
 with `history_environment_mismatch` rather than reading production history.
 
 `GET api/v1/promotions/status` returns `ok: true`, `apiVersion: 1`, `status`
@@ -1202,6 +1226,7 @@ an application JSON response; clients must also handle connection failures.
 | 502 | `upstream_unavailable` | Kroger failed or timed out; retry later with a bounded delay. |
 | 503 | `setup_required`, `connection_rejected`, `permission_denied` | The operator must check API setup, environment or permissions. |
 | 503 | `promotion_service_unavailable` | The private history read failed. Retry a read later; this is not empty history. |
+| 503 | `shopping_service_unavailable` | The web-to-service transport, identity or response check failed. No supplier fallback occurs. |
 | 403 | `origin_required`, `cart_session_required` | Use the configured app origin and current cart cookie/CSRF session. |
 | 400 | `invalid_cart_items` | Correct UPCs, quantities, modality and duplicate entries before a separately authorized write. |
 | 401 | `cart_authorization_required` | Authorization is absent/expired; reconnect only after checking any prior uncertain write. |
@@ -1237,12 +1262,16 @@ These are application limits, separate from Kroger's published quotas:
 | Core source text | Description 512, brand 200, size 100, sold-by 40, identifiers 64, stock string 80, date value/timezone 80 characters. Additional catalog fields have their own fixed bounds. |
 
 Private-service bounds are documented in [PROMOTION_SERVICE.md](PROMOTION_SERVICE.md).
-Its larger private body limit does not raise the public app's 4,096-byte bound.
-Remote requests have a five-second whole-response deadline, a 2 MiB response cap,
-no redirects, no cache and no automatic retry. Current-price results survive an
+Its larger private body limit does not raise either public interface's
+4,096-byte bound. The shared-service transport has a 30-second whole-response
+deadline and an 8 MiB cap, including streamed bytes. Its public listener admits
+at most 30 requests per minute (including status), four active requests, and
+has a 35-second cancellation deadline. The legacy private stored client keeps
+its five-second deadline and 2 MiB cap. Both refuse redirects, caching and retries.
+Current-price results survive an
 independent comparison-service failure with history marked unavailable.
 
-The local HTTP budget and app rate counter are process-local. Their windows
+The local HTTP budget and app/service rate counters are process-local. Their windows
 start with local activity and reset on restart; multiple processes do not share
 them. They are not proof of Kroger's quota balance or reset time. A production
 operator must coordinate quotas across server and collection processes.

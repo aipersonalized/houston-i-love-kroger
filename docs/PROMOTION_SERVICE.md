@@ -1,127 +1,143 @@
-# Private promotion database service
+# Shared shopping and promotion service
 
-Run one private service to let companion agents discover stored locations and
-completed topics, find collected deals, check
-regular prices, estimate quantities and read dated history without contacting
-Kroger. The service owns the SQLite history
-database and its permission rules. It does not fetch a catalog or save shopper
-searches.
+The web app and independently released companion use this service for nearby
+stores, current products, reported deals, exact product checks and quantity
+estimates. The companion calls it directly and returns its answer in the
+conversation; it needs no web page, app process, supplier secret or database.
+The same service owns the permission-checked promotion database.
 
-**Actual Kroger permission to retain and share these observations has not been
+Live shopping and stored reads remain explicit. Live operations contact Kroger
+transiently; stored operations never contact Kroger, collect, refresh or fall
+back to a live lookup. Shopping never writes history.
+
+**Actual Kroger permission to retain and share observations has not been
 established.** A new installation returns `permission_required`. Successful
-software tests use synthetic data in temporary databases; they do not grant
-source rights or produce real promotion history.
+software checks use synthetic data in temporary databases. Read the
+[permission guide](KROGER_PERMISSION_REQUEST.md) before collection. Ordinary
+permitted Public current-price lookup does not itself require Partner enrollment.
 
-The missing basis concerns systematic collection and reuse of retained data;
-Partner enrollment is not a blanket requirement for apps or agents and does not
-itself authorize that database. The human app's separate live Public lookups can
-proceed within their published terms. See the [permission guide](KROGER_PERMISSION_REQUEST.md)
-for the exact restriction and the specific exception to ask about.
+## How the independent clients connect
 
-## How data reaches an agent
+This view covers request ownership. Collection remains a separate operator action.
 
 ```mermaid
 flowchart LR
-  Kroger[Kroger API] -->|Permitted bounded collection only| Collector[Operator collection job]
-  Collector -->|One completed snapshot transaction| DB[(Private SQLite)]
-  DB --> Service[Private promotion read service]
-  Service --> App[Our public stored-deal API]
-  App --> Tool[Companion read-only tool]
-  Tool --> Agent[Agent explains useful deals to the person]
+  accTitle: Independent shopping clients share one headless service
+  accDescr: The browser uses the web app for its page and optional Cart. The web app and independent companion request shopping from the shared service, which owns supplier reads and permission checked history. An authorized operator separately writes allowed history.
+  Browser[Browser] -->|Page and optional Cart| Web[Web app]
+  Web -->|Read-only shopping HTTP| Service[Shared shopping service]
+  Companion[Independent companion] -->|Direct read-only shopping HTTP| Service
+  Service -->|Explicit current lookups| Kroger[Kroger API]
+  Service -->|Permission-checked stored reads| DB[(Private SQLite)]
+  Collector[Authorized operator collector] -->|Permitted snapshots only| DB
+  Companion -->|Returned facts and estimates| Agent[Assistant answers the person]
 ```
 
-Collection and reading are independent. Only the separately configured operator
-job contacts Kroger for stored data. It records exact store/topic, collection
-time, original source permission and bounded coverage. A completed job, including
-an empty sample, can replace that topic's previous snapshot. Partial/failed jobs
-cannot publish partial deals or refresh an old snapshot's date. Operator job
-identity makes a completed scheduled bucket idempotent. Collection retries are
-disabled by default; an operator can enable at most three attempts, governed by
-durable quota reservations, backoff and a source lease. See the
-[collection limits and recovery guide](HISTORY.md#limits-and-recovery).
+`src/shopping-api.js` owns the headless operations. It reads no UI assets and
+creates no Cart sessions. `src/promotion-server.js` starts the shared service;
+`src/server.js` starts the web app, which uses `SHOPPING_SERVICE_URL` for shopping
+and retains browser assets and optional Cart. Service failure is unavailable,
+with no web-to-supplier fallback.
 
-The companion's `promotions.py` stores/topics/latest/price/estimate/status/history
-requests query our stored data only. They
-need neither a Kroger credential nor a database file. Empty, stale, unavailable
-and permission-blocked results remain explicit and never trigger a live source
-fetch. The human page and the companion's explicit current-shopping tools have
-a separate live-price path; ordinary shopping does not collect history.
-The database remains empty/pending until real source
-permission and a deliberate operator collection are configured.
-
-An agent can recommend useful discounts or lower whole-package outlays among
-the fresh returned sample. It must keep package sizes, collection time, coverage
-and unknown units clear, rather than claiming storewide cheapest prices or live
-checkout validation. The [companion plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin)
-has its own repository and release; it connects through this app's API.
+The companion's separate `promotions.py` commands read saved ZIP-query stores,
+completed topics, latest deals, prices, estimates and dated history only. A
+missing or stale result does not contact a supplier or schedule collection.
+The database remains pending until real source permission and a deliberate
+operator collection are configured. A bounded sample never establishes every
+store promotion, the cheapest storewide price or verified checkout conditions.
 
 ## 1. Prepare the installation
 
-1. Complete [the installation guide](SELF_HOSTING.md) through dependency setup.
-   Use the project's supported Node.js version and `npm ci --ignore-scripts`.
-2. Choose a private local folder for the database. Set `HISTORY_DB_PATH` in the
-   service's private environment to that file. The default is
-   `.runtime/history.sqlite` relative to the installed project. Existing database
-   files must pass the schema and integrity checks; arbitrary SQLite files and
-   linked paths are refused.
-3. Use your password manager or secret manager to generate a fresh random service
-   secret. Store it as `PROMOTION_SERVICE_TOKEN` in the service and app runtime
-   environments. It must be 32–512 printable ASCII characters with no spaces.
-   Keep it out of browser configuration, chat, command arguments, screenshots,
-   source control and agent instructions. This is a private app-to-service
-   secret, separate from Kroger API credentials.
-4. Leave `PROMOTION_SERVICE_HOST` unset for the default `127.0.0.1` listener.
-   Leave `PROMOTION_SERVICE_PORT` unset for port `4174`. For separate containers,
-   bind the service to its private container interface and restrict access to
-   the app and operator network. Do not publish its port to the Internet.
-   Use an authenticated, encrypted transport across any untrusted network.
-5. Keep one authority for this database volume. In a service deployment, mount it
-   only in the promotion service and its authorized operator jobs. The web app
-   uses HTTP and does not mount a second database copy or open the volume itself.
+1. Follow [self-hosting](SELF_HOSTING.md) through Node.js and dependency setup.
+   Copy `.env.example` to private `.env` beside `package.json`.
+2. Choose the private authoritative `HISTORY_DB_PATH`; blank uses
+   `.runtime/history.sqlite`. Only this service and separately authorized
+   operator jobs open that volume. The web app opens no database.
+3. Generate a private random secret in your password or secret manager. Save it
+   as `PROMOTION_SERVICE_TOKEN` in the service runtime environment. It must have
+   32–512 printable ASCII characters without spaces. Never put it in a URL,
+   command argument, browser setting, assistant prompt, log or public source.
+   It protects private `/v1/*`; normal shopper clients need no service token.
+4. Keep `PROMOTION_SERVICE_HOST=127.0.0.1` and
+   `PROMOTION_SERVICE_PORT=4174` for local use. Keep the raw port private. Across
+   untrusted networks use authenticated encrypted transport.
+5. Leave `SHOPPING_SERVICE_BASE_PATH=/` for the local public API base, or choose
+   a simple prefix beginning and ending with `/`. Set `SHOPPING_PUBLIC_ORIGIN`
+   to the exact accepted HTTP(S) origin for a proxy or nonloopback listener.
+   Configure proxy Host forwarding to that origin or the loopback listener.
+   For an internal container origin such as `http://promotions:4174`, the proxy
+   must send `Host: promotions:4174`. Native companion calls omit Origin;
+   the human page uses its own web gateway.
+6. Supply permitted `KROGER_CLIENT_ID`, `KROGER_CLIENT_SECRET` and
+   `KROGER_ENVIRONMENT` to this service for current shopping. Blank credentials
+   allow status and return setup-required for live searches. Certification
+   never reads production history. Optional web Cart retains separately enabled
+   credentials, grants and sessions.
 
-The listener refuses to start without a valid secret, including when configured
-for an external interface. A configured secret alone does not configure a
-firewall, TLS, encrypted disks or backup access controls.
+## 2. Start and check the service
 
-## 2. Start the service
-
-From the project folder, with private environment settings prepared, run:
+From the project folder, run:
 
 ```text
-node --env-file-if-exists=.env src/promotion-server.js
+npm run promotions:serve
 ```
 
-The expected message is `Private promotion service is listening. Source
-permission is checked separately.` Keep that terminal open. Stop it with Ctrl+C.
-The process closes its listener and database; active connections receive a
-bounded shutdown window.
+The expected message starts `Shared shopping service is listening` and confirms
+public read routes plus private authenticated storage routes. Keep that terminal
+open. Stop it with Ctrl+C. The process drains its listener and closes the database.
 
-For a liveness check, open `http://127.0.0.1:4174/healthz` on the service machine.
-It returns only `{"ok":true}`. It does not establish source permission, database
-coverage or live Kroger access. All `/v1/` operations require the private token.
-There is no browser sign-in screen or public policy-enabling operation.
+Open `http://127.0.0.1:4174/healthz` locally for the minimal `{"ok":true}`
+liveness result. Then use `http://127.0.0.1:4174/api/v1/status` for public status.
+It includes `service: {"name":"houston-i-love-kroger-shopping","apiVersion":1}`
+and `X-Houston-Service: houston-i-love-kroger-shopping`. Status never contacts
+Kroger and grants no source rights. Blank supplier credentials return
+`configured: false`; storage remains independently permission-gated.
 
-## 3. Connect the web app
+Public `api/v1/*` uses the wrapped contract in [API.md](API.md). Private `/v1/*`
+retains its Bearer token, database-only meaning and unwrapped responses. Public
+`api/v1/deals/search` is live; private `/v1/deals/search` reads stored latest
+deals. These route families are not interchangeable. The dedicated service has
+no page, assets, Cart, OAuth callback, collection or arbitrary supplier-proxy route.
 
-1. Set `PROMOTION_SERVICE_URL` in the app's private runtime environment to the
-   service origin, such as `http://127.0.0.1:4174`. In separate containers, use the
-   service's private DNS name. The URL may use HTTP or HTTPS; it cannot include
-   credentials, a path, a query or a fragment.
-2. Give the app the same private `PROMOTION_SERVICE_TOKEN`. The app backend adds
-   the authentication header; browsers and companion agent tools do not receive
-   this token.
-3. Start the app as described in [self-hosting](SELF_HOSTING.md). Select a store,
-   then use its stored-observation search or the documented public app API.
-4. Expect `permission_required` until the operator has actual reviewed permission.
-   An available search with zero observations means only that the permitted,
-   retained sample has no matching rows. A failed service connection remains
-   unavailable; it is never reported as an empty history.
+## 3. Connect each independent client
 
-The client makes no automatic retries and keeps no result cache. It limits the
-whole request, including streamed response bytes, to five seconds by default and
-caps responses at 2 MiB. Redirects are refused so the private token is not
-forwarded to another destination. Production observations must not be mixed with
-certification responses.
+1. Set `SHOPPING_SERVICE_URL=http://127.0.0.1:4174/` in the web app environment
+   for the default local service. Include its configured prefix if one is used.
+   It must end with `/` and cannot include credentials, a query or fragment.
+   Use HTTPS across untrusted networks. Container HTTP requires a trusted private
+   network and an accepted internal Host.
+2. Start the web app in another terminal using `npm start`. It needs neither
+   the private `/v1/*` token nor database access. It creates no supplier shopping
+   client, and a service outage has no local supplier fallback.
+3. Install the [independent companion](https://github.com/aipersonalized/houston-i-love-kroger-plugin)
+   using its own guide. Point `HOUSTON_SERVICE_URL` or `--base-url` at the same
+   dedicated service base. It requires the dedicated header on API responses
+   and the status identity; a web-page address is rejected. No web app needs to run.
+4. Check status, choose an exact returned store and request one bounded product
+   search. Preserve source facts, coverage and retrieval time. Stored permission,
+   missing data, stale data and transport failures remain separate results.
+5. For public hosting, forward only the public read route allowlist under a
+   dedicated HTTPS service prefix. Keep `/v1/*`, `healthz`, the raw port, storage
+   and operator controls private. The service checks Host and Origin, accepts at
+   most 4,096 JSON bytes, 30 public requests per minute including status and four
+   active requests, and cancels after 35 seconds. These process-local limits reset
+   on restart and do not prove production capacity or the supplier quota balance.
+
+The web service client has a 30-second whole-response deadline and 8 MiB cap,
+including streamed bytes. It refuses redirects, cookies, caching and retries.
+The older private storage client retains its five-second/2 MiB bounds and token.
+The companion's independent release declares its client bounds. Only dedicated
+status adds JSON identity; all other public success schemas remain unchanged.
+The web app omits the dedicated header and status discriminator.
+
+Keep customer queries, responses and secrets out of proxy and process logs.
+No shopper-search logging is built into this service. An assistant recipient
+still needs applicable source permission; installation creates no such rights.
+
+`LOCAL_SHOPPING_MODE=true` is an explicit development alternative. It is rejected
+with a nonlocal HOST, PUBLIC_ORIGIN or SHOPPING_SERVICE_URL. It reuses the same
+headless implementation locally and can optionally use the older private stored
+client or local history comparisons. It is unavailable for public web hosting.
 
 ## 4. Collect and maintain data through the operator workflow
 
@@ -159,8 +175,9 @@ free pages, WAL files, backup copies or storage devices.
 
 Authenticated `POST /v1/deals/search` accepts `locationId`, exact approved
 `topic`, optional `limit` (default20,max50) and a matching opaque `cursor`.
-The app exposes it as `POST api/v1/promotions/latest`; only the app backend
-sends the private service token. The full DTO and snapshot lifecycle are in
+The shared service exposes the same database operation publicly as
+`POST api/v1/promotions/latest` under its own permission checks; shoppers never
+send the private storage token. The full DTO and snapshot lifecycle are in
 [the latest-deal contract](API.md#latest-collected-deals).
 
 The service selects the newest complete store/topic snapshot before filtering
@@ -181,14 +198,14 @@ before that age limit. No price is guaranteed valid until checkout.
 `POST /v1/prices/search` accepts the same exact store/topic, optional exact
 `productId` and `itemId`, and bounded page fields. It returns `products` from the
 latest completed sample, preserving regular-only and unavailable source facts.
-The app exposes `POST api/v1/promotions/prices`. See the
+The shared service exposes `POST api/v1/promotions/prices`. See the
 [price-check contract](API.md#check-collected-prices).
 
 `POST /v1/basket/estimate` accepts one exact `locationId` and 1–10 `items`, each
 with an exact approved `topic`, returned `productId`, returned `itemId` and whole
 `quantity` 1–99. One database read transaction resolves the latest completed
 snapshots. Caller-supplied prices are rejected; no item substitution, list
-persistence, customer account or source request occurs. The app exposes
+persistence, customer account or source request occurs. The shared service exposes
 `POST api/v1/promotions/estimate`. See the
 [estimate contract](API.md#estimate-a-shopping-list-from-collected-prices).
 
@@ -200,10 +217,10 @@ items stay unresolved. `complete` means all line arithmetic was possible; it
 does not certify purchase conditions or a payable checkout total. Source facts,
 observation time, gaps and exclusions remain in the response.
 
-All data operations require `Authorization: Bearer …`, where the runtime supplies
+All private `/v1/*` data operations require `Authorization: Bearer …`, where the runtime supplies
 the actual private secret. Send POST bodies as uncompressed `application/json`.
 Responses use JSON and `Cache-Control: no-store`. The private service has no
-cross-origin browser access. The app's public proxy operations and their normal
+cross-origin browser access. The public shopping operations and their normal
 response wrapper are documented separately in [API.md](API.md).
 
 | Operation | Request | Result |
@@ -273,7 +290,7 @@ admission/rate limits 429; and storage failures 503. Errors have only
 filesystem paths, source-policy evidence, raw upstream failures or tokens are
 included.
 
-Default service bounds are 1 MiB per request body, five seconds to finish a body,
+Default private storage bounds are 1 MiB per request body, five seconds to finish a body,
 8 active requests, 120 authenticated requests per minute, 8 KiB headers,
 64 connections and 100 requests per connection. Listener/header and socket
 timeouts also bound idle clients. SQLite operations are synchronous and use the
@@ -286,6 +303,16 @@ capacity guarantee. Keep collection plans finite and avoid overlapping jobs.
 `src/promotion-service.js` returns a configured Node HTTP server. Its caller owns
 listening, shutdown and the supplied store. The standalone
 `src/promotion-server.js` entrypoint opens and closes that store itself.
+
+For the combined service, supply `shoppingApi` created by `createShoppingApi`
+with a supplier client and `createStoredPromotionProvider` for that same store.
+`publicBasePath` and `publicOrigin` configure the public read transport. The
+standalone entrypoint wires these owners without starting the web app. The
+existing private-only embedding remains available by omitting `shoppingApi`.
+
+`createShoppingClient({url, ...})` provides the web app's bounded
+`execute(path, body, {signal})` interface. It allows only the documented public
+shopping paths and checks dedicated transport identity. It sends no private token.
 
 `createPromotionClient({url, token, ...})` from `src/promotion-client.js` exposes
 async `getStatus()`, `searchPromotions(input)`, `retrievePromotion(input)` and
@@ -321,7 +348,7 @@ runtime values; do not embed secrets in a script or skill.
 
 If startup fails, check that the private secret is present, the port is free and
 the service identity can access the intended regular local file. If the app
-reports unavailable, check the private service URL, paired secret, listener and
+reports unavailable, check the configured service URL, identity, listener and
 network route. If it reports `permission_required`, review the actual source
 rights rather than editing a sample policy to bypass the gate. If a permitted
 search has no matches, check the exact store/IDs, time filters, sample coverage,
@@ -338,23 +365,32 @@ rights changes, authentication, safe failures, resource bounds, client deadlines
 and the independent server entrypoint. They do not exercise a live source,
 production database, actual source agreement or deployed container network.
 
+`node --test tests/shared-shopping-service.test.js` also checks actual public
+HTTP shopping without a web server, web delegation, continued service after web
+shutdown, private-route isolation, failure bounds and identity rejection. To
+include native companion execution, explicitly set `HOUSTON_COMPANION_PATH` to
+the separate plugin checkout and `COMPANION_PYTHON` to a supported Python
+interpreter path before running that command. Without both, only that optional
+cross-repository test is skipped. It exercises all six current-shopping commands
+plus stored reads against synthetic data, without a web process or real source.
+
 Protocol and migration references: [Node.js HTTP](https://nodejs.org/download/release/v22.21.0/docs/api/http.html),
 [constant-time comparison](https://nodejs.org/docs/latest-v22.x/api/crypto.html#cryptotimingsafeequala-b)
 and [SQLite ALTER TABLE](https://www.sqlite.org/lang_altertable.html).
 
 ## Stored directory and completed topics
 
-The same private service provides two additional read-only operations:
+The same service provides two additional private read-only operations:
 
 | Method/path | Exact input | Database operation |
 | --- | --- | --- |
 | `POST /v1/stores/search` | `{ "zipCode": "00000" }` | `getStoredStores`; independently permitted completed ZIP query. |
 | `POST /v1/topics/search` | `{ "locationId": "TEST0001" }` | `getStoreTopics`; readable completed named topics for that exact store. |
 
-These are synthetic values. Public consumers use the app's
-[`api/v1/promotions/stores` and `topics`](API.md#stored-store-discovery) proxy,
-with the same private authentication, request limits, fixed errors, no-cache and
-whole-response deadline as other service reads. Neither endpoint calls Kroger,
+These are synthetic values. Public consumers use the dedicated service's
+[`api/v1/promotions/stores` and `topics`](API.md#stored-store-discovery) routes,
+with the public request limits, fixed errors, no-cache and whole-response deadline.
+The older private routes retain their token requirement and separate limits. Neither endpoint calls Kroger,
 reads private operator configuration, changes policy or starts collection.
 
 `stores` returns a completed first-page ZIP query under separately reviewed

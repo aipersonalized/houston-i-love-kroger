@@ -19,7 +19,9 @@ database service never fills that gap with sample prices.
 
 The separately released [standalone plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin) includes its own
 portable skill, Python tools, manuals, license and ZIP builder. It needs only a
-compatible app URL, not this app checkout or supplier credentials.
+compatible shared-service URL, without this app checkout, the web page or supplier
+credentials. The web app and companion are independent clients of the same
+shopping service. The companion can return deals while the web process is stopped.
 
 [Open the hosted app](https://aipersonalized.io/apps/houston-i-love-kroger/)
 or run your own installation below. A hosted operator controls its enabled
@@ -44,26 +46,36 @@ permitted Kroger developer access; hosting and provider conditions are separate.
    ```text
    npm ci --ignore-scripts
    npm test
-   npm start
    ```
 
    The locked dependencies supply prebuilt SQLite bindings. Installation skips
    unnecessary native-build scripts; the tests check that the binding works
    using synthetic fixtures and temporary databases.
 
-3. Open `http://localhost:4173/apps/houston-i-love-kroger/`. Without credentials,
+3. Copy `.env.example` to `.env` beside `package.json`. In your password or secret
+   manager, generate a private random token of at least 32 characters and save it
+   only as `PROMOTION_SERVICE_TOKEN` in `.env`. Leave supplier credentials blank,
+   Cart disabled and `SHOPPING_SERVICE_URL=http://127.0.0.1:4174/`. Start the service:
+
+   ```text
+   npm run promotions:serve
+   ```
+
+   Keep that terminal open. In a second terminal in the same folder run `npm start`.
+4. Open `http://localhost:4173/apps/houston-i-love-kroger/`. Without credentials,
    expect **Store searches aren’t ready yet.** This lets you check
    that the page and local server are connected. It does not test Kroger access.
-4. Follow [private API setup](docs/SELF_HOSTING.md#3-configure-current-price-access-privately),
+5. Follow [private API setup](docs/SELF_HOSTING.md#3-configure-current-price-access-privately),
    save credentials only in your local configuration and restart the server.
-5. When access is available, enter a five-digit US ZIP, select **Find stores**,
+6. When access is available, enter a five-digit US ZIP, select **Find stores**,
    check the store's name and address, then select **Choose this store**.
    The initial sample searches milk, bread and eggs. Search `coffee`, for example,
    to request a different limited set. Read the displayed scope and retrieval
    time; empty results do not establish that the store has no promotions.
 
-Leave the terminal open while using the app. Press Ctrl+C to stop it. Starting
-the server creates private history storage, but does not collect prices. If the
+Keep both terminals open while using the app. Press Ctrl+C in each to stop it.
+Only the shared service opens private history storage; neither process collects
+prices during shopping. If the
 page cannot connect or API access is rejected, use the
 [troubleshooting steps](docs/SELF_HOSTING.md#5-troubleshoot-locally).
 
@@ -78,7 +90,7 @@ page cannot connect or API access is rejected, use the
 | Read product and store details | Original product photos, package information, supplied labels and store hours/departments where Kroger provides them. Missing fields stay unknown. |
 | Read unit estimates | Source-reported numeric estimates. Their measurement basis is unreported, so they are not verified prices per ounce, pound or item. |
 | Compare collected history | Only suitable earlier observations for the exact store and item, after source permission is established. A new database is empty. |
-| Plan groceries with an assistant | The companion uses this app's API alongside the human page: confirm a store, match requested packages, check current prices and estimate quantities. Separate stored-only commands preserve collected deals and dated history. Recipient/source rights and bounded coverage still apply; no Cart or collection. |
+| Plan groceries with an assistant | The companion calls the shared service directly, independently of the human page: confirm a store, match requested packages, check current prices and estimate quantities. Separate stored-only commands preserve collected deals and dated history. Recipient/source rights and bounded coverage still apply; no Cart or collection. |
 | Read past prices | Search and retrieve permitted dated observations separately from current deal recommendations. A past sale is not automatically a current offer. |
 
 Savings compare the current reported regular and promo prices. They do not
@@ -90,10 +102,11 @@ The app does not clip coupons or place orders. An optional Cart connection can
 add specifically requested items after shopper sign-in, when the installation
 has the required Kroger access and registered callback. It starts disabled.
 
-The browser sends searches to the installation's Node.js server, which queries
-Kroger. The [JSON API](docs/API.md) provides live browsing for the human page and
-the companion's explicit current-shopping workflow plus separate database-only
-reads. The app sends no data
+The browser sends searches to the web server, which delegates shopping to the
+shared service. The companion calls that service directly. The service owns
+Kroger reads and permission-checked history; the web server owns the page and
+optional Cart sessions. The [JSON API](docs/API.md) preserves the same shopping
+contract for both clients, with separate database-only reads. The app sends no data
 to an external AI service. An optional
 agent or hosting service has its own data handling and permission requirements;
 running the app locally does not establish permission to forward catalog data.
@@ -111,8 +124,9 @@ must be established before enabling that source. See
 
 For the separate database service, follow
 [promotion service setup](docs/PROMOTION_SERVICE.md). The web app talks to its
-private authenticated HTTP API; agents use the public app proxy, not the database
-file or a supplier secret. Stored deal lookup, price checks, estimates and history reads
+public read-only shopping API, as do independent agents. Its existing private
+`/v1/*` storage protocol still requires an operator token; neither shopper
+interface needs that token or the database file. Stored deal lookup, price checks, estimates and history reads
 never trigger collection or fall back to Kroger. Empty or stale collected data
 stays unavailable until the operator has a permitted, completed collection.
 
@@ -130,7 +144,7 @@ Historical comparisons describe retained observations, not every past sale.
 - [Companion assistant skill](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/skills/houston-i-love-kroger/SKILL.md): authored
   instructions and portable Python clients for current shopping, collected
   deals, price checks, quantity estimates and dated history. Follow the
-  [step-by-step assistant guide](docs/USER_GUIDE.md#9-ask-an-assistant-through-the-app).
+  [step-by-step assistant guide](docs/USER_GUIDE.md#9-ask-an-assistant).
   Actual recipient/source permission
   remains installation-specific.
 - [Prepare a source release](docs/RELEASING.md): publication scope and operator checks.

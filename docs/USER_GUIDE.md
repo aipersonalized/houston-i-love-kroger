@@ -3,7 +3,7 @@
 Choose your Kroger store, browse reported prices and promotions, and make a
 shopping list for this page visit. You can also look for past prices when they
 are available on the site you use.
-For assistant use, follow [Ask an assistant through the app](#9-ask-an-assistant-through-the-app).
+For assistant use, follow [Ask an assistant](#9-ask-an-assistant).
 
 This independent project is in development. It is not affiliated with, endorsed
 by, or sponsored by The Kroger Co. Kroger is a trademark of its owner. The
@@ -37,7 +37,9 @@ passwords, API secrets or service tokens into searches or support messages.
 Use the app for ordinary browsing under the linked Kroger Terms and Acceptable
 Use rules. Do not bulk-collect, archive, alter or resell API content, track
 customer searches or locations, or compare Kroger prices with other retailers.
-An assistant's access does not grant permission to send data to its provider.
+An assistant can return ordinary product and store business facts for your
+shopping task. Private shopper records and other uses still need their actual
+permission.
 
 ## 2. Choose your store
 
@@ -361,8 +363,9 @@ an optional cart session.
 | Cart add result unknown | Check the actual Kroger cart before any new add. No automatic replay or undo exists. |
 
 Page inputs and list state do not enter browser local/session storage. Search
-values travel in request bodies to the installation, then Kroger or its private
-history service. Hosting/provider logs have separate behavior; read the actual
+values travel in request bodies to the web app and its shared shopping service,
+then Kroger for live reads or private history storage for stored reads.
+Hosting/provider logs have separate behavior; read the actual
 notices. Optional Cart has the separate cookie/server-memory behavior above.
 
 Use Tab/Shift+Tab for controls, Enter for forms and standard browser keys for
@@ -370,14 +373,15 @@ selects and expandable details. **Skip to grocery finder** appears on keyboard
 focus. On small screens, scroll below the store section for results; full
 descriptions wrap. This guide certifies no particular screen reader or browser.
 Operators should read [self-hosting](SELF_HOSTING.md), [history operations](HISTORY.md)
-and the [private service guide](PROMOTION_SERVICE.md). Assistant clients should
+and the [shared service guide](PROMOTION_SERVICE.md). Assistant clients should
 use [the shared API contract](API.md).
 
-## 9. Ask an assistant through the app
+## 9. Ask an assistant
 
-The companion is a parallel way to use this app. You explain the shopping task;
+The companion is an independent way to use the same shopping service. You explain the shopping task;
 the assistant matches groceries and packages, and tools retrieve facts and
-calculate requested quantities. It calls only this app's API. You need no
+calculate requested quantities. It calls the shared service directly and returns
+its answer in the conversation, even when the web app is stopped. You need no
 supplier credentials or browser automation, and no AI-provider account is built
 into the project. It never signs in, uses Cart, collects prices or checks out.
 
@@ -385,15 +389,16 @@ into the project. It never signs in, uses Cart, collects prices or checks out.
    and make it available through your assistant's actual local-skill/import mechanism. Follow
    the [installation guide](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/README.md).
    The plugin is released separately; it is not included in the app checkout.
-   The assistant needs Python 3.12+ or an equivalent supported app client and
-   the actual app base URL ending `/`. Copying a skill does not install a server
-   or a remote connector.
-2. Check the chosen assistant/tool/provider's actual retention and secondary-use
-   controls or agreement. The shopping path must not retain/train on/independently
-   reuse or onward disclose these records beyond your actual task. Read the
+   The assistant needs Python 3.12+ or an equivalent supported service client and
+   its bundled service connection. Copying a skill does not install a remote
+   connector. Ordinary shoppers do not supply an app URL or install the web app.
+2. Your assistant can show current product and store details in the conversation.
+   You do not need an extra approval step just because an assistant helps.
+   Keep private account details out of searches and support messages. Read the
    [recipient guide](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/skills/houston-i-love-kroger/references/source-permissions.md).
-   You do not paste private agreements or credentials into chat. Reuse a valid
-   established review; the acknowledgement flag creates no rights.
+   Do not save catalog copies or customer search/location histories, or add
+   unauthorized secondary use. Resolve a known incompatible use before it
+   happens; stored history still needs its separate source permission.
 3. Explain your groceries, quantities, preferred brands/package sizes, budget
    if relevant and which substitutions are acceptable. Unknowns stay unknown;
    the assistant asks when a missing choice affects the result.
@@ -424,17 +429,23 @@ into the project. It never signs in, uses Cart, collects prices or checks out.
 From the complete skill folder, check installation status with:
 
 ```text
-python scripts/shopping.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+python scripts/shopping.py status --json --no-input
 ```
 
-Replace the address with your operator's actual base URL. `configured: true`
+The tools load the bundled service connection automatically; only an operator
+selecting another service uses `HOUSTON_SERVICE_URL` or `--base-url`.
+`configured: true`
 does not prove valid source access; certification/synthetic results stay test
 data. `--summary-only` on a requested operation returns fixed status/counts
-without records, IDs, prices or ZIP. Full mode uses `--data-use-approved` only
-after the actual recipient/source review; the flag grants none. `--dry-run`
+without records, IDs, prices or ZIP. Ordinary current shopping returns faithful
+product and store business facts for your requested task; it needs no extra
+approval flag just because an assistant helps. `--data-use-approved` remains an
+optional acknowledgement and grants no rights. Stored history has separate
+source and retention requirements. `--dry-run`
 validates without network or a price/check-time claim. If the new product or
 estimate route is unavailable, check the complete URL and ask the operator to
-update the app; installing a new skill does not update a hosted service.
+repair the shared service; installing a new skill does not update a hosted
+service. Never use the web app or send a shopper there to recover.
 
 ### Explicitly use saved deals and history
 
@@ -447,7 +458,7 @@ workflow is independent of explicit current shopping above.
 1. Make the complete separately released [companion plugin](https://github.com/aipersonalized/houston-i-love-kroger-plugin)
    available through your assistant's supported import or local-folder mechanism.
    Follow its [installation and usage guide](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/README.md).
-   The assistant needs a suitable client and your installation's actual app URL;
+   The assistant needs a suitable client and its bundled service connection;
    copying a skill does not install a service or connector.
 2. Establish that your chosen assistant/tool/provider may receive the source data.
    Do not send API credentials, private service tokens or agreements to chat.
@@ -455,7 +466,7 @@ workflow is independent of explicit current shopping above.
 3. Give a five-digit ZIP, or reuse a complete store ID you have already confirmed.
    Ask it to find stored store choices. Check their names, addresses and collection
    date, then tell it the exact location you intend to visit. It waits for your
-   choice; no separate browser visit is required when stored data is usable.
+   choice. No companion task or recovery uses the web app or sends you there.
 4. Ask which completed topics have fresh data for that store. Topics describe
    collected categories rather than every product or promotion. Choose relevant
    ones for your question; the assistant can use clear category preferences you

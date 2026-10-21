@@ -142,7 +142,7 @@ test('independent server entrypoint starts against a temporary pending database 
       if (!started) reject(new Error('Synthetic service exited before readiness.'));
     });
     child.stdout.on('data', chunk => {
-      if (chunk.toString('utf8').includes('Private promotion service is listening.')) {
+      if (chunk.toString('utf8').includes('Shared shopping service is listening')) {
         started = true; clearTimeout(deadline); resolve();
       }
     });
@@ -152,4 +152,10 @@ test('independent server entrypoint starts against a temporary pending database 
   assert.deepEqual(await (await fetch(`${url}/healthz`)).json(), { ok: true });
   const status = await createPromotionClient({ url, token: TOKEN }).getStatus();
   assert.equal(status.status, 'permission_required');
+  const publicStatus = await fetch(`${url}/api/v1/status`);
+  assert.equal(publicStatus.headers.get('x-houston-service'), 'houston-i-love-kroger-shopping');
+  const publicBody = await publicStatus.json();
+  assert.equal(publicBody.service.name, 'houston-i-love-kroger-shopping');
+  assert.equal(publicBody.configured, false);
+  assert.equal(publicBody.promotionService.status, 'permission_required');
 });

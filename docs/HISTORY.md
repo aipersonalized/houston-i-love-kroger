@@ -5,10 +5,11 @@ price dataset. Shopper searches never write observations. A separate operator
 command can collect a small, fixed set of store/topic samples after permission
 and API access are established.
 
-The [private promotion service](PROMOTION_SERVICE.md) reads this same history
-database over authenticated HTTP. The web app can proxy its store-specific
-search, exact-observation retrieval and comparison operations without opening
-SQLite itself. The HTTP service has no policy-import, collection, SQL or other
+The [shared shopping service](PROMOTION_SERVICE.md) owns this history database.
+Its public read-only API serves the independent web and companion clients;
+its older private `/v1/*` storage protocol retains token authentication. The web
+app delegates searches, exact-observation retrieval and comparisons without
+opening SQLite itself. The HTTP service has no policy-import, collection, SQL or other
 write endpoint. Collection and maintenance remain private operator commands.
 No real Kroger collection or retention grant is established by this guide.
 
@@ -364,7 +365,7 @@ without a live Kroger request. Its explicit current-shopping workflow is separat
 After actual collection permission and a successful operator run, use
 `POST api/v1/promotions/latest` with the exact store reference and approved
 operator topic. The [API contract](API.md#latest-collected-deals) and
-[service guide](PROMOTION_SERVICE.md#how-data-reaches-an-agent) explain the
+[service guide](PROMOTION_SERVICE.md#how-the-independent-clients-connect) explain the
 public read path, private database ownership and setup.
 
 Latest deals come from the newest complete snapshot before qualifying rows.
@@ -385,8 +386,8 @@ collected scope. Missing data remains an operator dependency.
 
 ## Search and retrieve retained observations
 
-1. Run the [private service](PROMOTION_SERVICE.md) against the authoritative
-   database and connect the app using its private URL/token. Keep that token
+1. Run the [shared service](PROMOTION_SERVICE.md) against the authoritative
+   database and connect the app using `SHOPPING_SERVICE_URL`. Keep the private `/v1/*` token
    entirely in backend runtime configuration.
 2. In the app choose the exact store, then **Past prices**. Enter an optional
    grocery or brand, or use the product-reference option, then select **Find
@@ -395,7 +396,7 @@ collected scope. Missing data remains an operator dependency.
    prices** when available. Start a fresh search to change filters or
    include new insertions. Older rows may require exact IDs because text was
    never retained.
-4. For scripts/agents, use the public app's
+4. For scripts/agents, use the dedicated shared service's
    [promotion search/retrieval contract](API.md#stored-promotion-search-and-retrieval).
    Its optional exact item ID, inclusive UTC time filters, limit and cursor do
    not bypass any store, provenance or source-rights check.

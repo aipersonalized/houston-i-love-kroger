@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { DEFAULT_PROMOTION_MAX_AGE_SECONDS, HistoryError } from './history-store.js';
 import { DIRECTORY_SOURCE, validDirectoryRequest, validTopicsRequest } from './store-directory.js';
+import { createShoppingHandler } from './shopping-http.js';
 
 const SEARCH_FIELDS = ['locationId', 'term', 'productId', 'itemId', 'observedFrom', 'observedTo', 'limit', 'cursor'];
 const RETRIEVE_FIELDS = ['locationId', 'observationId'];
@@ -71,6 +72,7 @@ function requestBody(request, { maxBodyBytes, requestTimeoutMs }) {
 // The token is installation-owned and never included in a response or log.
 export function createPromotionService({ store, token, sourceId = 'kroger-public', now = () => new Date().toISOString(),
   directorySourceId = DIRECTORY_SOURCE,
+  shoppingApi, publicBasePath = '/', publicOrigin = '', publicLimits = {},
   maxAgeSeconds = DEFAULT_PROMOTION_MAX_AGE_SECONDS,
   maxBodyBytes = 1_048_576, requestTimeoutMs = 5000, maxActive = 8, maxRequestsPerMinute = 120 } = {}) {
   if (typeof token !== 'string' || !/^[\x21-\x7e]{32,512}$/u.test(token)) {
@@ -89,7 +91,14 @@ export function createPromotionService({ store, token, sourceId = 'kroger-public
   let active = 0;
   let windowStarted = Date.now();
   let requests = 0;
+  const publicHandler = shoppingApi ? createShoppingHandler({ api: shoppingApi, basePath: publicBasePath,
+    publicOrigin, port: () => server.address()?.port, ...publicLimits }) : null;
   const server = createServer({ maxHeaderSize: 8192 }, async (request, response) => {
+    // This allowlist is a separate public read surface. The existing /v1/*
+    // database protocol always continues through its token check below.
+    if (publicHandler && request.url.startsWith(`${publicBasePath}api/v1/`)) {
+      await publicHandler(request, response); return;
+    }
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'no-referrer');
@@ -150,7 +159,7 @@ export function createPromotionService({ store, token, sourceId = 'kroger-public
   server.requestTimeout = requestTimeoutMs;
   server.headersTimeout = Math.max(1000, requestTimeoutMs);
   server.keepAliveTimeout = 1000;
-  server.setTimeout(requestTimeoutMs + 1000, socket => socket.destroy());
+  server.setTimeout(Math.max(requestTimeoutMs + 1000, shoppingApi ? 36_000 : 0), socket => socket.destroy());
   server.maxConnections = 64;
   server.maxRequestsPerSocket = 100;
   server.on('clientError', (_error, socket) => {

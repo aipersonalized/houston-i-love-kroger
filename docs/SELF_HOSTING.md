@@ -63,18 +63,25 @@ hide the failure. npm documents
 [implicit native builds](https://docs.npmjs.com/cli/v10/using-npm/scripts/) and
 [ignore-scripts](https://docs.npmjs.com/cli/v10/commands/npm-ci/#ignore-scripts).
 
-## 2. Try the page with no credentials
+## 2. Try the page with no supplier credentials
 
-1. Run `npm start` from the project folder.
-2. Open `http://localhost:4173/apps/houston-i-love-kroger/`.
-3. Expect the connection setup notice, disabled searches and no shopping offers.
-4. Keep the terminal open while using the page. Stop it with Ctrl+C.
+1. Copy `.env.example` to `.env` beside `package.json`. Check that your editor
+   has not named it `.env.txt`. Keep supplier credentials blank and Cart disabled.
+2. Generate a private random secret in your password or secret manager. Save it
+   only as `PROMOTION_SERVICE_TOKEN` in `.env`. It needs 32–512 printable ASCII
+   characters without spaces. Keep `SHOPPING_SERVICE_URL=http://127.0.0.1:4174/`.
+3. From the project folder run `npm run promotions:serve`. Expect the shared
+   shopping service listening message; leave this terminal open.
+4. In another terminal in the same folder run `npm start`.
+5. Open `http://localhost:4173/apps/houston-i-love-kroger/`. Expect the connection
+   setup notice, disabled searches and no invented offers. Its status comes from
+   the service and reports `configured: false`, with storage permission separate.
+6. Keep both terminals open during use. Stop each with Ctrl+C.
 
-With no remote service configured, startup creates/verifies the local history
-database under `.runtime/`. It does not collect history, sign in a shopper or
-query Kroger merely because the page opens. The local database supports current
-promotion comparisons; the separate stored-observation search UI needs the
-private HTTP service described in section 4a.
+Only the service creates/verifies private storage under `.runtime/`. The web
+app uses HTTP; it opens no database and owns no supplier shopping client.
+Neither startup collects history, signs in a shopper or queries Kroger.
+The independent companion can use the service while the web process is stopped.
 
 ## 3. Configure current-price access privately
 
@@ -94,15 +101,16 @@ private HTTP service described in section 4a.
    a deployment, callback or grant to fill a portal field.
 4. Obtain your own client ID/secret for Locations and public Products with
    `product.compact`. Browsing needs no shopper password or Cart grant.
-5. In your file manager copy `.env.example` to `.env` beside `package.json`.
-   Check it is not accidentally named `.env.txt`.
+5. Use the private `.env` prepared above, or copy `.env.example` to `.env`
+   beside `package.json`. Check it is not accidentally named `.env.txt`.
 6. Edit it privately. Enter the client ID after `KROGER_CLIENT_ID=` and secret
    after `KROGER_CLIENT_SECRET=`. Never paste them into chat, screenshots, issues,
    commands, browser scripts or an online credential encoder.
 7. Use `KROGER_ENVIRONMENT=production` for that environment, or `certification`
    for sandbox access. Sandbox prices are not verified shopping offers and
    never receive production history.
-8. Save and restart with `npm start`. Loaded credentials clear the setup notice;
+8. Save and restart the shared service with `npm run promotions:serve`. The web
+   app reads the service status on its next check. Loaded credentials clear the setup notice;
    that only proves settings are present. A successful exact-store search is
    separate evidence of actual access.
 9. Follow the [user guide](USER_GUIDE.md) to find a store and search a grocery.
@@ -124,9 +132,13 @@ supply settings instead; the native npm scripts load `.env` if it exists.
 | `PUBLIC_ORIGIN` | Blank locally; exact HTTP(S) origin without a path, credentials, query or fragment. HTTPS is required for Cart. |
 | `KROGER_ENVIRONMENT` | `production` or `certification`. |
 | `HISTORY_DB_PATH` | Local SQLite filename; blank uses the installed project's `.runtime/history.sqlite`. Explicit relative paths resolve from the process working directory. |
-| `PROMOTION_SERVICE_URL` | Blank uses local comparison mode. An HTTP(S) origin selects the separate private service. No path, credentials, query or fragment. |
-| `PROMOTION_SERVICE_TOKEN` | Private shared app/service token; required with the app's service URL. 32–512 printable ASCII characters without spaces. |
-| `PROMOTION_SERVICE_HOST`, `PROMOTION_SERVICE_PORT` | Private service listener, default `127.0.0.1:4174`; not the app listener. |
+| `SHOPPING_SERVICE_URL` | Shared shopping backend base, e.g. `http://127.0.0.1:4174/`; includes any service prefix and ends with `/`. No credentials, query or fragment. Required for ordinary web hosting. |
+| `SHOPPING_SERVICE_BASE_PATH` | Shared listener's public prefix, default `/`; begin/end with `/` and use simple folder names. |
+| `SHOPPING_PUBLIC_ORIGIN` | Exact accepted service HTTP(S) origin for Host/Origin checks; required for a nonloopback listener. |
+| `LOCAL_SHOPPING_MODE` | Default `false`; explicit local alternative, rejected with public origin, nonloopback HOST or shared URL. |
+| `PROMOTION_SERVICE_URL` | Optional older private history adapter in explicit local mode only. HTTP(S) origin with no path, credentials, query or fragment. |
+| `PROMOTION_SERVICE_TOKEN` | Required on the service for private `/v1/*` storage routes. Normal web/companion shopping does not need it. 32–512 printable ASCII characters without spaces. |
+| `PROMOTION_SERVICE_HOST`, `PROMOTION_SERVICE_PORT` | Shared service listener, default `127.0.0.1:4174`; not the app listener. Keep the raw port private. |
 | `PROMOTION_MAX_AGE_SECONDS` | Private service's latest-deal freshness rule, default86400; supported1–604800 seconds. A site policy, not a supplier price guarantee. |
 | `KROGER_CART_ENABLED`, `KROGER_CART_GRANTED` | Both default `false`; configuration flags, not proof of actual supplier assignment. |
 | `KROGER_CART_REDIRECT_URI` | Blank by default. If set, must equal `PUBLIC_ORIGIN` plus `APP_BASE_PATH` plus `api/v1/cart/callback`, over HTTPS. |
@@ -137,47 +149,53 @@ under public assets or an unqualified network share. Protect policies, plans,
 sidecars and backups with actual OS access controls; Unix mode requests alone
 do not establish Windows ACL protection.
 
-### 4a. Native private promotion service
+### 4a. Native shared shopping service
 
-Use this mode for stored-observation search/retrieval and promotion comparisons
-through one private database authority. Do not run another independently writable
-database copy for the app.
+Use one service for both independent clients and one authoritative database.
+The default public local base is `http://127.0.0.1:4174/`; service routes use
+`api/v1/*` suffixes. Existing private `/v1/*` storage routes retain their token
+and database-only meanings.
 
-1. Stop the app while changing its configuration. Choose the authoritative
-   private `HISTORY_DB_PATH`; preserve any existing database.
-2. Generate a fresh random secret in your password/secret manager. Set it
-   privately as `PROMOTION_SERVICE_TOKEN`. Set the app's `PROMOTION_SERVICE_URL`
-   to `http://127.0.0.1:4174` for the default local service. The app and service
-   must use the same token. A single private `.env` can supply both processes;
-   separate runtime environments must receive the same value securely.
-3. Keep `PROMOTION_SERVICE_HOST=127.0.0.1` for local use. In a terminal in the
-   project folder, start:
+1. Stop both processes while changing configuration. Preserve the authoritative
+   `HISTORY_DB_PATH`; do not create another independently writable web copy.
+2. Generate and save `PROMOTION_SERVICE_TOKEN` privately in the service environment
+   as described above. The normal web app needs only `SHOPPING_SERVICE_URL`,
+   not the token, supplier shopping credentials or database volume. A single
+   private `.env` can supply both native processes; separate deployment secrets
+   should give each process only its required values.
+3. Keep `PROMOTION_SERVICE_HOST=127.0.0.1` and
+   `SHOPPING_SERVICE_BASE_PATH=/` for local use. In the project folder run:
 
    ```text
    npm run promotions:serve
    ```
 
-4. Expect `Private promotion service is listening. Source permission is checked
-   separately.` Leave this terminal open. `http://127.0.0.1:4174/healthz` returns
-   only `{"ok":true}`; this is liveness, not source permission or coverage.
-5. In another terminal in the same project, run `npm start`. In this mode the
-   web process uses HTTP and does not open/initialize a SQLite file.
-6. Open the app's `api/v1/status` URL to check `promotionService`. A fresh
-   database should remain `permission_required`. With actual permission later
-   established, exercise an exact-store history search and detail retrieval.
-7. Stop each process with Ctrl+C. A stopped private service makes history
-   unavailable; current-price searches can still succeed independently.
+4. Expect the message beginning `Shared shopping service is listening`. Check
+   `http://127.0.0.1:4174/api/v1/status`: it identifies
+   `houston-i-love-kroger-shopping`, with `configured` describing supplier
+   setting presence and `promotionService` describing separate storage permission.
+   The response header is `X-Houston-Service: houston-i-love-kroger-shopping`.
+5. In another terminal run `npm start`. Open the page and check its own
+   `api/v1/status`: it preserves the shopping status and adds web Cart readiness.
+   The web app omits the dedicated header and status discriminator.
+6. Exercise a chosen exact store and one bounded grocery search after actual
+   current access is established. A service outage returns unavailable for
+   shopping; the web app never silently contacts Kroger instead.
+7. Stop only the web process and check the service again. The companion calls
+   that service directly and continues without the page. Stop the service with
+   Ctrl+C when it is no longer needed.
 
-The private token belongs only to the backend/service runtime. Never place it
-in browser code, URLs, command arguments, assistant instructions or public source.
-Do not expose port 4174 publicly. Use authenticated encrypted transport across
-untrusted networks. The client has a five-second whole-response deadline, 2 MiB
-response cap, no redirects, automatic retries or result cache.
+For loopback-only development, clear `SHOPPING_SERVICE_URL` and explicitly set
+`LOCAL_SHOPPING_MODE=true`. Leave `PUBLIC_ORIGIN` blank and HOST on loopback.
+This reuses the headless shopping core in one local process. It may use local
+history comparisons, or the older private history adapter if explicitly
+configured. The server rejects this mode for public web hosting.
 
-Follow [PROMOTION_SERVICE.md](PROMOTION_SERVICE.md) for its full private protocol
-and [HISTORY.md](HISTORY.md) for actual reviewed rights and operator writes.
-No HTTP request enables collection or permission. New installations do not
-contain real historical observations.
+The shared transport has a 30-second whole-response deadline and 8 MiB response
+cap. It refuses redirects, cookies, caching and automatic retry. Use HTTPS across
+untrusted networks. See [PROMOTION_SERVICE.md](PROMOTION_SERVICE.md) for public
+and private routing, bounds and permissions, and [HISTORY.md](HISTORY.md) for
+separately authorized operator writes. No HTTP request grants collection rights.
 
 ### 4b. Optional Cart configuration
 
@@ -265,7 +283,8 @@ before using a connected account.
 | Busy, provider or daily budget limit | Respect the wait shown; do not restart to bypass quotas. |
 | Database cannot open | Check storage permissions, file identity, schema and free space. Linked/unrelated files are refused. Do not delete history as a repair. |
 | Private service cannot start | Check token format, listener/port and authoritative database access privately. |
-| History unavailable | Check the paired token, URL, listener/network and production environment. A failure is not empty history. |
+| Shopping service unavailable | Check SHOPPING_SERVICE_URL, dedicated identity, service listener/Host, network and selected prefix. No fallback occurs. |
+| History unavailable | Check the service's storage provider and production environment. A failure is not empty history. |
 | History permission required | Review actual rights/scope/expiry; do not change fabricated policy values to bypass the gate. |
 | Cart setup/connection failed | Check actual assignment, registered callback, HTTPS origin and session state. Never share callback codes or cookies. |
 | Cart add unknown | Inspect the actual cart at Kroger before any reconnect/new add. Do not automate a replay. |
@@ -284,11 +303,13 @@ permission. MIT covers original software, not supplier data or branding rights.
 A host needs HTTPS at its edge, a supervisor, private secrets, private local
 database storage at the service owner and a path-preserving reverse proxy.
 Set the actual `PUBLIC_ORIGIN` before binding the app beyond loopback. Expose
-only the web app. Do not serve the source tree, `.env`, database, private service,
-policies, collection plans or fixtures as public files.
+the web app plus the shared service's public read route allowlist at a separate
+service prefix. Keep the raw service port, `/v1/*`, `healthz`, source tree, `.env`,
+database, policies, collection plans and fixtures private. Preserve each route's
+prefix and dedicated response header, and forward the service's configured Host.
 
 Quotas/admission counters and Cart sessions are process-local and reset on
-restart. Coordinate upstream quotas across web and collector processes; verify
+restart. Coordinate upstream quotas across service and collector processes; verify
 edge limits, capacity, backup/deletion and real task behavior. The defaults are
 bounded starting limits, not measured production capacity.
 
@@ -334,9 +355,10 @@ separately from native Windows checks.
    Cart flags false. Keep `PUBLIC_ORIGIN=http://localhost:4173` for this local
    example, or configure your actual origin before hosting.
 3. Review the recipe: `app` publishes only `127.0.0.1:4173`; `promotions` has no
-   host port and shares the token privately with the app. Only the promotion
-   service mounts the persistent `promotions-data` volume during ordinary use.
-   The web app reaches `http://promotions:4174` and opens no local database.
+   host port. Only the shared service receives the private storage token and
+   mounts the persistent `promotions-data` volume during ordinary use. The web
+   app reaches `http://promotions:4174/` and opens no local database. Its
+   supplier settings are used only if optional Cart is separately enabled.
 4. The optional `collector` is in the **operator** profile and stays off during
    ordinary startup. Do not enable the profile or run its write command until
    [history prerequisites](HISTORY.md) are met. Its mere presence starts no
@@ -454,9 +476,9 @@ operator-chosen ZIPs and a completed directory collection. Product API access or
 a product-history policy does not supply that basis unless its actual scope also
 covers the directory. Agent access alone does not require Partner enrollment.
 
-1. Finish the private service setup in [section 4a](#4a-native-private-promotion-service).
+1. Finish the shared service setup in [section 4a](#4a-native-shared-shopping-service).
    Keep its token private. The public app needs no new credentials, database
-   mount or AI-provider adapter; it proxies the new fixed read operations.
+   mount or AI-provider adapter; it delegates the new fixed read operations.
 2. Read [the directory operator guide](HISTORY.md#collect-a-stored-zip-directory-separately)
    and obtain the actual source/recipient grant before enabling anything.
 3. Copy the disabled `config/store-directory-plan.example.json` into the private
@@ -472,7 +494,7 @@ covers the directory. Agent access alone does not require Partner enrollment.
    disabled example; private live plans/policies must be supplied privately,
    like the existing history operator task. Do not initialize a separate web
    database and assume the service sees it.
-6. Ask the stored-only companion client for `promotions.py stores --zip ZIP`, using the actual app address and
+6. Ask the stored-only companion client for `promotions.py stores --zip ZIP`, using its shared-service connection and
    established recipient authority. It returns stored name/address/ID facts,
    observation time and fixed ten-mile/first-ten query limits. Choose the exact
    store, then use `topics --store STORE_ID` to discover readable completed scope.
@@ -495,8 +517,9 @@ guessing occurs. Separate rights still gate real collection and public output.
 
 ## 9. Install the parallel shopping companion
 
-Current agent shopping uses the same app server as human browsing. It does not
-need the optional private history service or directory database. Keep Cart
+Current agent shopping calls the same shared service as human browsing,
+independently of the web app process. It needs neither database access nor a
+private service token. Keep Cart
 disabled unless a separate explicitly authorized workflow requires it; the
 companion has no Cart commands.
 
@@ -511,30 +534,34 @@ companion has no Cart commands.
 3. Follow that assistant's actual import/local-folder instructions. This project
    provides no automatic hosted connector. A remote assistant cannot reach
    another computer's localhost merely because the folder was copied there.
-4. Supply only the app base URL ending `/`, through `--base-url` or optional
-   `HOUSTON_APP_URL`. HTTPS is required except loopback HTTP. Do not give the
+4. Keep the plugin's automatically loaded `config/connection.json`. Only an
+   operator selecting another dedicated service overrides it through `--base-url`
+   or `HOUSTON_SERVICE_URL`, with the final `/`. HTTPS is required except loopback HTTP. Do not give the
    companion Kroger credentials, private service tokens or database access.
 5. From the plugin's `skills/houston-i-love-kroger` folder run:
 
    ```text
    python scripts/shopping.py --help
-   python scripts/shopping.py status --base-url http://localhost:4173/apps/houston-i-love-kroger/ --json --no-input
+   python scripts/shopping.py status --json --no-input
    python scripts/shopping.py products --store TEST0001 --term milk --summary-only --dry-run --json --no-input
    ```
 
-   Replace the status address with the actual installation URL. The final
+   These commands use the plugin's configured shared service. The final
    command is a synthetic preview, making no network request or price claim.
    Configured status is not proof of valid access; history permission is
    separate from current shopping. A missing new route means check the base
-   path and deployed app version, not configure a database to repair it.
-6. Review the chosen assistant/tool/provider's actual retention and secondary-use
-   controls against source terms and user privacy. Use the
+   path and deployed service version. A web-page URL fails dedicated identity checks.
+6. Use the Public Products/Locations display permission for bounded current
+   shopping on the person's request. The assistant can show faithful product
+   and store business facts without a separate provider approval step. Follow the
    [recipient guide](https://github.com/aipersonalized/houston-i-love-kroger-plugin/blob/main/skills/houston-i-love-kroger/references/source-permissions.md).
-   Full records require a valid existing review; `--data-use-approved` only
-   acknowledges it. Unknown controls leave a record-output gap; fixed summaries
-   are available for authorized diagnostics. No persistent search/catalog logs,
-   cache, model training or independent/onward reuse belongs to the task path.
-7. Follow [assistant shopping](USER_GUIDE.md#9-ask-an-assistant-through-the-app):
+   Protect private values and resolve a concrete incompatible use if one is
+   known. Do not save catalog copies or customer search/location histories, or
+   add unauthorized secondary use. Unknown general provider settings alone do
+   not require summary mode. `--summary-only` remains an optional diagnostic;
+   `--data-use-approved` is optional for current shopping and grants no rights.
+   Stored collection/history still needs its own actual source permission.
+7. Follow [assistant shopping](USER_GUIDE.md#9-ask-an-assistant):
    understand the list, find ZIP choices, wait for exact-store confirmation,
    search requested groceries, match packages and freshly estimate selected
    quantities. Check full/partial results, unknown currency/basis and finite

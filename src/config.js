@@ -1,3 +1,5 @@
+import { shoppingServiceUrl } from './shopping-client.js';
+
 export function readConfig(env = process.env) {
   const portText = env.PORT || '4173';
   if (!/^\d+$/.test(portText) || +portText < 1 || +portText > 65535) {
@@ -40,6 +42,12 @@ export function readConfig(env = process.env) {
     } catch { throw new Error('KROGER_CART_REDIRECT_URI must be the registered HTTPS callback at PUBLIC_ORIGIN and APP_BASE_PATH/api/v1/cart/callback.'); }
   }
   const promotionServiceUrl = env.PROMOTION_SERVICE_URL || '';
+  const shoppingService = env.SHOPPING_SERVICE_URL || '';
+  if (shoppingService) shoppingServiceUrl(shoppingService);
+  const localShoppingMode = flag('LOCAL_SHOPPING_MODE');
+  if (localShoppingMode && (!['127.0.0.1', 'localhost', '::1'].includes(host) || publicOrigin || shoppingService)) {
+    throw new Error('LOCAL_SHOPPING_MODE requires loopback HOST, no PUBLIC_ORIGIN and no SHOPPING_SERVICE_URL.');
+  }
   const promotionServiceToken = env.PROMOTION_SERVICE_TOKEN || '';
   if (promotionServiceUrl) {
     try {
@@ -48,7 +56,8 @@ export function readConfig(env = process.env) {
           endpoint.pathname !== '/' || endpoint.search || endpoint.hash) throw new Error();
     } catch { throw new Error('PROMOTION_SERVICE_URL must be an http(s) service origin without a path or credentials.'); }
   }
-  if (Boolean(promotionServiceUrl) !== Boolean(promotionServiceToken) || promotionServiceToken.length > 512 ||
+  if (promotionServiceUrl && !promotionServiceToken ||
+      !shoppingService && Boolean(promotionServiceUrl) !== Boolean(promotionServiceToken) || promotionServiceToken.length > 512 ||
       promotionServiceToken && promotionServiceToken.length < 32 ||
       promotionServiceToken && !/^[\x21-\x7e]+$/.test(promotionServiceToken)) {
     throw new Error('PROMOTION_SERVICE_URL and PROMOTION_SERVICE_TOKEN must both be configured with a supported private token.');
@@ -59,5 +68,6 @@ export function readConfig(env = process.env) {
     clientSecret: env.KROGER_CLIENT_SECRET || '',
     historyDbPath: env.HISTORY_DB_PATH || undefined,
     cartEnabled, cartGranted, cartRedirectUri, promotionServiceUrl, promotionServiceToken,
+    shoppingServiceUrl: shoppingService, localShoppingMode,
   };
 }

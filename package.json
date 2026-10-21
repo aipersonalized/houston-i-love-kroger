@@ -11,7 +11,7 @@
   "scripts": {
     "start": "node --env-file-if-exists=.env src/server.js",
     "test": "node --test tests/*.test.js",
-    "check": "node --check src/store-directory.js && node --check src/directory-collector.js && node --check scripts/collect-stores.js && node --check src/server.js && node --check src/app.js && node --check src/kroger.js && node --check src/deals.js && node --check src/catalog.js && node --check src/cart.js && node --check src/promotion-service.js && node --check src/promotion-client.js && node --check src/promotion-server.js && node --check src/stored-pricing.js && node --check src/live-shopping.js && node --check public/app.js && node --check public/basket.js",
+    "check": "node --check src/store-directory.js && node --check src/directory-collector.js && node --check scripts/collect-stores.js && node --check src/server.js && node --check src/app.js && node --check src/kroger.js && node --check src/deals.js && node --check src/catalog.js && node --check src/cart.js && node --check src/promotion-service.js && node --check src/promotion-client.js && node --check src/promotion-server.js && node --check src/shopping-api.js && node --check src/shopping-client.js && node --check src/shopping-http.js && node --check src/request-http.js && node --check src/stored-promotion-provider.js && node --check src/stored-pricing.js && node --check src/live-shopping.js && node --check public/app.js && node --check public/basket.js",
     "history:init": "node --env-file-if-exists=.env scripts/init-history.js",
     "history:collect": "node --env-file-if-exists=.env scripts/collect-history.js",
     "history:maintain": "node --env-file-if-exists=.env scripts/maintain-history.js",
